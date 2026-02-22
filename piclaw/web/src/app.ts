@@ -1177,7 +1177,14 @@ function App() {
 
     const handleConnectionStatusChange = useCallback((status) => {
         setConnectionStatus(status);
-        if (status !== 'connected') return;
+        if (status !== 'connected') {
+            setAgentStatus(null);
+            setAgentDraft('');
+            setAgentPlan('');
+            setAgentThought('');
+            setPendingRequest(null);
+            return;
+        }
         if (!hasConnectedOnceRef.current) {
             hasConnectedOnceRef.current = true;
             return;
