@@ -985,12 +985,14 @@ function AgentStatus({ status, draft, plan, thought, pendingRequest }) {
         return { text: clipped, omitted, totalLines, visibleLines };
     };
 
+    const planInfo = normalizePreview(plan);
     const thoughtInfo = normalizePreview(thought);
     const draftInfo = normalizePreview(draft);
+    const hasPlan = Boolean(planInfo.text) || planInfo.totalLines > 0;
     const hasThought = Boolean(thoughtInfo.text) || thoughtInfo.totalLines > 0;
     const hasDraft = Boolean(draftInfo.text) || draftInfo.totalLines > 0;
 
-    if (!status && !hasDraft && !plan && !hasThought && !pendingRequest) return null;
+    if (!status && !hasDraft && !hasPlan && !hasThought && !pendingRequest) return null;
     
     let content = '';
     const title = status?.title;
@@ -1004,6 +1006,25 @@ function AgentStatus({ status, draft, plan, thought, pendingRequest }) {
     } else {
         content = title || statusText || 'Working...';
     }
+
+    const renderThinkingPanel = ({ panelTitle, text, totalLines, maxLines, titleClass }) => {
+        const truncated = typeof maxLines === 'number'
+            ? truncateLines(text, maxLines, totalLines)
+            : { text: text || '', omitted: 0, totalLines: Number.isFinite(totalLines) ? totalLines : 0 };
+        if (!truncated.text && !(Number.isFinite(truncated.totalLines) && truncated.totalLines > 0)) return null;
+        return html`
+            <div class="agent-thinking">
+                <div class="agent-thinking-title ${titleClass || ''}">${panelTitle}</div>
+                <div
+                    class="agent-thinking-body"
+                    dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(truncated.text) }}
+                />
+                ${truncated.omitted > 0 && html`
+                    <div class="agent-thinking-truncation">(${truncated.omitted} more lines)</div>
+                `}
+            </div>
+        `;
+    };
     
     const pendingTitle = pendingRequest?.tool_call?.title;
     const pendingMessage = pendingTitle ? `Awaiting approval: ${pendingTitle}` : 'Awaiting approval';
@@ -1016,45 +1037,25 @@ function AgentStatus({ status, draft, plan, thought, pendingRequest }) {
                     <span class="agent-status-text">${pendingMessage}</span>
                 </div>
             `}
-            ${plan && html`
-                <div class="agent-thinking">
-                    <div class="agent-thinking-title">Planning</div>
-                    <div
-                        class="agent-thinking-body"
-                        dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(plan) }}
-                    />
-                </div>
-            `}
-            ${hasThought && (() => {
-                const truncated = truncateLines(thoughtInfo.text, THOUGHT_MAX_LINES, thoughtInfo.totalLines);
-                return html`
-                    <div class="agent-thinking">
-                        <div class="agent-thinking-title thought">Thoughts</div>
-                        <div
-                            class="agent-thinking-body"
-                            dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(truncated.text) }}
-                        />
-                        ${truncated.omitted > 0 && html`
-                            <div class="agent-thinking-truncation">(${truncated.omitted} more lines)</div>
-                        `}
-                    </div>
-                `;
-            })()}
-            ${hasDraft && (() => {
-                const truncated = truncateLines(draftInfo.text, DRAFT_MAX_LINES, draftInfo.totalLines);
-                return html`
-                    <div class="agent-thinking">
-                        <div class="agent-thinking-title thought">Draft</div>
-                        <div
-                            class="agent-thinking-body"
-                            dangerouslySetInnerHTML=${{ __html: renderThinkingMarkdown(truncated.text) }}
-                        />
-                        ${truncated.omitted > 0 && html`
-                            <div class="agent-thinking-truncation">(${truncated.omitted} more lines)</div>
-                        `}
-                    </div>
-                `;
-            })()}
+            ${hasPlan && renderThinkingPanel({
+                panelTitle: 'Planning',
+                text: planInfo.text,
+                totalLines: planInfo.totalLines,
+            })}
+            ${hasThought && renderThinkingPanel({
+                panelTitle: 'Thoughts',
+                text: thoughtInfo.text,
+                totalLines: thoughtInfo.totalLines,
+                maxLines: THOUGHT_MAX_LINES,
+                titleClass: 'thought',
+            })}
+            ${hasDraft && renderThinkingPanel({
+                panelTitle: 'Draft',
+                text: draftInfo.text,
+                totalLines: draftInfo.totalLines,
+                maxLines: DRAFT_MAX_LINES,
+                titleClass: 'thought',
+            })}
             ${status && html`
                 <div class="agent-status">
                     <div class="agent-status-spinner"></div>

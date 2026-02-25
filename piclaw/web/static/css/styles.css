@@ -1030,6 +1030,11 @@ body {
     line-height: 1.2;
 }
 
+.agent-thinking-body,
+.agent-thinking-body * {
+    line-height: 1.2;
+}
+
 .agent-thinking-truncation {
     margin-top: var(--spacing-xs);
     color: var(--text-tertiary);
@@ -1057,6 +1062,7 @@ body {
 .agent-thinking-body pre {
     margin: 0;
     white-space: pre-wrap;
+    line-height: 1.2;
 }
 
 /* Agent request modal */
