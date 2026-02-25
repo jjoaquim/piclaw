@@ -14,6 +14,7 @@ const sessionsDir = sessionsCandidate && !sessionsCandidate.startsWith("--")
   : "/workspace/.piclaw/data/sessions";
 
 const ipcEnabled = args.includes("--ipc");
+const nudgeEnabled = args.includes("--nudge");
 const chatJidIndex = args.indexOf("--chat-jid");
 const chatJidCandidate = chatJidIndex >= 0 ? args[chatJidIndex + 1] : undefined;
 const chatJid = chatJidCandidate && !chatJidCandidate.startsWith("--") ? chatJidCandidate : "web:default";
@@ -36,6 +37,21 @@ const costs = new Map<string, number>();
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const formatKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const formatCompact = (value: number): string => {
+  if (!Number.isFinite(value)) return "0";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    const scaled = value / 1_000_000;
+    const fixed = Math.abs(scaled) >= 100 ? scaled.toFixed(0) : scaled.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}M`;
+  }
+  if (abs >= 1_000) {
+    const scaled = value / 1_000;
+    const fixed = Math.abs(scaled) >= 100 ? scaled.toFixed(0) : scaled.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}K`;
+  }
+  return value.toString();
+};
 
 for (let i = 0; i < targetDays; i += 1) {
   const d = new Date(start);
@@ -191,10 +207,10 @@ const labels = dayKeys.map((key, i) => {
 const yTop = padding.top + 4;
 const yBottom = padding.top + chartHeight;
 const axis = `<line class="axis" x1="${padding.left}" y1="${yBottom}" x2="${width - padding.right}" y2="${yBottom}" />`;
-const maxLabel = `<text class="label" x="${padding.left}" y="${yTop}" text-anchor="start">${maxValue.toLocaleString()}</text>`;
+const maxLabel = `<text class="label" x="${padding.left}" y="${yTop}" text-anchor="start">${formatCompact(maxValue)}</text>`;
 const zeroLabel = `<text class="label" x="${padding.left}" y="${yBottom + 14}" text-anchor="start">0</text>`;
 
-const title = `Tokens last ${targetDays} days • total ${sumValue.toLocaleString()}`;
+const title = `Tokens last ${targetDays} days • total ${formatCompact(sumValue)}`;
 
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${title}">
@@ -226,14 +242,14 @@ const dataUrl = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")
 const summaryLines = [
   `![token-chart](${dataUrl})`,
   "",
-  `Token usage (all chats) — last ${targetDays} days, total ${sumValue.toLocaleString()}`,
-  `Input ${sumInput.toLocaleString()} • Output ${sumOutput.toLocaleString()} • Cache read ${sumCacheRead.toLocaleString()} • Cache write ${sumCacheWrite.toLocaleString()} (${cachedPct}% cached)`,
+  `Token usage (all chats) — last ${targetDays} days, total ${formatCompact(sumValue)}`,
+  `Input ${formatCompact(sumInput)} • Output ${formatCompact(sumOutput)} • Cache read ${formatCompact(sumCacheRead)} • Cache write ${formatCompact(sumCacheWrite)} (${cachedPct}% cached)`,
   ...dayDates.map((d, i) => {
     const key = dayKeys[i];
     const total = values[i];
     const cached = (cacheReads.get(key) || 0) + (cacheWrites.get(key) || 0);
     const uncached = Math.max(total - cached, 0);
-    return `• ${labelLong(d)}: ${total.toLocaleString()} tokens (cached ${cached.toLocaleString()}, uncached ${uncached.toLocaleString()})`;
+    return `• ${labelLong(d)}: ${formatCompact(total)} tokens (cached ${formatCompact(cached)}, uncached ${formatCompact(uncached)})`;
   }),
 ];
 
@@ -242,7 +258,8 @@ const message = summaryLines.join("\n");
 if (ipcEnabled) {
   mkdirSync(messagesDir, { recursive: true });
   const outPath = join(messagesDir, `msg_${Date.now()}_tokenchart.json`);
-  writeFileSync(outPath, JSON.stringify({ type: "message", chatJid, text: message }, null, 2));
+  const payload = { type: "message", chatJid, text: message, noNudge: !nudgeEnabled };
+  writeFileSync(outPath, JSON.stringify(payload, null, 2));
   process.stdout.write(outPath);
 } else {
   process.stdout.write(message);
