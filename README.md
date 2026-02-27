@@ -232,6 +232,44 @@ Skills are on-demand capabilities invoked via `/skill:name`:
 
 Add your own to `.pi/skills/<name>/SKILL.md` (project) or `~/.pi/agent/skills/<name>/SKILL.md` (global).
 
+## Slash Commands
+
+Piclaw supports direct control commands (no LLM round‑trip) in chat. Key commands:
+
+| Command | Description |
+| --- | --- |
+| `/model [provider/model]` | List or switch models |
+| `/cycle-model [back]` | Cycle models forward/backward |
+| `/thinking [level]` | Show or set thinking level |
+| `/cycle-thinking` | Cycle thinking levels |
+| `/state` | Show session state (streaming, modes, queues) |
+| `/stats` | Session token and cost stats |
+| `/context` | Context window usage |
+| `/last` | Last assistant response |
+| `/compact [instructions]` | Manual compaction |
+| `/auto-compact on|off` | Toggle auto‑compaction |
+| `/auto-retry on|off` | Toggle auto‑retry |
+| `/abort` | Abort the current response |
+| `/abort-retry` | Cancel retry backoff |
+| `/abort-bash` | Cancel a running bash command |
+| `/shell <cmd>` | Run a shell command (output only) |
+| `/bash <cmd>` | Run shell command and add output to context |
+| `/queue <msg>` | Queue follow‑up (or run immediately if idle) |
+| `/steering-mode all|one` | Set steering queue mode |
+| `/followup-mode all|one` | Set follow‑up queue mode |
+| `/session-name [name|clear]` | Show or set session name |
+| `/new-session [parentPath]` | Start a new session |
+| `/switch-session <path>` | Switch to another session file |
+| `/fork <entryId>` | Fork from a previous message |
+| `/forks` | List forkable messages |
+| `/export-html [path]` | Export session to HTML |
+| `/restart` | Restart the agent and stop subprocesses |
+| `/commands` | List available commands |
+
+Notes:
+- `/queue` uses follow‑up delivery while streaming; when idle it runs immediately.
+- `/shell` is for ad‑hoc output; `/bash` records output into context for the next prompt.
+
 ## Resource Limits
 
 Set via environment variables in `docker-compose.yml` or `.env`:
