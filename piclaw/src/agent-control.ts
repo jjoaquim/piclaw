@@ -135,6 +135,25 @@ export type AgentControlCommand =
       type: "export_html";
       path?: string;
       raw: string;
+    }
+  | {
+      type: "tree";
+      targetId?: string;
+      summarize?: boolean;
+      customInstructions?: string;
+      replaceInstructions?: boolean;
+      label?: string;
+      raw: string;
+    }
+  | {
+      type: "label";
+      targetId?: string;
+      label?: string;
+      raw: string;
+    }
+  | {
+      type: "labels";
+      raw: string;
     };
 
 export interface AgentControlResult {
@@ -219,6 +238,104 @@ function extractTextFromContent(content: any): string {
       .join("");
   }
   return "";
+}
+
+function splitArgs(input: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let quote: "" | "'" | '"' = "";
+
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    if (quote) {
+      if (char === quote) {
+        quote = "";
+      } else {
+        current += char;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === " " || char === "\t" || char === "\n") {
+      if (current) {
+        result.push(current);
+        current = "";
+      }
+      continue;
+    }
+    current += char;
+  }
+  if (current) result.push(current);
+  return result;
+}
+
+function parseTreeArgs(args: string): {
+  targetId?: string;
+  summarize?: boolean;
+  customInstructions?: string;
+  replaceInstructions?: boolean;
+  label?: string;
+} {
+  const tokens = splitArgs(args);
+  let targetId: string | undefined;
+  let summarize = false;
+  let customInstructions: string | undefined;
+  let replaceInstructions = false;
+  let label: string | undefined;
+
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    if (!token.startsWith("--") && !targetId) {
+      targetId = token;
+      i += 1;
+      continue;
+    }
+    if (token === "--summarize") {
+      summarize = true;
+      i += 1;
+      continue;
+    }
+    if (token === "--summary") {
+      summarize = true;
+      const next = tokens[i + 1];
+      if (next && !next.startsWith("--")) {
+        customInstructions = next;
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    if (token === "--replace") {
+      replaceInstructions = true;
+      i += 1;
+      continue;
+    }
+    if (token === "--label") {
+      const next = tokens[i + 1];
+      if (next && !next.startsWith("--")) {
+        label = next;
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    if (token.startsWith("--label=")) {
+      label = token.slice("--label=".length);
+      i += 1;
+      continue;
+    }
+    i += 1;
+  }
+
+  if (customInstructions) summarize = true;
+
+  return { targetId, summarize, customInstructions, replaceInstructions, label };
 }
 
 async function runPromptAndCapture(session: AgentSession, text: string): Promise<string> {
@@ -488,6 +605,35 @@ export function parseControlCommand(text: string, triggerPattern?: RegExp): Agen
       command: args || undefined,
       raw: cleaned,
     };
+  }
+
+  if (commandLower === "/tree") {
+    const parsed = parseTreeArgs(args);
+    return {
+      type: "tree",
+      targetId: parsed.targetId,
+      summarize: parsed.summarize,
+      customInstructions: parsed.customInstructions,
+      replaceInstructions: parsed.replaceInstructions,
+      label: parsed.label,
+      raw: cleaned,
+    };
+  }
+
+  if (commandLower === "/label") {
+    const tokens = splitArgs(args);
+    const targetId = tokens[0];
+    const label = tokens.slice(1).join(" ").trim() || undefined;
+    return {
+      type: "label",
+      targetId: targetId || undefined,
+      label,
+      raw: cleaned,
+    };
+  }
+
+  if (commandLower === "/labels") {
+    return { type: "labels", raw: cleaned };
   }
 
   return null;
@@ -938,6 +1084,150 @@ export async function applyControlCommand(
     }
   }
 
+  if (command.type === "tree") {
+    const sessionManager = session.sessionManager;
+    const leafId = sessionManager.getLeafId();
+
+    if (!command.targetId) {
+      const roots = sessionManager.getTree();
+      if (roots.length === 0) {
+        return { status: "success", message: "Tree is empty." };
+      }
+
+      const describeEntry = (entry: any): string => {
+        switch (entry.type) {
+          case "message": {
+            const msg = entry.message;
+            const role = msg?.role || "message";
+            if (role === "toolResult") {
+              return `toolResult: ${msg.toolName || "tool"}`;
+            }
+            const text = extractTextFromContent(msg?.content);
+            if (text) {
+              return `${role}: "${truncateText(text, 80)}"`;
+            }
+            if (Array.isArray(msg?.content)) {
+              const toolCall = msg.content.find((c: any) => c?.type === "toolCall");
+              if (toolCall) return `${role}: [tool ${toolCall.name}]`;
+            }
+            return role;
+          }
+          case "compaction":
+            return `[compaction: ${formatCompactNumber(entry.tokensBefore)} tokens]`;
+          case "branch_summary":
+            return `[branch summary from ${entry.fromId}]`;
+          case "thinking_level_change":
+            return `[thinking ${entry.thinkingLevel}]`;
+          case "model_change":
+            return `[model ${entry.provider}/${entry.modelId}]`;
+          case "custom":
+            return `[custom ${entry.customType}]`;
+          case "custom_message":
+            return `[custom message ${entry.customType}]`;
+          case "label":
+            return `[label ${entry.label || "clear"}]`;
+          case "session_info":
+            return `[session name ${entry.name || "none"}]`;
+          default:
+            return `[${entry.type}]`;
+        }
+      };
+
+      const lines: string[] = ["Session tree:"];
+
+      const walk = (node: any, depth: number) => {
+        const indent = "  ".repeat(depth);
+        const label = node.label ? ` [${node.label}]` : "";
+        const active = node.entry.id === leafId ? " ← active" : "";
+        lines.push(`${indent}• ${node.entry.id} ${describeEntry(node.entry)}${label}${active}`);
+        for (const child of node.children || []) {
+          walk(child, depth + 1);
+        }
+      };
+
+      for (const root of roots) {
+        walk(root, 0);
+      }
+
+      lines.push("Use /tree <entryId> to navigate. Add --summarize or --summary \"...\" for branch summaries.");
+      return { status: "success", message: lines.join("\n") };
+    }
+
+    const options = {
+      summarize: command.summarize ?? false,
+      customInstructions: command.customInstructions,
+      replaceInstructions: command.replaceInstructions,
+      label: command.label,
+    };
+
+    try {
+      const result = await session.navigateTree(command.targetId, options);
+      if (result.cancelled) {
+        return { status: "error", message: "Tree navigation cancelled." };
+      }
+      if (result.aborted) {
+        return { status: "error", message: "Tree navigation aborted." };
+      }
+      if (result.editorText) {
+        return {
+          status: "success",
+          message: `Navigation complete. Selected text:\n${result.editorText}`,
+        };
+      }
+      return { status: "success", message: "Navigation complete." };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { status: "error", message };
+    }
+  }
+
+  if (command.type === "label") {
+    if (!command.targetId) {
+      return { status: "error", message: "Usage: /label <entryId> <label|clear>" };
+    }
+    const rawLabel = command.label?.trim();
+    const normalized = rawLabel?.toLowerCase();
+    const label = !rawLabel || ["clear", "none", "off"].includes(normalized) ? undefined : rawLabel;
+    session.sessionManager.appendLabelChange(command.targetId.trim(), label);
+    return {
+      status: "success",
+      message: label ? `Label set on ${command.targetId}: ${label}` : `Label cleared on ${command.targetId}.`,
+    };
+  }
+
+  if (command.type === "labels") {
+    const roots = session.sessionManager.getTree();
+    const labels: Array<{ id: string; label: string; summary: string }> = [];
+
+    const describeEntry = (entry: any): string => {
+      if (entry.type === "message") {
+        const role = entry.message?.role || "message";
+        const text = extractTextFromContent(entry.message?.content);
+        if (text) return `${role}: "${truncateText(text, 60)}"`;
+        return role;
+      }
+      return `[${entry.type}]`;
+    };
+
+    const walk = (node: any) => {
+      if (node.label) {
+        labels.push({ id: node.entry.id, label: node.label, summary: describeEntry(node.entry) });
+      }
+      for (const child of node.children || []) {
+        walk(child);
+      }
+    };
+
+    for (const root of roots) walk(root);
+
+    if (labels.length === 0) {
+      return { status: "success", message: "No labels set." };
+    }
+
+    const lines = ["Labels:", ...labels.map((item) => `• ${item.id} [${item.label}] ${item.summary}`)];
+    return { status: "success", message: lines.join("\n") };
+  }
+
   if (command.type === "model") {
     modelRegistry.refresh();
 
@@ -1069,6 +1359,9 @@ export async function applyControlCommand(
     addLine("/switch-session", "Switch to a session file");
     addLine("/fork", "Fork from a previous message");
     addLine("/forks", "List forkable messages");
+    addLine("/tree", "List the session tree and navigate branches");
+    addLine("/label", "Set or clear a label on a tree entry");
+    addLine("/labels", "List labeled entries");
     addLine("/export-html", "Export session to HTML");
     addLine("/restart", "Restart the agent and stop subprocesses");
     addLine("/commands", "List available commands");

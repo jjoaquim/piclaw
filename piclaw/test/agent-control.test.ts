@@ -83,6 +83,14 @@ test("parseControlCommand parses model and thinking commands", () => {
 
   const abortCmd = parseControlCommand("/abort");
   expect(abortCmd?.type).toBe("abort");
+
+  const treeCmd = parseControlCommand("/tree abc123 --summarize --label checkpoint");
+  expect(treeCmd?.type).toBe("tree");
+  expect(treeCmd && "targetId" in treeCmd ? treeCmd.targetId : null).toBe("abc123");
+
+  const labelCmd = parseControlCommand("/label abc123 milestone");
+  expect(labelCmd?.type).toBe("label");
+  expect(labelCmd && "label" in labelCmd ? labelCmd.label : null).toBe("milestone");
 });
 
 test("applyControlCommand switches model and thinking level", async () => {
