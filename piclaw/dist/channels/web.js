@@ -607,7 +607,9 @@ export class WebChannel {
             agent_id: agentId,
             type: "thinking",
             title: "Thinking...",
+            turn_id: turnId,
         });
+        const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const output = await this.agentPool.runAgent(prompt, chatJid, {
             onEvent: (event) => {
                 if (event.type === "message_update") {
@@ -623,6 +625,7 @@ export class WebChannel {
                             agent_id: agentId,
                             text: preview,
                             total_lines: totalLines,
+                            turn_id: turnId,
                         });
                     }
                     if (messageEvent.type === "thinking_end") {
@@ -633,6 +636,7 @@ export class WebChannel {
                             agent_id: agentId,
                             text: preview,
                             total_lines: totalLines,
+                            turn_id: turnId,
                         });
                     }
                     if (messageEvent.type === "toolcall_end") {
@@ -642,6 +646,7 @@ export class WebChannel {
                             agent_id: agentId,
                             type: "tool_call",
                             title,
+                            turn_id: turnId,
                         });
                     }
                     if (messageEvent.type === "text_start") {
@@ -653,6 +658,14 @@ export class WebChannel {
                             total_lines: 0,
                             kind: "draft",
                             mode: "replace",
+                            turn_id: turnId,
+                        });
+                        this.broadcastEvent("agent_draft_delta", {
+                            thread_id: threadId,
+                            agent_id: agentId,
+                            delta: "",
+                            reset: true,
+                            turn_id: turnId,
                         });
                     }
                     if (messageEvent.type === "text_delta") {
@@ -665,6 +678,13 @@ export class WebChannel {
                             total_lines: totalLines,
                             kind: "draft",
                             mode: "replace",
+                            turn_id: turnId,
+                        });
+                        this.broadcastEvent("agent_draft_delta", {
+                            thread_id: threadId,
+                            agent_id: agentId,
+                            delta: messageEvent.delta,
+                            turn_id: turnId,
                         });
                     }
                 }
@@ -675,6 +695,7 @@ export class WebChannel {
                         agent_id: agentId,
                         type: "tool_call",
                         title,
+                        turn_id: turnId,
                     });
                 }
                 if (event.type === "tool_execution_update") {
@@ -685,6 +706,7 @@ export class WebChannel {
                         type: "tool_status",
                         title,
                         status: "Working...",
+                        turn_id: turnId,
                     });
                 }
                 if (event.type === "tool_execution_end") {
@@ -696,6 +718,7 @@ export class WebChannel {
                         type: "tool_status",
                         title,
                         status: event.isError ? "Failed" : "Done",
+                        turn_id: turnId,
                     });
                 }
             },
@@ -708,6 +731,7 @@ export class WebChannel {
                 agent_id: agentId,
                 type: "error",
                 title: output.error || "Agent error",
+                turn_id: turnId,
             });
             return;
         }
@@ -724,6 +748,7 @@ export class WebChannel {
             thread_id: threadId,
             agent_id: agentId,
             type: "done",
+            turn_id: turnId,
         });
     }
     storeMessage(chatJid, content, isBot, mediaIds) {
