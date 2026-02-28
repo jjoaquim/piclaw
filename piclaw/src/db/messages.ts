@@ -105,6 +105,19 @@ export function getMessageByRowId(chatJid: string, rowId: number): InteractionRo
   return buildInteraction(row, mediaIds);
 }
 
+export function updateMessageLinkPreviews(
+  chatJid: string,
+  rowId: number,
+  linkPreviews: unknown[]
+): boolean {
+  const db = getDb();
+  const payload = linkPreviews.length > 0 ? JSON.stringify(linkPreviews) : null;
+  const res = db
+    .prepare("UPDATE messages SET link_previews = ? WHERE chat_jid = ? AND rowid = ?")
+    .run(payload, chatJid, rowId);
+  return res.changes > 0;
+}
+
 export function deleteMessageByRowId(chatJid: string, rowId: number): boolean {
   const db = getDb();
   db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);

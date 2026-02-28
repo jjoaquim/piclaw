@@ -6,6 +6,7 @@ import { serveDocsStatic, serveStatic } from "./web/static.js";
 import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
 import { bindSessionUiContext } from "./web/ui-context.js";
+import { scheduleLinkPreviews } from "./web/link-previews.js";
 import { attachMediaToMessage, clampWebContent, deleteMessageByRowId, getMessageByRowId, getMessagesByHashtag, getRouterState, getTimeline, hasOlderMessages, searchMessages, setRouterState, storeChatMetadata, storeMessage, } from "../db.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -19,6 +20,7 @@ export class WebChannel {
     pendingUiRequests = new Map();
     uiRequestCounter = 0;
     editorTextByChat = new Map();
+    pendingLinkPreviews = new Set();
     fallbackTheme = createFallbackTheme();
     constructor(opts) {
         this.queue = opts.queue;
@@ -195,6 +197,7 @@ export class WebChannel {
         const interaction = getMessageByRowId(chatJid, rowId);
         if (interaction) {
             interaction.data.agent_id = DEFAULT_AGENT_ID;
+            scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
             return interaction;
         }
         const { content: safeContent, meta } = clampWebContent(content);
@@ -209,6 +212,7 @@ export class WebChannel {
             data.content_blocks = options.contentBlocks;
         if (options.linkPreviews?.length)
             data.link_previews = options.linkPreviews;
+        scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
         return {
             id: rowId,
             timestamp,

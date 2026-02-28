@@ -8,6 +8,7 @@ import { serveDocsStatic, serveStatic } from "./web/static.js";
 import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
 import { bindSessionUiContext } from "./web/ui-context.js";
+import { scheduleLinkPreviews } from "./web/link-previews.js";
 import {
   attachMediaToMessage,
   clampWebContent,
@@ -43,6 +44,7 @@ export class WebChannel {
   pendingUiRequests = new Map<string, { resolve: (value: any) => void; reject: (err: Error) => void; timeoutId: ReturnType<typeof setTimeout>; kind: string }>();
   uiRequestCounter = 0;
   editorTextByChat = new Map<string, string>();
+  pendingLinkPreviews = new Set<number>();
   fallbackTheme = createFallbackTheme();
 
   constructor(opts: WebChannelOpts) {
@@ -237,6 +239,7 @@ export class WebChannel {
     const interaction = getMessageByRowId(chatJid, rowId);
     if (interaction) {
       interaction.data.agent_id = DEFAULT_AGENT_ID;
+      scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
       return interaction;
     }
 
@@ -250,6 +253,7 @@ export class WebChannel {
     };
     if (options.contentBlocks?.length) data.content_blocks = options.contentBlocks;
     if (options.linkPreviews?.length) data.link_previews = options.linkPreviews;
+    scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
     return {
       id: rowId,
       timestamp,

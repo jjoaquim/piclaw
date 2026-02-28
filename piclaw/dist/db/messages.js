@@ -69,6 +69,14 @@ export function getMessageByRowId(chatJid, rowId) {
     const mediaIds = getMediaIdsForMessage(row.rowid);
     return buildInteraction(row, mediaIds);
 }
+export function updateMessageLinkPreviews(chatJid, rowId, linkPreviews) {
+    const db = getDb();
+    const payload = linkPreviews.length > 0 ? JSON.stringify(linkPreviews) : null;
+    const res = db
+        .prepare("UPDATE messages SET link_previews = ? WHERE chat_jid = ? AND rowid = ?")
+        .run(payload, chatJid, rowId);
+    return res.changes > 0;
+}
 export function deleteMessageByRowId(chatJid, rowId) {
     const db = getDb();
     db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);
