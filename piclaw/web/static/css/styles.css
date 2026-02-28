@@ -1075,17 +1075,21 @@ body {
 }
 
 .agent-thinking-body p {
-    margin: 0;
+    margin: 0 0 0.3em 0;
     padding: 0;
 }
 
+.agent-thinking-body p:last-child {
+    margin-bottom: 0;
+}
+
 .agent-thinking-body p + p {
-    margin-top: 0.15em;
+    margin-top: 0;
 }
 
 .agent-thinking-body ul,
 .agent-thinking-body ol {
-    margin: 0;
+    margin: 0.2em 0;
     padding-left: 1.1em;
     line-height: 1.2;
 }
