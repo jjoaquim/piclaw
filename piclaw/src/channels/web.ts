@@ -211,7 +211,7 @@ export class WebChannel {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options: { contentBlocks?: unknown[]; linkPreviews?: unknown[] } = {}
+    options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number } = {}
   ): InteractionRow | null {
     const timestamp = new Date().toISOString();
     const msg: NewMessage = {
@@ -239,6 +239,7 @@ export class WebChannel {
     const interaction = getMessageByRowId(chatJid, rowId);
     if (interaction) {
       interaction.data.agent_id = DEFAULT_AGENT_ID;
+      if (options.threadId) interaction.data.thread_id = options.threadId;
       scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);
       return interaction;
     }
@@ -251,6 +252,7 @@ export class WebChannel {
       agent_id: DEFAULT_AGENT_ID,
       media_ids: mediaIds,
     };
+    if (options.threadId) data.thread_id = options.threadId;
     if (options.contentBlocks?.length) data.content_blocks = options.contentBlocks;
     if (options.linkPreviews?.length) data.link_previews = options.linkPreviews;
     scheduleLinkPreviews(this, chatJid, rowId, content, options.linkPreviews);

@@ -181,7 +181,7 @@ function removePreviewedUrls(text, linkPreviews) {
 /**
  * Single post component
  */
-export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl, onDelete }) {
+export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl, onDelete, isThreadReply }) {
     const [zoomedImage, setZoomedImage] = useState(null);
     const contentRef = useRef(null);
 
@@ -291,7 +291,7 @@ export function Post({ post, onClick, onHashtagClick, agentName, agentAvatarUrl,
     }, [displayContent]);
 
     return html`
-        <div id=${`post-${post.id}`} class="post ${isAgent ? 'agent-post' : ''}" onClick=${onClick}>
+        <div id=${`post-${post.id}`} class="post ${isAgent ? 'agent-post' : ''} ${isThreadReply ? 'thread-reply' : ''}" onClick=${onClick}>
             <div class="post-avatar ${isAgent ? 'agent-avatar' : ''} ${avatarInfo.image ? 'has-image' : ''}" style="background-color: ${avatarInfo.color}">
                 ${avatarInfo.image ? html`<img src=${avatarInfo.image} alt=${displayName} />` : avatarInfo.letter}
             </div>

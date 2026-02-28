@@ -347,6 +347,19 @@ body {
     background-color: var(--bg-hover);
 }
 
+.post.thread-reply {
+    margin-left: 2.5rem;
+    border-left: 2px solid var(--border-color);
+    padding-left: calc(var(--spacing-md) - 2px);
+}
+
+.post.thread-reply .post-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 0.65rem;
+}
+
 @keyframes fadeSlideIn {
     from {
         opacity: 0;

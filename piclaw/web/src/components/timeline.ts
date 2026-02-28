@@ -92,17 +92,20 @@ export function Timeline({ posts, hasMore, onLoadMore, onPostClick, onHashtagCli
         <div class="timeline ${reverse ? 'reverse' : 'normal'}" ref=${timelineRef} onScroll=${hasIntersectionObserver ? undefined : handleScroll}>
             <div class="timeline-content">
                 <div class="timeline-sentinel" ref=${sentinelRef}></div>
-                ${displayPosts.map(post => html`
+                ${displayPosts.map(post => {
+                    const isThreadReply = Boolean(post.data?.thread_id && post.data.thread_id !== post.id);
+                    return html`
                     <${Post}
                         key=${post.id}
                         post=${post}
+                        isThreadReply=${isThreadReply}
                         agentName=${getAgentName(post.data?.agent_id, agents || {})}
                         agentAvatarUrl=${getAgentAvatarUrl(post.data?.agent_id, agents || {})}
                         onClick=${() => onPostClick?.(post)}
                         onHashtagClick=${onHashtagClick}
                         onDelete=${onDeletePost}
                     />
-                `)}
+                `})}
             </div>
         </div>
     `;

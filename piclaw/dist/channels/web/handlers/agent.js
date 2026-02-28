@@ -103,7 +103,10 @@ export async function processChat(channel, chatJid, agentId) {
         title: "Thinking...",
         turn_id: turnId,
     }));
-    const storeAndBroadcast = (text, turnAttachments) => {
+    // Thread tracking: the first stored response becomes the thread root,
+    // subsequent turns within the same processChat call reference it.
+    let rootMessageId;
+    const storeAndBroadcast = (text, turnAttachments, opts) => {
         const mediaIds = turnAttachments.map((a) => a.id);
         const contentBlocks = turnAttachments.map((a) => ({
             type: a.kind === "image" ? "image" : "file",
@@ -115,8 +118,12 @@ export async function processChat(channel, chatJid, agentId) {
         const formatted = formatOutbound(text, channelName);
         const interaction = channel.storeMessage(chatJid, formatted, true, mediaIds, {
             contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
+            threadId: opts?.threadId,
         });
         if (interaction) {
+            if (rootMessageId === undefined) {
+                rootMessageId = interaction.id;
+            }
             channel.broadcastEvent("agent_response", {
                 ...interaction,
                 agent_name: ASSISTANT_NAME,
@@ -276,9 +283,9 @@ export async function processChat(channel, chatJid, agentId) {
             }
         },
         onTurnComplete: (turn) => {
-            // Intermediate turn completed (follow-up boundary) — store as separate message
+            // Intermediate turn completed (follow-up boundary) — store as separate threaded message
             if (turn.text || turn.attachments.length > 0) {
-                storeAndBroadcast(turn.text, turn.attachments);
+                storeAndBroadcast(turn.text, turn.attachments, { threadId: rootMessageId });
             }
         },
     });
@@ -294,10 +301,10 @@ export async function processChat(channel, chatJid, agentId) {
         }));
         return;
     }
-    // Store the final turn's output
+    // Store the final turn's output (threaded if earlier turns exist)
     const finalAttachments = output.attachments ?? [];
     if (output.result || finalAttachments.length > 0) {
-        storeAndBroadcast(output.result || "", finalAttachments);
+        storeAndBroadcast(output.result || "", finalAttachments, { threadId: rootMessageId });
     }
     channel.broadcastEvent("agent_status", withAgentProfile({
         thread_id: threadId,

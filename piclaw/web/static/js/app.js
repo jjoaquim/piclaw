@@ -578,12 +578,6 @@ function App() {
         const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current;
         if (eventType === 'agent_response') {
             removeStalledPost();
-            clearAgentRunState();
-            setAgentStatus(null);
-            setAgentDraft({ text: '', totalLines: 0 });
-            setAgentPlan('');
-            setAgentThought({ text: '', totalLines: 0 });
-            setPendingRequest(null);
         }
         if (!activeHashtag && !activeSearch && (eventType === 'new_post' || eventType === 'agent_response')) {
             setPosts(prev => {
