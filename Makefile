@@ -5,7 +5,7 @@ REGISTRY ?= ghcr.io
 GHCR_OWNER ?= $(shell whoami)
 GHCR_IMAGE := $(REGISTRY)/$(GHCR_OWNER)/$(IMAGE):$(TAG)
 
-.PHONY: help up down enter build build-piclaw dual-tag tag-ghcr sync-version bump-patch push
+.PHONY: help up down enter build build-piclaw lint test test-coverage dual-tag tag-ghcr sync-version bump-patch push
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -24,6 +24,15 @@ build: ## Build Docker image
 
 build-piclaw: ## Build piclaw dist + web assets
 	cd piclaw && bun run build && bun run build:web
+
+lint: ## Lint piclaw sources
+	cd piclaw && bun run lint
+
+test: ## Run piclaw tests
+	cd piclaw && bun run test
+
+test-coverage: ## Run piclaw tests with coverage
+	cd piclaw && bun run test:coverage
 
 dual-tag: build ## Tag image as ghcr.io/<user>/<image>:<tag>
 	docker tag $(FULL_IMAGE) $(GHCR_IMAGE)
