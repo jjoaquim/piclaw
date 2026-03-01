@@ -1229,6 +1229,8 @@ body {
     font-size: var(--font-size-sm);
     animation: fadeIn 0.2s ease-out;
     --turn-color: var(--accent-color);
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .turn-dot {
@@ -1284,6 +1286,8 @@ body {
     font-size: var(--font-size-sm);
     animation: fadeIn 0.2s ease-out;
     --turn-color: var(--accent-color);
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .agent-thinking-title {
@@ -1306,14 +1310,17 @@ body {
 .agent-thinking-body {
     margin: 0;
     word-break: break-word;
+    overflow-wrap: anywhere;
     font-family: inherit;
     line-height: 1.35;
     padding-bottom: 0.15em;
+    max-width: 100%;
 }
 
 .agent-thinking-body,
 .agent-thinking-body * {
     line-height: 1.35;
+    overflow-wrap: anywhere;
 }
 
 .agent-thinking-truncation {
@@ -1372,6 +1379,9 @@ body {
     margin: 0;
     white-space: pre-wrap;
     line-height: 1.3;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
 }
 
 /* Agent request modal */
