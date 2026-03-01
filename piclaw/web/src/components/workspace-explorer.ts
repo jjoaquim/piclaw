@@ -234,7 +234,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
                 <span>Workspace</span>
                 <button class="workspace-refresh" onClick=${loadTree} title="Refresh">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6" transform="rotate(-125 12 12)" />
+                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6" transform="rotate(35 12 12)" />
                         <polyline points="23 4 23 10 17 10" />
                     </svg>
                 </button>
