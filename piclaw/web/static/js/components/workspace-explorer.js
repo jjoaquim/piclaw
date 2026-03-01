@@ -234,7 +234,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
                 <span>Workspace</span>
                 <button class="workspace-refresh" onClick=${loadTree} title="Refresh">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6" transform="rotate(35 12 12)" />
+                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6" transform="rotate(75 12 12)" />
                         <polyline points="23 4 23 10 17 10" />
                     </svg>
                 </button>
@@ -243,7 +243,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
                 ${loadingTree && !tree && html`<div class="workspace-loading">Loading…</div>`}
                 ${error && html`<div class="workspace-error">${error}</div>`}
                 ${!loadingTree && tree && html`
-                    <svg class="workspace-tree-svg" viewBox=${`0 0 ${TREE_WIDTH} ${svgHeight}`} width="100%" height=${svgHeight}>
+                    <svg class="workspace-tree-svg" viewBox=${`0 0 ${TREE_WIDTH} ${svgHeight}`} width=${TREE_WIDTH} height=${svgHeight} preserveAspectRatio="xMinYMin meet">
                         ${rows.map((row, idx) => {
                             const node = row.node;
                             const depth = row.depth;
