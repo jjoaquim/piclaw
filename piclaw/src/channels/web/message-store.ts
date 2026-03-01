@@ -11,7 +11,7 @@ import { getWebPreviewMaxChars, shouldPreviewWebContent } from "../../db/web-con
 import { scheduleLinkPreviews } from "./link-previews.js";
 import type { InteractionRow } from "../../db.js";
 import type { NewMessage } from "../../types.js";
-import { createId } from "../../utils/ids.js";
+import { createUuid } from "../../utils/ids.js";
 
 export interface StoreWebMessageOptions {
   contentBlocks?: unknown[];
@@ -34,7 +34,7 @@ export function storeWebMessage(
   options: StoreWebMessageOptions = {}
 ): InteractionRow | null {
   const timestamp = new Date().toISOString();
-  const messageId = createId("web");
+  const messageId = createUuid("web");
   let contentBlocks = Array.isArray(options.contentBlocks)
     ? [...options.contentBlocks]
     : undefined;

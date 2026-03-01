@@ -3,7 +3,7 @@ import { join } from "path";
 import makeWASocket, { Browsers, DisconnectReason, makeCacheableSignalKeyStore, useMultiFileAuthState, } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
 import { ASSISTANT_NAME, STORE_DIR, WHATSAPP_PHONE } from "../config.js";
-import { createId } from "../utils/ids.js";
+import { createUuid } from "../utils/ids.js";
 // Minimal pino-compatible logger for baileys (it requires one)
 const silentLogger = {
     level: "silent",
@@ -115,7 +115,7 @@ export class WhatsAppChannel {
                 const senderName = msg.pushName || sender.split("@")[0];
                 const fromMe = msg.key.fromMe || false;
                 const isBotMessage = content.startsWith(`${ASSISTANT_NAME}:`);
-                const msgId = msg.key.id || createId("fallback");
+                const msgId = msg.key.id || createUuid("fallback");
                 this.opts.onChatMetadata(chatJid, timestamp);
                 // Skip non-text messages (images without captions, stickers, audio, etc.)
                 if (!content)

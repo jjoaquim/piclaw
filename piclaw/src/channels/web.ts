@@ -138,8 +138,9 @@ export class WebChannel {
   }
 
   async handleRequest(req: Request): Promise<Response> {
-    const { handleWebRequest } = await import("./web/request-router.js");
-    return handleWebRequest(this, req);
+    const { RequestRouterService } = await import("./web/request-router-service.js");
+    const router = new RequestRouterService(this);
+    return router.handle(req);
   }
 
   async handleAgents(): Promise<Response> {

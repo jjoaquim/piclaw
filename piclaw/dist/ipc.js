@@ -3,7 +3,7 @@ import { join } from "path";
 import { CronExpressionParser } from "cron-parser";
 import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from "./config.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
-import { createId } from "./utils/ids.js";
+import { createUuid } from "./utils/ids.js";
 let running = false;
 export function startIpcWatcher(deps) {
     if (running)
@@ -112,7 +112,7 @@ async function processTaskCommand(data, deps) {
                 model = resolved.model;
             }
             createTask({
-                id: createId("task"),
+                id: createUuid("task"),
                 chat_jid: data.chatJid,
                 prompt: data.prompt,
                 model,

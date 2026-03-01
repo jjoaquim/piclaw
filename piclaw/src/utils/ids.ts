@@ -6,3 +6,8 @@ export function randomIdSuffix(length = 8): string {
 export function createId(prefix: string, length = 8): string {
   return `${prefix}-${Date.now()}-${randomIdSuffix(length)}`;
 }
+
+export function createUuid(prefix: string): string {
+  const uuid = crypto.randomUUID();
+  return `${prefix}-${uuid}`;
+}

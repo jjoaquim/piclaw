@@ -26,7 +26,7 @@ import { WhatsAppChannel } from "./channels/whatsapp.js";
 import { WebChannel } from "./channels/web.js";
 import { PushoverChannel } from "./channels/pushover.js";
 import { startToolOutputCleanup } from "./tool-output.js";
-import { createId } from "./utils/ids.js";
+import { createUuid } from "./utils/ids.js";
 import { RuntimeState } from "./runtime/state.js";
 import { processMessages, runMessageLoop } from "./runtime/message-loop.js";
 
@@ -90,7 +90,7 @@ export async function main(): Promise<void> {
           chatJid: "web:default",
           text: code,
         };
-        const filePath = join(ipcDir, `${createId("pairing")}.json`);
+        const filePath = join(ipcDir, `${createUuid("pairing")}.json`);
         writeFileSync(filePath, JSON.stringify(payload));
       } catch (err) {
         console.error("[whatsapp] Failed to write pairing code IPC message:", err);

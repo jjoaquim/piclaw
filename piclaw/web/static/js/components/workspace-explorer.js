@@ -258,6 +258,17 @@ export function WorkspaceExplorer({ onFileSelect }) {
         setWorkspaceVisibility(visible, showHiddenRef.current).catch(() => {});
     }).current;
 
+    const debouncedVisibilityRef = useRef(0);
+    const scheduleVisibilityUpdate = useRef(() => {
+        if (debouncedVisibilityRef.current) {
+            clearTimeout(debouncedVisibilityRef.current);
+        }
+        debouncedVisibilityRef.current = setTimeout(() => {
+            debouncedVisibilityRef.current = 0;
+            updateVisibility();
+        }, 250);
+    }).current;
+
     // Mount once; interval always calls the ref, never a stale copy.
     useEffect(() => {
         loadTreeFnRef.current();
@@ -272,7 +283,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
         }
 
         const media = window.matchMedia('(min-width: 1024px) and (orientation: landscape)');
-        const onVisibilityChange = () => updateVisibility();
+        const onVisibilityChange = () => scheduleVisibilityUpdate();
         if (media.addEventListener) {
             media.addEventListener('change', onVisibilityChange);
         } else if (media.addListener) {
@@ -289,6 +300,10 @@ export function WorkspaceExplorer({ onFileSelect }) {
                 media.removeListener(onVisibilityChange);
             }
             document.removeEventListener('visibilitychange', onVisibilityChange);
+            if (debouncedVisibilityRef.current) {
+                clearTimeout(debouncedVisibilityRef.current);
+                debouncedVisibilityRef.current = 0;
+            }
             setWorkspaceVisibility(false, showHiddenRef.current).catch(() => {});
         };
     }, []);

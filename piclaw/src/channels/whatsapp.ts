@@ -12,7 +12,7 @@ import qrcode from "qrcode-terminal";
 
 import { ASSISTANT_NAME, STORE_DIR, WHATSAPP_PHONE } from "../config.js";
 import type { OnChatMetadata, OnInboundMessage } from "../types.js";
-import { createId } from "../utils/ids.js";
+import { createUuid } from "../utils/ids.js";
 
 // Minimal pino-compatible logger for baileys (it requires one)
 const silentLogger = {
@@ -141,7 +141,7 @@ export class WhatsAppChannel {
         const senderName = msg.pushName || sender.split("@")[0];
         const fromMe = msg.key.fromMe || false;
         const isBotMessage = content.startsWith(`${ASSISTANT_NAME}:`);
-        const msgId = msg.key.id || createId("fallback");
+        const msgId = msg.key.id || createUuid("fallback");
 
         this.opts.onChatMetadata(chatJid, timestamp);
 
