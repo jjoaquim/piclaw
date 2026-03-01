@@ -79,5 +79,6 @@ Without isolation, a scheduled task's prompt and response would appear in the ag
 - Messages for a chat JID share a warm `AgentSession`.
 - Auto‑compaction runs when the context window is tight.
 - Idle sessions are evicted after a short TTL.
+- When the agent produces multiple turns in a single response (e.g. tool calls followed by a final answer), each turn's text and attachments are stored as separate messages. The first becomes the thread root; subsequent turns carry a `thread_id` pointing back to the root. The UI renders these as indented threaded replies.
 
 See [architecture.md](architecture.md) for component layout and [tools-and-skills.md](tools-and-skills.md) for tool/skill details.

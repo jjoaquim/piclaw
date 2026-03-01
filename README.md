@@ -59,10 +59,12 @@ The built-in UI is single-user, mobile-friendly, and streams updates over SSE:
 - **Thought/Draft panels** during streaming
 - **Live steering** and follow‑ups while streaming
 - **File attachments** with download links
-- **Workspace explorer** (left sidebar SVG tree, previews, and downloads)
+- **Workspace explorer** (left sidebar SVG tree, previews, and downloads) — responsive, shown on desktop/tablet in landscape
 - **File reference pills** (click a file to add it to the next prompt)
 - **Preview rules**: Markdown renders only for `.md`; other text is monospaced plaintext; images render inline
 - **Link previews** via server-side OpenGraph fetch
+- **Multi-turn threading** — when the agent produces multiple turns in a single response, subsequent turns are visually threaded under the first
+- **Large message previews** — oversized messages are truncated with a download link for the full content
 - **Dark/Light themes** (system preference)
 - **Mobile-first layout** with webapp manifest
 
