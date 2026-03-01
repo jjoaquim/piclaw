@@ -1,5 +1,6 @@
 import { supportsXhigh } from "@mariozechner/pi-ai";
 import { Type } from "@sinclair/typebox";
+import { findModel, parseModelInput } from "../model-utils.js";
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -28,32 +29,6 @@ function getAvailableLevels(model) {
 function clamp(value, fallback, min, max) {
     const n = Number(value);
     return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : fallback;
-}
-function parseModelInput(input) {
-    const trimmed = input.trim();
-    if (!trimmed)
-        return { modelId: "" };
-    const slash = trimmed.indexOf("/");
-    return slash > 0
-        ? { provider: trimmed.slice(0, slash), modelId: trimmed.slice(slash + 1) }
-        : { modelId: trimmed };
-}
-function findModel(models, provider, modelId) {
-    if (provider) {
-        const match = models.find((m) => m.provider.toLowerCase() === provider.toLowerCase() &&
-            m.id.toLowerCase() === modelId.toLowerCase());
-        return match
-            ? { model: match }
-            : { error: `Model not found: ${provider}/${modelId}.` };
-    }
-    const matches = models.filter((m) => m.id.toLowerCase() === modelId.toLowerCase());
-    if (matches.length === 0)
-        return { error: `Model not found: ${modelId}.` };
-    if (matches.length > 1) {
-        const list = matches.map((m) => `${m.provider}/${m.id}`).join(", ");
-        return { error: `Model "${modelId}" matches multiple providers: ${list}. Use provider/modelId.` };
-    }
-    return { model: matches[0] };
 }
 // ---------------------------------------------------------------------------
 // Extension factory

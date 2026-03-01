@@ -14,13 +14,20 @@ import { renderMarkdown } from '../markdown.js';
 const INDENT = 16;
 const REFRESH_INTERVAL_MS = 60000;
 
+const isHiddenNode = (node) => {
+    if (!node || !node.name) return false;
+    if (node.path === '.') return false;
+    return node.name.startsWith('.');
+};
+
 // ── Tree data helpers ─────────────────────────────────────────────────────────
 
-function flattenTree(node, expanded, depth = 0, rows = []) {
+function flattenTree(node, expanded, showHidden, depth = 0, rows = []) {
+    if (!showHidden && isHiddenNode(node)) return rows;
     if (!node) return rows;
     rows.push({ node, depth });
     if (node.type === 'dir' && node.children && expanded.has(node.path)) {
-        for (const child of node.children) flattenTree(child, expanded, depth + 1, rows);
+        for (const child of node.children) flattenTree(child, expanded, showHidden, depth + 1, rows);
     }
     return rows;
 }
@@ -29,10 +36,11 @@ function flattenTree(node, expanded, depth = 0, rows = []) {
  * Signature of *visible* structure only: path + type for expanded nodes.
  * Ignores mtime/size so file modifications alone don't trigger a redraw.
  */
-function treeSignature(node, expanded) {
+function treeSignature(node, expanded, showHidden) {
     if (!node) return '';
     const parts = [];
     const walk = (item) => {
+        if (!showHidden && isHiddenNode(item)) return;
         parts.push(item.type === 'dir' ? `d:${item.path}` : `f:${item.path}`);
         if (item.children && expanded?.has(item.path)) {
             for (const child of item.children) walk(child);
@@ -126,6 +134,10 @@ export function WorkspaceExplorer({ onFileSelect }) {
     const [initialLoad,   setInitialLoad]   = useState(true);
     const [loadingPreview,setLoadingPreview]= useState(false);
     const [error,         setError]         = useState(null);
+    const [showHidden,    setShowHidden]    = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('workspaceShowHidden') === 'true';
+    });
 
     // ── Stable refs (never trigger re-renders) ────────────────────────────────
     const expandedRef     = useRef(expanded);
@@ -142,10 +154,12 @@ export function WorkspaceExplorer({ onFileSelect }) {
     const loadSubtreeRef  = useRef(null);
     const sidebarRef      = useRef(null);
     const previewHeightRef= useRef(0);
+    const showHiddenRef   = useRef(showHidden);
 
     // Sync mutable refs each render
     onFileSelectRef.current = onFileSelect;
     useEffect(() => { expandedRef.current = expanded; }, [expanded]);
+    useEffect(() => { showHiddenRef.current = showHidden; }, [showHidden]);
 
     // ── loadPreview ───────────────────────────────────────────────────────────
     const loadPreview = async (path) => {
@@ -167,7 +181,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
     const loadTree = async () => {
         try {
             const data = await getWorkspaceTree('', 4);
-            const sig = treeSignature(data.root, expandedRef.current);
+            const sig = treeSignature(data.root, expandedRef.current, showHiddenRef.current);
             if (sig === lastSigRef.current) {
                 // Structure unchanged – just clear the initial spinner if needed.
                 setInitialLoad(false);
@@ -222,7 +236,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
                     }
                 }
                 if (next) {
-                    lastSigRef.current = treeSignature(next, expandedRef.current);
+                    lastSigRef.current = treeSignature(next, expandedRef.current, showHiddenRef.current);
                 }
                 setInitialLoad(false);
                 return next;
@@ -254,7 +268,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
     }, []);
 
     // ── Flattened visible rows ────────────────────────────────────────────────
-    const rows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
+    const rows = useMemo(() => flattenTree(tree, expanded, showHidden), [tree, expanded, showHidden]);
     const nodeMap = useMemo(() => new Map(rows.map(r => [r.node.path, r.node])), [rows]);
     nodeMapRef.current = nodeMap;
 
@@ -289,6 +303,16 @@ export function WorkspaceExplorer({ onFileSelect }) {
         loadTreeFnRef.current();
         const openPaths = Array.from(expandedRef.current || []).filter((p) => p && p !== '.');
         openPaths.forEach((p) => loadSubtreeRef.current?.(p));
+    }).current;
+
+    const handleToggleHidden = useRef(() => {
+        setShowHidden((prev) => {
+            const next = !prev;
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('workspaceShowHidden', String(next));
+            }
+            return next;
+        });
     }).current;
 
     // ── Preview-pane vertical resize — zero re-renders ────────────────────────
@@ -340,14 +364,28 @@ export function WorkspaceExplorer({ onFileSelect }) {
         <aside class="workspace-sidebar" ref=${sidebarRef}>
             <div class="workspace-header">
                 <span>Workspace</span>
-                <button class="workspace-refresh" onClick=${handleRefreshClick} title="Refresh">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6"
-                            transform="rotate(75 12 12)" />
-                        <polyline points="21 3 21 9 15 9" />
-                    </svg>
-                </button>
+                <div class="workspace-header-actions">
+                    <button class="workspace-refresh" onClick=${handleRefreshClick} title="Refresh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" stroke-dasharray="42 12" stroke-dashoffset="6"
+                                transform="rotate(75 12 12)" />
+                            <polyline points="21 3 21 9 15 9" />
+                        </svg>
+                    </button>
+                    <button
+                        class=${`workspace-toggle-hidden${showHidden ? ' active' : ''}`}
+                        onClick=${handleToggleHidden}
+                        title=${showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                            <circle cx="12" cy="12" r="3" />
+                            ${!showHidden && html`<line x1="3" y1="3" x2="21" y2="21" />`}
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="workspace-tree">
                 ${initialLoad && html`<div class="workspace-loading">Loading…</div>`}

@@ -2,7 +2,9 @@ import { ASSISTANT_AVATAR, ASSISTANT_NAME, TRIGGER_PATTERN } from "../../../conf
 import { parseControlCommand } from "../../../agent-control.js";
 import { getMessagesSince } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
-import { buildPreview, createToolTitleTracker } from "../agent-utils.js";
+import { createAgentProfileBuilder } from "../agent-utils.js";
+import { createAgentEventEmitter, createStreamingEventHandler } from "../agent-events.js";
+import { resolveThreadId, resolveThreadRootId } from "../threading.js";
 export async function handleAgentMessage(channel, req, pathname, chatJid, defaultAgentId) {
     const agentId = pathname.split("/")[2] || defaultAgentId;
     let data;
@@ -26,6 +28,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     if (!interaction)
         return channel.json({ error: "Failed to store message" }, 500);
     channel.broadcastEvent("new_post", interaction);
+    const threadId = resolveThreadId(data.thread_id, interaction.id);
     const markCommandHandled = () => {
         if (interaction?.timestamp) {
             channel.lastAgentTimestamp[chatJid] = interaction.timestamp;
@@ -46,7 +49,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             }
         }
         markCommandHandled();
-        return channel.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id, command: result }, 201);
+        return channel.json({ user_message: interaction, thread_id: threadId, command: result }, 201);
     }
     // If message looks like an extension slash command (starts with '/'), execute it directly
     const trimmed = (data.content || "").trim();
@@ -61,14 +64,14 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             console.error('[web] Failed to send slash command response:', e);
         }
         markCommandHandled();
-        return channel.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id, command: cmdResult }, 201);
+        return channel.json({ user_message: interaction, thread_id: threadId, command: cmdResult }, 201);
     }
     const steerResult = await channel.agentPool.queueStreamingMessage(chatJid, data.content, "steer");
     if (steerResult.queued) {
         markCommandHandled();
         return channel.json({
             user_message: interaction,
-            thread_id: data.thread_id ?? interaction.id,
+            thread_id: threadId,
             queued: "steer",
         }, 201);
     }
@@ -78,7 +81,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     channel.queue.enqueue(async () => {
         await processChat(channel, chatJid, agentId, interaction.id);
     }, `chat:${chatJid}`);
-    return channel.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id }, 201);
+    return channel.json({ user_message: interaction, thread_id: threadId }, 201);
 }
 export async function processChat(channel, chatJid, agentId, threadRootId) {
     const since = channel.lastAgentTimestamp[chatJid] || "";
@@ -91,26 +94,20 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     channel.lastAgentTimestamp[chatJid] = messages[messages.length - 1].timestamp;
     channel.saveState();
     const threadId = messages[messages.length - 1].timestamp;
-    let thoughtBuffer = "";
-    let draftBuffer = "";
-    const { remember, lookup, forget } = createToolTitleTracker();
     const THOUGHT_PREVIEW_LINES = 8;
     const DRAFT_PREVIEW_LINES = 8;
     const PREVIEW_MAX_CHARS_PER_LINE = 160;
     const turnId = `turn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const withAgentProfile = (payload) => ({
-        ...payload,
-        agent_name: ASSISTANT_NAME,
-        agent_avatar: ASSISTANT_AVATAR || null,
-    });
-    channel.broadcastEvent("agent_status", withAgentProfile({
+    const withAgentProfile = createAgentProfileBuilder(ASSISTANT_NAME, ASSISTANT_AVATAR);
+    const emitter = createAgentEventEmitter(channel, withAgentProfile);
+    emitter.status({
         thread_id: threadId,
         agent_id: agentId,
         type: "thinking",
         title: "Thinking...",
         turn_id: turnId,
-    }));
-    const resolvedThreadRootId = threadRootId ?? channel.getThreadRootId(chatJid, messages[messages.length - 1].id ?? "");
+    });
+    const resolvedThreadRootId = resolveThreadRootId(channel, chatJid, messages[messages.length - 1].id ?? "", threadRootId);
     const storeAndBroadcast = (text, turnAttachments, opts) => {
         const mediaIds = turnAttachments.map((a) => a.id);
         const contentBlocks = turnAttachments.map((a) => ({
@@ -121,177 +118,72 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
             size: a.size,
         }));
         const formatted = formatOutbound(text, channelName);
-        const threadId = opts?.threadId ?? resolvedThreadRootId ?? undefined;
+        const resolvedThreadId = resolveThreadId(opts?.threadId, resolvedThreadRootId) ?? undefined;
         const placeholderId = channel.consumeQueuedFollowupPlaceholder(chatJid);
         if (placeholderId) {
-            const updated = channel.replaceQueuedFollowupPlaceholder(chatJid, placeholderId, formatted, mediaIds, contentBlocks.length > 0 ? contentBlocks : undefined, threadId);
+            const updated = channel.replaceQueuedFollowupPlaceholder(chatJid, placeholderId, formatted, mediaIds, contentBlocks.length > 0 ? contentBlocks : undefined, resolvedThreadId);
             if (updated) {
                 return;
             }
         }
         const interaction = channel.storeMessage(chatJid, formatted, true, mediaIds, {
             contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-            threadId,
+            threadId: resolvedThreadId,
         });
         if (interaction) {
-            channel.broadcastEvent("agent_response", {
-                ...interaction,
-                agent_name: ASSISTANT_NAME,
-                agent_avatar: ASSISTANT_AVATAR || null,
-            });
+            emitter.response(interaction);
         }
     };
+    const streamingHandler = createStreamingEventHandler({
+        emitter,
+        agentId,
+        threadId,
+        turnId,
+        thoughtPreviewLines: THOUGHT_PREVIEW_LINES,
+        draftPreviewLines: DRAFT_PREVIEW_LINES,
+        previewMaxCharsPerLine: PREVIEW_MAX_CHARS_PER_LINE,
+    });
     const output = await channel.agentPool.runAgent(prompt, chatJid, {
         onAutoCompact: (notice) => {
             const phaseLabel = notice.phase === "pre"
                 ? "Auto-compacting to free context"
                 : "Auto-compacting after response";
             if (notice.status === "start") {
-                channel.broadcastEvent("agent_status", withAgentProfile({
+                emitter.status({
                     thread_id: threadId,
                     agent_id: agentId,
                     type: "intent",
                     title: phaseLabel,
                     turn_id: turnId,
-                }));
+                });
             }
             else if (notice.status === "end" && notice.phase === "pre") {
-                channel.broadcastEvent("agent_status", withAgentProfile({
+                emitter.status({
                     thread_id: threadId,
                     agent_id: agentId,
                     type: "thinking",
                     title: "Thinking...",
                     turn_id: turnId,
-                }));
+                });
             }
             else if (notice.status === "error" && notice.phase === "pre") {
-                channel.broadcastEvent("agent_status", withAgentProfile({
+                emitter.status({
                     thread_id: threadId,
                     agent_id: agentId,
                     type: "intent",
                     title: "Auto-compaction failed; continuing",
                     turn_id: turnId,
-                }));
-                channel.broadcastEvent("agent_status", withAgentProfile({
+                });
+                emitter.status({
                     thread_id: threadId,
                     agent_id: agentId,
                     type: "thinking",
                     title: "Thinking...",
                     turn_id: turnId,
-                }));
+                });
             }
         },
-        onEvent: (event) => {
-            if (event.type === "message_update") {
-                const messageEvent = event.assistantMessageEvent;
-                if (messageEvent.type === "thinking_start") {
-                    thoughtBuffer = "";
-                }
-                if (messageEvent.type === "thinking_delta") {
-                    thoughtBuffer += messageEvent.delta;
-                    const { preview, totalLines } = buildPreview(thoughtBuffer, THOUGHT_PREVIEW_LINES, PREVIEW_MAX_CHARS_PER_LINE);
-                    channel.broadcastEvent("agent_thought", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        text: preview,
-                        total_lines: totalLines,
-                        turn_id: turnId,
-                    }));
-                }
-                if (messageEvent.type === "thinking_end") {
-                    thoughtBuffer = messageEvent.content || thoughtBuffer;
-                    const { preview, totalLines } = buildPreview(thoughtBuffer, THOUGHT_PREVIEW_LINES, PREVIEW_MAX_CHARS_PER_LINE);
-                    channel.broadcastEvent("agent_thought", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        text: preview,
-                        total_lines: totalLines,
-                        turn_id: turnId,
-                    }));
-                }
-                if (messageEvent.type === "toolcall_end") {
-                    const title = remember(messageEvent.toolCall.id, messageEvent.toolCall.name, messageEvent.toolCall.arguments);
-                    channel.broadcastEvent("agent_status", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        type: "tool_call",
-                        title,
-                        turn_id: turnId,
-                    }));
-                }
-                if (messageEvent.type === "text_start") {
-                    draftBuffer = "";
-                    channel.broadcastEvent("agent_draft", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        text: "",
-                        total_lines: 0,
-                        kind: "draft",
-                        mode: "replace",
-                        turn_id: turnId,
-                    }));
-                    channel.broadcastEvent("agent_draft_delta", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        delta: "",
-                        reset: true,
-                        turn_id: turnId,
-                    }));
-                }
-                if (messageEvent.type === "text_delta") {
-                    draftBuffer += messageEvent.delta;
-                    const { preview, totalLines } = buildPreview(draftBuffer, DRAFT_PREVIEW_LINES, PREVIEW_MAX_CHARS_PER_LINE);
-                    channel.broadcastEvent("agent_draft", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        text: preview,
-                        total_lines: totalLines,
-                        kind: "draft",
-                        mode: "replace",
-                        turn_id: turnId,
-                    }));
-                    channel.broadcastEvent("agent_draft_delta", withAgentProfile({
-                        thread_id: threadId,
-                        agent_id: agentId,
-                        delta: messageEvent.delta,
-                        turn_id: turnId,
-                    }));
-                }
-            }
-            if (event.type === "tool_execution_start") {
-                const title = remember(event.toolCallId, event.toolName, event.args);
-                channel.broadcastEvent("agent_status", withAgentProfile({
-                    thread_id: threadId,
-                    agent_id: agentId,
-                    type: "tool_call",
-                    title,
-                    turn_id: turnId,
-                }));
-            }
-            if (event.type === "tool_execution_update") {
-                const title = lookup(event.toolCallId, event.toolName, event.args);
-                channel.broadcastEvent("agent_status", withAgentProfile({
-                    thread_id: threadId,
-                    agent_id: agentId,
-                    type: "tool_status",
-                    title,
-                    status: "Working...",
-                    turn_id: turnId,
-                }));
-            }
-            if (event.type === "tool_execution_end") {
-                const title = lookup(event.toolCallId, event.toolName);
-                forget(event.toolCallId);
-                channel.broadcastEvent("agent_status", withAgentProfile({
-                    thread_id: threadId,
-                    agent_id: agentId,
-                    type: "tool_status",
-                    title,
-                    status: event.isError ? "Failed" : "Done",
-                    turn_id: turnId,
-                }));
-            }
-        },
+        onEvent: streamingHandler,
         onTurnComplete: (turn) => {
             // Intermediate turn completed (follow-up boundary) — store as threaded message
             if (turn.text || turn.attachments.length > 0) {
@@ -302,13 +194,13 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     if (output.status === "error") {
         channel.lastAgentTimestamp[chatJid] = prevCursor;
         channel.saveState();
-        channel.broadcastEvent("agent_status", withAgentProfile({
+        emitter.status({
             thread_id: threadId,
             agent_id: agentId,
             type: "error",
             title: output.error || "Agent error",
             turn_id: turnId,
-        }));
+        });
         return;
     }
     // Store the final turn's output
@@ -316,10 +208,10 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     if (output.result || finalAttachments.length > 0) {
         storeAndBroadcast(output.result || "", finalAttachments);
     }
-    channel.broadcastEvent("agent_status", withAgentProfile({
+    emitter.status({
         thread_id: threadId,
         agent_id: agentId,
         type: "done",
         turn_id: turnId,
-    }));
+    });
 }

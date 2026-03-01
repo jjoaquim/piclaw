@@ -24,7 +24,6 @@ export function buildTree(absPath, depth, state) {
         return node;
     }
     const entries = readdirSync(absPath, { withFileTypes: true })
-        .filter((entry) => !entry.name.startsWith(".") || entry.name === ".piclaw")
         .filter((entry) => !entry.isDirectory() || !shouldExcludeDir(entry.name))
         .sort((a, b) => {
         if (a.isDirectory() && !b.isDirectory())

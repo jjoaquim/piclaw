@@ -146,8 +146,15 @@ body {
     font-weight: 600;
 }
 
+.workspace-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .workspace-refresh,
-.workspace-download {
+.workspace-download,
+.workspace-toggle-hidden {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -164,7 +171,8 @@ body {
 }
 
 .workspace-refresh svg,
-.workspace-download svg {
+.workspace-download svg,
+.workspace-toggle-hidden svg {
     width: 16px;
     height: 16px;
     display: block;
@@ -177,8 +185,14 @@ body {
 }
 
 .workspace-refresh:hover,
-.workspace-download:hover {
+.workspace-download:hover,
+.workspace-toggle-hidden:hover {
     color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+.workspace-toggle-hidden.active {
+    color: var(--accent-color);
     border-color: var(--accent-color);
 }
 

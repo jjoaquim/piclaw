@@ -1,3 +1,4 @@
+import { getChannelFormattingInstructions } from "./channels/formatting.js";
 export function detectChannel(chatJid) {
     if (!chatJid)
         return "unknown";
@@ -10,15 +11,6 @@ export function escapeXml(s) {
         return "";
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function channelFormattingInstructions(channel) {
-    if (channel === "web") {
-        return "Use Markdown formatting in responses. Tables, headings, and links are allowed. To deliver files, use the attach_file tool on a workspace path; the UI will show a download card automatically. Use attachment:<filename> only if you want an inline embed.";
-    }
-    if (channel === "whatsapp") {
-        return "Use WhatsApp formatting only: *bold*, _italic_, • bullets, and ```code``` blocks. Avoid Markdown headings, tables, and links.";
-    }
-    return null;
-}
 export function formatMessages(messages, channel) {
     const lines = messages.map((m) => `<message sender=\"${escapeXml(m.sender_name)}\" time=\"${m.timestamp}\">${escapeXml(m.content)}</message>`);
     const knownChannel = channel && channel !== "unknown" ? channel : undefined;
@@ -26,7 +18,7 @@ export function formatMessages(messages, channel) {
     const metaLines = [];
     if (knownChannel)
         metaLines.push(`<channel>${knownChannel}</channel>`);
-    const formatting = knownChannel ? channelFormattingInstructions(knownChannel) : null;
+    const formatting = getChannelFormattingInstructions(knownChannel);
     if (formatting)
         metaLines.push(`<formatting>${formatting}</formatting>`);
     const meta = metaLines.length > 0 ? `${metaLines.join("\n")}\n` : "";

@@ -1,4 +1,11 @@
 import { buildPreviewLines, countSoftLines, splitLines } from "../../utils/preview.js";
+export function createAgentProfileBuilder(agentName, agentAvatar) {
+    return (payload) => ({
+        ...payload,
+        agent_name: agentName,
+        agent_avatar: agentAvatar ?? null,
+    });
+}
 export function buildPreview(text, maxLines, maxCharsPerLine) {
     const lines = splitLines(text || "");
     if (!lines.length)

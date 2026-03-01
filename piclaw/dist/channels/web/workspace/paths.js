@@ -28,8 +28,6 @@ export function shouldIgnorePath(absPath) {
     for (const part of parts) {
         if (!part || part === ".")
             continue;
-        if (part.startsWith(".") && part !== ".piclaw")
-            return true;
         if (EXCLUDE_DIRS.has(part))
             return true;
     }
