@@ -22,6 +22,8 @@ import {
   getThreadResponse,
   getTimelineResponse,
 } from "./web/timeline-service.js";
+import { getAgentsResponse } from "./web/agents-service.js";
+import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -82,11 +84,7 @@ export class WebChannel {
   async sendMessage(chatJid: string, text: string, threadId?: number | null): Promise<void> {
     const interaction = this.storeMessage(chatJid, text, true, [], threadId ? { threadId } : undefined);
     if (interaction) {
-      this.broadcastEvent("agent_response", {
-        ...interaction,
-        agent_name: ASSISTANT_NAME,
-        agent_avatar: ASSISTANT_AVATAR || null,
-      });
+      broadcastAgentResponse(this, interaction, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
     }
   }
 
@@ -96,11 +94,7 @@ export class WebChannel {
 
     this.state.enqueueFollowupPlaceholder(chatJid, interaction.id);
 
-    this.broadcastEvent("agent_response", {
-      ...interaction,
-      agent_name: ASSISTANT_NAME,
-      agent_avatar: ASSISTANT_AVATAR || null,
-    });
+    broadcastAgentResponse(this, interaction, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
 
     return interaction;
   }
@@ -126,11 +120,7 @@ export class WebChannel {
     updated.data.agent_id = DEFAULT_AGENT_ID;
     if (threadId) updated.data.thread_id = threadId;
 
-    this.broadcastEvent("interaction_updated", {
-      ...updated,
-      agent_name: ASSISTANT_NAME,
-      agent_avatar: ASSISTANT_AVATAR || null,
-    });
+    broadcastInteractionUpdated(this, updated, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
 
     return updated;
   }
@@ -153,20 +143,13 @@ export class WebChannel {
   }
 
   async handleAgents(): Promise<Response> {
-    const model = await this.agentPool.getCurrentModelLabel(DEFAULT_CHAT_JID).catch(() => null);
-    return this.json({
-      agents: [
-        {
-          id: DEFAULT_AGENT_ID,
-          name: ASSISTANT_NAME,
-          description: `${ASSISTANT_NAME} agent`,
-          status: "running",
-          actions: [],
-          avatar_url: ASSISTANT_AVATAR || null,
-          model: model ?? null,
-        },
-      ],
+    const result = await getAgentsResponse(this.agentPool, {
+      chatJid: DEFAULT_CHAT_JID,
+      agentId: DEFAULT_AGENT_ID,
+      agentName: ASSISTANT_NAME,
+      agentAvatar: ASSISTANT_AVATAR || null,
     });
+    return this.json(result.body, result.status);
   }
 
   async handleWorkspaceVisibility(req: Request): Promise<Response> {
