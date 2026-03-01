@@ -4,6 +4,7 @@ export {
   storeChatMetadata,
   storeMessage,
   getMessageByRowId,
+  getMessageRowIdById,
   deleteMessageByRowId,
   getTimeline,
   hasOlderMessages,

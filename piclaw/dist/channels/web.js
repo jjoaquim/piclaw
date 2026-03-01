@@ -8,7 +8,7 @@ import { clampInt, jsonResponse, parseOptionalInt } from "./web/http-utils.js";
 import { createFallbackTheme } from "./web/theme.js";
 import { bindSessionUiContext } from "./web/ui-context.js";
 import { scheduleLinkPreviews } from "./web/link-previews.js";
-import { attachMediaToMessage, clampWebContent, createMedia, deleteMessageByRowId, getMessageByRowId, getMessagesByHashtag, getRouterState, getTimeline, hasOlderMessages, searchMessages, setRouterState, storeChatMetadata, storeMessage, } from "../db.js";
+import { attachMediaToMessage, clampWebContent, createMedia, deleteMessageByRowId, getMessageByRowId, getMessageRowIdById, getMessagesByHashtag, getRouterState, getTimeline, hasOlderMessages, replaceMessageContent, searchMessages, setRouterState, storeChatMetadata, storeMessage, } from "../db.js";
 import { getWebPreviewMaxChars, shouldPreviewWebContent } from "../db/web-content.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -23,6 +23,7 @@ export class WebChannel {
     uiRequestCounter = 0;
     editorTextByChat = new Map();
     pendingLinkPreviews = new Set();
+    queuedFollowupPlaceholders = new Map();
     fallbackTheme = createFallbackTheme();
     constructor(opts) {
         this.queue = opts.queue;
@@ -74,6 +75,49 @@ export class WebChannel {
                 agent_avatar: ASSISTANT_AVATAR || null,
             });
         }
+    }
+    queueFollowupPlaceholder(chatJid, text, threadId) {
+        const interaction = this.storeMessage(chatJid, text, true, [], { threadId });
+        if (!interaction)
+            return null;
+        const existing = this.queuedFollowupPlaceholders.get(chatJid) ?? [];
+        existing.push(interaction.id);
+        this.queuedFollowupPlaceholders.set(chatJid, existing);
+        this.broadcastEvent("agent_response", {
+            ...interaction,
+            agent_name: ASSISTANT_NAME,
+            agent_avatar: ASSISTANT_AVATAR || null,
+        });
+        return interaction;
+    }
+    consumeQueuedFollowupPlaceholder(chatJid) {
+        const queue = this.queuedFollowupPlaceholders.get(chatJid);
+        if (!queue || queue.length === 0)
+            return null;
+        const next = queue.shift() ?? null;
+        if (!queue.length)
+            this.queuedFollowupPlaceholders.delete(chatJid);
+        return next;
+    }
+    replaceQueuedFollowupPlaceholder(chatJid, rowId, text, mediaIds, contentBlocks, threadId) {
+        const updated = replaceMessageContent(chatJid, rowId, text, {
+            contentBlocks,
+            mediaIds,
+        });
+        if (!updated)
+            return null;
+        updated.data.agent_id = DEFAULT_AGENT_ID;
+        if (threadId)
+            updated.data.thread_id = threadId;
+        this.broadcastEvent("interaction_updated", {
+            ...updated,
+            agent_name: ASSISTANT_NAME,
+            agent_avatar: ASSISTANT_AVATAR || null,
+        });
+        return updated;
+    }
+    getThreadRootId(chatJid, messageId) {
+        return getMessageRowIdById(chatJid, messageId);
     }
     loadState() {
         const data = getRouterState(STATE_KEY);
@@ -171,9 +215,9 @@ export class WebChannel {
         const { handleAgentMessage } = await import("./web/handlers/agent.js");
         return handleAgentMessage(this, req, pathname, DEFAULT_CHAT_JID, DEFAULT_AGENT_ID);
     }
-    async processChat(chatJid, agentId) {
+    async processChat(chatJid, agentId, threadRootId) {
         const { processChat } = await import("./web/handlers/agent.js");
-        return processChat(this, chatJid, agentId);
+        return processChat(this, chatJid, agentId, threadRootId ?? undefined);
     }
     storeMessage(chatJid, content, isBot, mediaIds, options = {}) {
         const timestamp = new Date().toISOString();

@@ -36,8 +36,15 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     if (command) {
         const result = await channel.agentPool.applyControlCommand(chatJid, command);
         const formatted = formatOutbound(result.message, "web");
-        if (formatted)
-            await channel.sendMessage(chatJid, formatted);
+        const isQueueCommand = command.type === "queue" || command.type === "queue_all";
+        if (formatted) {
+            if (isQueueCommand && result.queued_followup) {
+                channel.queueFollowupPlaceholder(chatJid, formatted, interaction.id);
+            }
+            else {
+                await channel.sendMessage(chatJid, formatted);
+            }
+        }
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id, command: result }, 201);
     }
@@ -69,11 +76,11 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         console.warn(`[web] Failed to queue steering message: ${steerResult.error}`);
     }
     channel.queue.enqueue(async () => {
-        await processChat(channel, chatJid, agentId);
+        await processChat(channel, chatJid, agentId, interaction.id);
     }, `chat:${chatJid}`);
     return channel.json({ user_message: interaction, thread_id: data.thread_id ?? interaction.id }, 201);
 }
-export async function processChat(channel, chatJid, agentId) {
+export async function processChat(channel, chatJid, agentId, threadRootId) {
     const since = channel.lastAgentTimestamp[chatJid] || "";
     const messages = getMessagesSince(chatJid, since, ASSISTANT_NAME);
     if (messages.length === 0)
@@ -103,9 +110,7 @@ export async function processChat(channel, chatJid, agentId) {
         title: "Thinking...",
         turn_id: turnId,
     }));
-    // Thread tracking: the first stored response becomes the thread root,
-    // subsequent turns within the same processChat call reference it.
-    let rootMessageId;
+    const resolvedThreadRootId = threadRootId ?? channel.getThreadRootId(chatJid, messages[messages.length - 1].id ?? "");
     const storeAndBroadcast = (text, turnAttachments, opts) => {
         const mediaIds = turnAttachments.map((a) => a.id);
         const contentBlocks = turnAttachments.map((a) => ({
@@ -116,14 +121,19 @@ export async function processChat(channel, chatJid, agentId) {
             size: a.size,
         }));
         const formatted = formatOutbound(text, channelName);
+        const threadId = opts?.threadId ?? resolvedThreadRootId ?? undefined;
+        const placeholderId = channel.consumeQueuedFollowupPlaceholder(chatJid);
+        if (placeholderId) {
+            const updated = channel.replaceQueuedFollowupPlaceholder(chatJid, placeholderId, formatted, mediaIds, contentBlocks.length > 0 ? contentBlocks : undefined, threadId);
+            if (updated) {
+                return;
+            }
+        }
         const interaction = channel.storeMessage(chatJid, formatted, true, mediaIds, {
             contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-            threadId: opts?.threadId,
+            threadId,
         });
         if (interaction) {
-            if (rootMessageId === undefined) {
-                rootMessageId = interaction.id;
-            }
             channel.broadcastEvent("agent_response", {
                 ...interaction,
                 agent_name: ASSISTANT_NAME,
@@ -283,9 +293,9 @@ export async function processChat(channel, chatJid, agentId) {
             }
         },
         onTurnComplete: (turn) => {
-            // Intermediate turn completed (follow-up boundary) — store as separate threaded message
+            // Intermediate turn completed (follow-up boundary) — store as threaded message
             if (turn.text || turn.attachments.length > 0) {
-                storeAndBroadcast(turn.text, turn.attachments, { threadId: rootMessageId });
+                storeAndBroadcast(turn.text, turn.attachments);
             }
         },
     });
@@ -301,10 +311,10 @@ export async function processChat(channel, chatJid, agentId) {
         }));
         return;
     }
-    // Store the final turn's output (threaded if earlier turns exist)
+    // Store the final turn's output
     const finalAttachments = output.attachments ?? [];
     if (output.result || finalAttachments.length > 0) {
-        storeAndBroadcast(output.result || "", finalAttachments, { threadId: rootMessageId });
+        storeAndBroadcast(output.result || "", finalAttachments);
     }
     channel.broadcastEvent("agent_status", withAgentProfile({
         thread_id: threadId,

@@ -16,6 +16,7 @@ import {
   createMedia,
   deleteMessageByRowId,
   getMessageByRowId,
+  getMessageRowIdById,
   getMessagesByHashtag,
   getRouterState,
   getTimeline,
@@ -100,8 +101,8 @@ export class WebChannel {
     }
   }
 
-  queueFollowupPlaceholder(chatJid: string, text: string): InteractionRow | null {
-    const interaction = this.storeMessage(chatJid, text, true, []);
+  queueFollowupPlaceholder(chatJid: string, text: string, threadId?: number): InteractionRow | null {
+    const interaction = this.storeMessage(chatJid, text, true, [], { threadId });
     if (!interaction) return null;
 
     const existing = this.queuedFollowupPlaceholders.get(chatJid) ?? [];
@@ -149,6 +150,10 @@ export class WebChannel {
     });
 
     return updated;
+  }
+
+  getThreadRootId(chatJid: string, messageId: string): number | null {
+    return getMessageRowIdById(chatJid, messageId);
   }
 
   loadState(): void {
@@ -257,9 +262,9 @@ export class WebChannel {
     return handleAgentMessage(this, req, pathname, DEFAULT_CHAT_JID, DEFAULT_AGENT_ID);
   }
 
-  async processChat(chatJid: string, agentId: string): Promise<void> {
+  async processChat(chatJid: string, agentId: string, threadRootId?: number | null): Promise<void> {
     const { processChat } = await import("./web/handlers/agent.js");
-    return processChat(this, chatJid, agentId);
+    return processChat(this, chatJid, agentId, threadRootId ?? undefined);
   }
 
   storeMessage(

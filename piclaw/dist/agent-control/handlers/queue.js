@@ -25,6 +25,7 @@ export async function handleQueue(session, command) {
             message: useBatch
                 ? "Queued as a follow-up (batch mode: all)."
                 : "Queued as a follow-up (one-at-a-time).",
+            queued_followup: true,
         };
     }
     try {

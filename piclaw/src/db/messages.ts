@@ -93,6 +93,14 @@ export function storeMessage(msg: NewMessage): number {
   return row?.rowid ?? 0;
 }
 
+export function getMessageRowIdById(chatJid: string, messageId: string): number | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT rowid as rowid FROM messages WHERE chat_jid = ? AND id = ?")
+    .get(chatJid, messageId) as { rowid: number } | undefined;
+  return row?.rowid ?? null;
+}
+
 export function getMessageByRowId(chatJid: string, rowId: number): InteractionRow | undefined {
   const db = getDb();
   const row = db

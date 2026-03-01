@@ -1,6 +1,6 @@
 import { getDb } from "./connection.js";
 import { clampWebContent } from "./web-content.js";
-import { getMediaIdsForMessage } from "./media.js";
+import { attachMediaToMessage, getMediaIdsForMessage } from "./media.js";
 const MESSAGE_COLUMNS = "rowid, chat_jid, sender, sender_name, content, content_blocks, link_previews, timestamp, is_bot_message";
 function parseJsonArray(value) {
     if (!value)
@@ -59,6 +59,13 @@ export function storeMessage(msg) {
         .get(msg.id, msg.chat_jid);
     return row?.rowid ?? 0;
 }
+export function getMessageRowIdById(chatJid, messageId) {
+    const db = getDb();
+    const row = db
+        .prepare("SELECT rowid as rowid FROM messages WHERE chat_jid = ? AND id = ?")
+        .get(chatJid, messageId);
+    return row?.rowid ?? null;
+}
 export function getMessageByRowId(chatJid, rowId) {
     const db = getDb();
     const row = db
@@ -76,6 +83,21 @@ export function updateMessageLinkPreviews(chatJid, rowId, linkPreviews) {
         .prepare("UPDATE messages SET link_previews = ? WHERE chat_jid = ? AND rowid = ?")
         .run(payload, chatJid, rowId);
     return res.changes > 0;
+}
+export function replaceMessageContent(chatJid, rowId, content, options = {}) {
+    const db = getDb();
+    const contentBlocks = options.contentBlocks ? JSON.stringify(options.contentBlocks) : null;
+    const linkPreviews = options.linkPreviews ? JSON.stringify(options.linkPreviews) : null;
+    const res = db
+        .prepare("UPDATE messages SET content = ?, content_blocks = ?, link_previews = ? WHERE chat_jid = ? AND rowid = ?")
+        .run(content, contentBlocks, linkPreviews, chatJid, rowId);
+    if (res.changes <= 0)
+        return undefined;
+    db.prepare("DELETE FROM message_media WHERE message_rowid = ?").run(rowId);
+    if (options.mediaIds && options.mediaIds.length > 0) {
+        attachMediaToMessage(rowId, options.mediaIds);
+    }
+    return getMessageByRowId(chatJid, rowId);
 }
 export function deleteMessageByRowId(chatJid, rowId) {
     const db = getDb();
