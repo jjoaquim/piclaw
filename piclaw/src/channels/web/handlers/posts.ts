@@ -1,36 +1,17 @@
 import type { WebChannel } from "../../web.js";
+import { parsePostPayload, storePost } from "../posts-service.js";
 
 export async function handlePost(channel: WebChannel, req: Request, isReply: boolean, chatJid: string): Promise<Response> {
-  let data: {
-    content?: string;
-    thread_id?: number | null;
-    media_ids?: number[];
-    content_blocks?: unknown[];
-    link_previews?: unknown[];
-  };
+  let data: unknown;
   try {
     data = await req.json();
   } catch {
     return channel.json({ error: "Invalid JSON" }, 400);
   }
 
-  if (!data.content) return channel.json({ error: "Missing 'content' field" }, 400);
-  if (isReply && !data.thread_id) return channel.json({ error: "Missing 'thread_id' field" }, 400);
+  const parsed = parsePostPayload(data);
+  if (!parsed.ok || !parsed.data) return channel.json({ error: parsed.error }, 400);
 
-  const mediaIds = Array.isArray(data.media_ids)
-    ? data.media_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
-    : [];
-  const contentBlocks = Array.isArray(data.content_blocks) ? data.content_blocks : undefined;
-  const linkPreviews = Array.isArray(data.link_previews) ? data.link_previews : undefined;
-
-  const interaction = channel.storeMessage(chatJid, data.content, false, mediaIds, {
-    contentBlocks,
-    linkPreviews,
-  });
-  if (!interaction) return channel.json({ error: "Failed to store message" }, 500);
-
-  if (isReply && data.thread_id) interaction.data.thread_id = Number(data.thread_id);
-
-  channel.broadcastEvent(isReply ? "new_reply" : "new_post", interaction);
-  return channel.json(interaction, 201);
+  const result = storePost(channel, chatJid, parsed.data, { isReply });
+  return channel.json(result.body, result.status);
 }

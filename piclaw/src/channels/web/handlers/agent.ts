@@ -1,6 +1,7 @@
 import type { WebChannel } from "../../web.js";
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, TRIGGER_PATTERN } from "../../../config.js";
 import { parseControlCommand } from "../../../agent-control.js";
+import { normalizeMediaIds } from "../posts-service.js";
 import { getMessagesSince } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
 import { createAgentProfileBuilder } from "../agent-utils.js";
@@ -32,9 +33,7 @@ export async function handleAgentMessage(
 
   if (!data.content) return channel.json({ error: "Missing 'content' field" }, 400);
 
-  const mediaIds = Array.isArray(data.media_ids)
-    ? data.media_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
-    : [];
+  const mediaIds = normalizeMediaIds(data.media_ids);
   const contentBlocks = Array.isArray(data.content_blocks) ? data.content_blocks : undefined;
   const linkPreviews = Array.isArray(data.link_previews) ? data.link_previews : undefined;
 
