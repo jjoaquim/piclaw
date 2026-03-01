@@ -25,6 +25,9 @@ function createSchema(database) {
       FOREIGN KEY (chat_jid) REFERENCES chats(jid)
     );
     CREATE INDEX IF NOT EXISTS idx_timestamp ON messages(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_messages_chat_jid ON messages(chat_jid);
+    CREATE INDEX IF NOT EXISTS idx_messages_chat_jid_timestamp ON messages(chat_jid, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_messages_chat_jid_bot_timestamp ON messages(chat_jid, is_bot_message, timestamp);
 
     CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
       content,
@@ -142,6 +145,7 @@ function createSchema(database) {
     );
     CREATE INDEX IF NOT EXISTS idx_token_usage_chat_jid ON token_usage(chat_jid);
     CREATE INDEX IF NOT EXISTS idx_token_usage_run_at ON token_usage(run_at);
+    CREATE INDEX IF NOT EXISTS idx_token_usage_chat_jid_run_at ON token_usage(chat_jid, run_at);
   `);
 }
 function ensureMessageColumns(database) {
