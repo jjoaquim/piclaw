@@ -4,6 +4,7 @@ import { getMessagesSince } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
 import { createAgentProfileBuilder } from "../agent-utils.js";
 import { createAgentEventEmitter, createStreamingEventHandler } from "../agent-events.js";
+import { storeAgentTurn } from "../agent-message-store.js";
 import { resolveThreadId, resolveThreadRootId } from "../threading.js";
 export async function handleAgentMessage(channel, req, pathname, chatJid, defaultAgentId) {
     const agentId = pathname.split("/")[2] || defaultAgentId;
@@ -108,32 +109,6 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
         turn_id: turnId,
     });
     const resolvedThreadRootId = resolveThreadRootId(channel, chatJid, messages[messages.length - 1].id ?? "", threadRootId);
-    const storeAndBroadcast = (text, turnAttachments, opts) => {
-        const mediaIds = turnAttachments.map((a) => a.id);
-        const contentBlocks = turnAttachments.map((a) => ({
-            type: a.kind === "image" ? "image" : "file",
-            name: a.name,
-            filename: a.name,
-            mime_type: a.contentType,
-            size: a.size,
-        }));
-        const formatted = formatOutbound(text, channelName);
-        const resolvedThreadId = resolveThreadId(opts?.threadId, resolvedThreadRootId) ?? undefined;
-        const placeholderId = channel.consumeQueuedFollowupPlaceholder(chatJid);
-        if (placeholderId) {
-            const updated = channel.replaceQueuedFollowupPlaceholder(chatJid, placeholderId, formatted, mediaIds, contentBlocks.length > 0 ? contentBlocks : undefined, resolvedThreadId);
-            if (updated) {
-                return;
-            }
-        }
-        const interaction = channel.storeMessage(chatJid, formatted, true, mediaIds, {
-            contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
-            threadId: resolvedThreadId,
-        });
-        if (interaction) {
-            emitter.response(interaction);
-        }
-    };
     const streamingHandler = createStreamingEventHandler({
         emitter,
         agentId,
@@ -187,7 +162,13 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
         onTurnComplete: (turn) => {
             // Intermediate turn completed (follow-up boundary) — store as threaded message
             if (turn.text || turn.attachments.length > 0) {
-                storeAndBroadcast(turn.text, turn.attachments);
+                storeAgentTurn(channel, emitter, {
+                    chatJid,
+                    text: turn.text,
+                    attachments: turn.attachments,
+                    channelName,
+                    threadId: resolvedThreadRootId,
+                });
             }
         },
     });
@@ -206,7 +187,13 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     // Store the final turn's output
     const finalAttachments = output.attachments ?? [];
     if (output.result || finalAttachments.length > 0) {
-        storeAndBroadcast(output.result || "", finalAttachments);
+        storeAgentTurn(channel, emitter, {
+            chatJid,
+            text: output.result || "",
+            attachments: finalAttachments,
+            channelName,
+            threadId: resolvedThreadRootId,
+        });
     }
     emitter.status({
         thread_id: threadId,
