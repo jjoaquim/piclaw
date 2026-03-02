@@ -1,6 +1,6 @@
 # `piclaw` - A `pi`-based general-purpose agent
 
-![PiClaw](docs/icon-256.png)
+![PiClaw](docs/icon-512.png)
 
 PiClaw is a minimal Docker-based sandbox for running the [Pi Coding Agent](https://github.com/badlogic/pi-mono) in an isolated Debian environment. It bundles `piclaw` — a web‑first orchestrator built on the Pi SDK with persistent sessions, a streaming web UI, and scheduled tasks. WhatsApp is optional. Inspired by [agentbox](https://github.com/rcarmo/agentbox) and [nanoclaw](https://github.com/qwibitai/nanoclaw).
 
@@ -95,9 +95,12 @@ Web server settings:
 - `PICLAW_WEB_PORT` (default `8080`)
 - `PICLAW_WEB_HOST` (default `0.0.0.0`)
 - `PICLAW_WEB_IDLE_TIMEOUT` (seconds, `0` disables)
+- `PICLAW_WEB_TLS_CERT` (path to TLS certificate; enables HTTPS)
+- `PICLAW_WEB_TLS_KEY` (path to TLS private key; enables HTTPS)
+  - If both are omitted but `.piclaw/certs/sandbox.local.crt` and `.piclaw/certs/sandbox.local.key` exist, HTTPS is enabled automatically.
 - `PICLAW_WEB_MAX_CONTENT_CHARS` (default `262144` / 256 KB; oversized messages are truncated with metadata)
 
-CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`.
+CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`, `--tls-cert`, `--tls-key`.
 
 ## Volumes & Persistence
 

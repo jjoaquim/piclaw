@@ -1,14 +1,74 @@
+import { extname, resolve } from "path";
 import type { WebChannel } from "../web.js";
+
+const STATIC_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "web", "static");
+const STATIC_MIME_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".json": "application/manifest+json; charset=utf-8",
+};
 
 export class RequestRouterService {
   constructor(private channel: WebChannel) {}
+
+  private async serveStaticAsset(req: Request, relPath: string, label: string): Promise<Response> {
+    const filePath = resolve(STATIC_DIR, relPath);
+    const userAgent = req.headers.get("user-agent") || "unknown";
+
+    if (!filePath.startsWith(STATIC_DIR)) {
+      console.log(`[web] ${label} ${req.method} ${req.url} status=404 ua=${userAgent}`);
+      return this.channel.json({ error: "Not found" }, 404);
+    }
+
+    const file = Bun.file(filePath);
+    if (!(await file.exists())) {
+      console.log(`[web] ${label} ${req.method} ${req.url} status=404 ua=${userAgent}`);
+      return this.channel.json({ error: "Not found" }, 404);
+    }
+
+    const size = file.size ?? 0;
+    const contentType = STATIC_MIME_TYPES[extname(filePath)] || "application/octet-stream";
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Length": String(size),
+      "Cache-Control": "no-store",
+    };
+
+    console.log(`[web] ${label} ${req.method} ${req.url} status=200 size=${size} ua=${userAgent}`);
+
+    if (req.method === "HEAD") {
+      return new Response(null, { status: 200, headers });
+    }
+
+    return new Response(file, { status: 200, headers });
+  }
 
   async handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const pathname = url.pathname;
 
-    if (req.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
+    const isGetOrHead = req.method === "GET" || req.method === "HEAD";
+
+    if (isGetOrHead && (pathname === "/" || pathname === "/index.html")) {
       return this.channel.serveStatic("index.html");
+    }
+
+    if (isGetOrHead && pathname === "/manifest.json") {
+      return this.serveStaticAsset(req, "manifest.json", "manifest");
+    }
+
+    if (isGetOrHead && pathname === "/favicon.ico") {
+      return this.serveStaticAsset(req, "favicon.ico", "icon");
+    }
+
+    if (isGetOrHead && (
+      pathname === "/apple-touch-icon.png"
+      || pathname === "/apple-touch-icon-precomposed.png"
+      || pathname === "/apple-touch-icon-180x180.png"
+      || pathname === "/apple-touch-icon-167x167.png"
+      || pathname === "/apple-touch-icon-152x152.png"
+    )) {
+      return this.serveStaticAsset(req, pathname.slice(1), "icon");
     }
 
     if (pathname.startsWith("/static/")) {

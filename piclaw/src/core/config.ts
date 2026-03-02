@@ -1,4 +1,5 @@
 import { resolve } from "path";
+import { existsSync } from "fs";
 import { readEnvFile } from "./env.js";
 import { readJsonConfig } from "./config-store.js";
 
@@ -11,6 +12,8 @@ const envConfig = readEnvFile([
   "PUSHOVER_PRIORITY",
   "PUSHOVER_SOUND",
   "WHATSAPP_PHONE",
+  "PICLAW_WEB_TLS_CERT",
+  "PICLAW_WEB_TLS_KEY",
 ]);
 
 function pickString(config: Record<string, unknown>, keys: string[]): string | undefined {
@@ -41,6 +44,10 @@ export const SCHEDULER_POLL_INTERVAL = 60000;
 export const WORKSPACE_DIR = resolve(process.env.PICLAW_WORKSPACE || "/workspace");
 export const STORE_DIR = resolve(process.env.PICLAW_STORE || `${WORKSPACE_DIR}/.piclaw/store`);
 export const DATA_DIR = resolve(process.env.PICLAW_DATA || `${WORKSPACE_DIR}/.piclaw/data`);
+
+const DEFAULT_TLS_CERT_PATH = resolve(WORKSPACE_DIR, ".piclaw", "certs", "sandbox.local.crt");
+const DEFAULT_TLS_KEY_PATH = resolve(WORKSPACE_DIR, ".piclaw", "certs", "sandbox.local.key");
+const HAS_DEFAULT_TLS = existsSync(DEFAULT_TLS_CERT_PATH) && existsSync(DEFAULT_TLS_KEY_PATH);
 
 export const PICLAW_CONFIG_PATH = resolve(WORKSPACE_DIR, ".piclaw", "config.json");
 const piclawConfig = readJsonConfig(PICLAW_CONFIG_PATH);
@@ -112,10 +119,22 @@ const CLI_WEB_PORT = readCliArg("--port", "-p");
 const CLI_WEB_HOST = readCliArg("--host");
 const ENV_WEB_IDLE_TIMEOUT = parseInt(process.env.PICLAW_WEB_IDLE_TIMEOUT || "0", 10);
 const CLI_WEB_IDLE_TIMEOUT = readCliArg("--idle-timeout");
+const CLI_WEB_TLS_CERT = readCliArg("--tls-cert");
+const CLI_WEB_TLS_KEY = readCliArg("--tls-key");
 
 export const WEB_PORT = parsePort(CLI_WEB_PORT, ENV_WEB_PORT);
 export const WEB_HOST = CLI_WEB_HOST || process.env.PICLAW_WEB_HOST || "0.0.0.0";
 export const WEB_IDLE_TIMEOUT = parsePort(CLI_WEB_IDLE_TIMEOUT, ENV_WEB_IDLE_TIMEOUT);
+export const WEB_TLS_CERT =
+  CLI_WEB_TLS_CERT ||
+  process.env.PICLAW_WEB_TLS_CERT ||
+  envConfig.PICLAW_WEB_TLS_CERT ||
+  (HAS_DEFAULT_TLS ? DEFAULT_TLS_CERT_PATH : "");
+export const WEB_TLS_KEY =
+  CLI_WEB_TLS_KEY ||
+  process.env.PICLAW_WEB_TLS_KEY ||
+  envConfig.PICLAW_WEB_TLS_KEY ||
+  (HAS_DEFAULT_TLS ? DEFAULT_TLS_KEY_PATH : "");
 
 export const SESSIONS_DIR = resolve(DATA_DIR, "sessions");
 

@@ -20,7 +20,9 @@ export async function serveStatic(relPath, notFound) {
     const file = Bun.file(filePath);
     if (!(await file.exists()))
         return notFound();
-    const contentType = MIME_TYPES[extname(filePath)] || "application/octet-stream";
+    const contentType = relPath.endsWith("manifest.json")
+        ? "application/manifest+json; charset=utf-8"
+        : MIME_TYPES[extname(filePath)] || "application/octet-stream";
     return new Response(file, {
         headers: {
             "Content-Type": contentType,

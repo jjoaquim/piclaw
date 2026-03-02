@@ -1,5 +1,5 @@
 import { initTheme } from "@mariozechner/pi-coding-agent";
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT } from "../core/config.js";
+import { ASSISTANT_AVATAR, ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY } from "../core/config.js";
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
 import { handleWorkspaceAttach, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, startWorkspaceWatcher } from "./web/handlers/workspace.js";
 import { SseHub } from "./web/sse-hub.js";
@@ -43,14 +43,17 @@ export class WebChannel {
             initTheme();
         }
         catch { }
+        const tls = await this.loadTlsOptions();
         this.server = Bun.serve({
             hostname: WEB_HOST,
             port: WEB_PORT,
             idleTimeout: WEB_IDLE_TIMEOUT,
             fetch: (req) => this.handleRequest(req),
+            ...(tls ? { tls } : {}),
         });
         this.workspaceWatcher = startWorkspaceWatcher(this);
-        console.log(`[web] UI listening on http://${WEB_HOST}:${WEB_PORT}`);
+        const scheme = tls ? "https" : "http";
+        console.log(`[web] UI listening on ${scheme}://${WEB_HOST}:${WEB_PORT}`);
     }
     async stop() {
         this.sse.closeAll();
@@ -138,6 +141,21 @@ export class WebChannel {
         const entries = Array.from(map.entries()).sort((a, b) => a[1].updatedAt - b[1].updatedAt);
         for (let i = 0; i < entries.length - limit; i += 1) {
             map.delete(entries[i][0]);
+        }
+    }
+    async loadTlsOptions() {
+        if (!WEB_TLS_CERT || !WEB_TLS_KEY)
+            return null;
+        try {
+            const [cert, key] = await Promise.all([
+                Bun.file(WEB_TLS_CERT).text(),
+                Bun.file(WEB_TLS_KEY).text(),
+            ]);
+            return { cert, key };
+        }
+        catch (error) {
+            console.error("[web] Failed to load TLS cert/key:", error);
+            return null;
         }
     }
     async handleRequest(req) {

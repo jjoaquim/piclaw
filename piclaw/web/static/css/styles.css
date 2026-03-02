@@ -567,14 +567,14 @@ body {
     position: absolute;
     bottom: 2px;
     left: 2px;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-secondary);
     opacity: 0.45;
     pointer-events: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 60%;
+    max-width: 70%;
     line-height: 1;
     font-family: var(--font-mono, monospace);
     letter-spacing: 0.01em;
@@ -583,11 +583,18 @@ body {
 .compose-actions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: calc(var(--spacing-xs) - 2px);
+    margin-right: -2px;
+    margin-bottom: -2px;
 }
 
 .compose-actions.search-mode {
-    gap: var(--spacing-sm);
+    gap: calc(var(--spacing-sm) - 2px);
+}
+
+.compose-actions .icon-btn svg {
+    width: 16px;
+    height: 16px;
 }
 
 .compose-actions.search-mode .icon-btn {
@@ -612,6 +619,26 @@ body {
 
 .icon-btn svg {
     display: block;
+}
+
+.notification-btn.active {
+    color: var(--success-color);
+}
+
+.notification-btn.denied {
+    color: var(--danger-color);
+}
+
+.notification-btn.denied:hover {
+    background: transparent;
+}
+
+.notification-btn.unavailable {
+    color: var(--text-secondary);
+}
+
+.notification-btn.unavailable:hover {
+    background: transparent;
 }
 
 .icon-btn:disabled {

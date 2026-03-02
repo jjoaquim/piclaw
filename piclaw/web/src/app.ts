@@ -71,6 +71,10 @@ function updateThemeColor(dark) {
     if (meta) {
         meta.setAttribute('content', color);
     }
+    const statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (statusMeta) {
+        statusMeta.setAttribute('content', dark ? 'black' : 'default');
+    }
 }
 
 const dedupePosts = (items) => {
@@ -109,7 +113,10 @@ function App() {
     const [currentTurnId, setCurrentTurnId] = useState(null);
     const [agents, setAgents] = useState({});
     const [activeModel, setActiveModel] = useState(null);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [notificationPermission, setNotificationPermission] = useState('default');
     const hasConnectedOnceRef = useRef(false);
+    const agentsRef = useRef({});
     const viewStateRef = useRef({ currentHashtag: null, searchQuery: null });
     const hasMoreRef = useRef(false);
     const loadMoreRef = useRef(null);
@@ -126,9 +133,47 @@ function App() {
     const sidebarWidthRef = useRef(0);
     const thoughtExpandedRef = useRef(false);
     const draftExpandedRef = useRef(false);
+    const notificationsEnabledRef = useRef(false);
+    const lastNotifiedIdRef = useRef(null);
+    const lastAgentResponseRef = useRef(null);
 
     // Refresh timestamps every 30 seconds
     useTimestampRefresh(30000);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const stored = localStorage.getItem('notificationsEnabled');
+        const enabled = stored === 'true';
+        notificationsEnabledRef.current = enabled;
+        setNotificationsEnabled(enabled);
+        if (typeof Notification !== 'undefined') {
+            setNotificationPermission(Notification.permission);
+        }
+
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        const applyTheme = () => updateThemeColor(media.matches);
+        applyTheme();
+        if (media.addEventListener) {
+            media.addEventListener('change', applyTheme);
+        } else if (media.addListener) {
+            media.addListener(applyTheme);
+        }
+        return () => {
+            if (media.removeEventListener) {
+                media.removeEventListener('change', applyTheme);
+            } else if (media.removeListener) {
+                media.removeListener(applyTheme);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        notificationsEnabledRef.current = notificationsEnabled;
+    }, [notificationsEnabled]);
+
+    useEffect(() => {
+        agentsRef.current = agents || {};
+    }, [agents]);
 
     const addFileRef = useCallback((path) => {
         if (!path) return;
@@ -161,6 +206,7 @@ function App() {
         draftBufferRef.current = '';
         thoughtBufferRef.current = '';
         pendingRequestRef.current = null;
+        lastAgentResponseRef.current = null;
         currentTurnIdRef.current = null;
         setCurrentTurnId(null);
         thoughtExpandedRef.current = false;
@@ -179,9 +225,85 @@ function App() {
         setAgentThought({ text: '', totalLines: 0 });
         setPendingRequest(null);
         pendingRequestRef.current = null;
+        lastAgentResponseRef.current = null;
         thoughtExpandedRef.current = false;
         draftExpandedRef.current = false;
     }, [setCurrentTurnId]);
+
+    const requestNotificationPermission = useCallback(() => {
+        if (typeof Notification === 'undefined') return Promise.resolve('denied');
+        try {
+            const result = Notification.requestPermission();
+            if (result && typeof result.then === 'function') {
+                return result;
+            }
+            return Promise.resolve(result);
+        } catch {
+            return Promise.resolve('default');
+        }
+    }, []);
+
+    const handleToggleNotifications = useCallback(async () => {
+        if (typeof window === 'undefined' || typeof Notification === 'undefined') return;
+        if (!window.isSecureContext) {
+            alert('Notifications require a secure context (HTTPS or installed app).');
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            setNotificationPermission('denied');
+            alert('Browser notifications are blocked. Enable them in your browser settings.');
+            return;
+        }
+        if (Notification.permission === 'default') {
+            const result = await requestNotificationPermission();
+            setNotificationPermission(result || 'default');
+            if (result !== 'granted') {
+                notificationsEnabledRef.current = false;
+                setNotificationsEnabled(false);
+                localStorage.setItem('notificationsEnabled', 'false');
+                return;
+            }
+        }
+        const next = !notificationsEnabledRef.current;
+        notificationsEnabledRef.current = next;
+        setNotificationsEnabled(next);
+        localStorage.setItem('notificationsEnabled', String(next));
+    }, [requestNotificationPermission]);
+
+    const notifyForFinalResponse = useCallback((turnId) => {
+        if (!notificationsEnabledRef.current) return;
+        if (typeof Notification === 'undefined') return;
+        if (Notification.permission !== 'granted') return;
+        if (typeof document !== 'undefined') {
+            const hasFocus = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+            if (!document.hidden && hasFocus) return;
+        }
+        const entry = lastAgentResponseRef.current;
+        if (!entry || !entry.post) return;
+        if (turnId && entry.turnId && entry.turnId !== turnId) return;
+        const post = entry.post;
+        if (post.id && lastNotifiedIdRef.current === post.id) return;
+        const content = String(post?.data?.content || '').trim();
+        if (!content) return;
+        lastNotifiedIdRef.current = post.id || lastNotifiedIdRef.current;
+        lastAgentResponseRef.current = null;
+        const body = content.replace(/\s+/g, ' ').slice(0, 200);
+        const agentsMap = agentsRef.current || {};
+        const agent = post?.data?.agent_id ? agentsMap[post.data.agent_id] : null;
+        const title = agent?.name || 'Pi';
+        try {
+            const notification = new Notification(title, { body });
+            notification.onclick = () => {
+                try {
+                    window.focus();
+                } catch {
+                    // ignore focus errors
+                }
+            };
+        } catch {
+            // ignore notification failures
+        }
+    }, []);
 
     const handlePanelToggle = useCallback(async (panelKey, expanded) => {
         if (panelKey !== 'thought' && panelKey !== 'draft') return;
@@ -269,6 +391,7 @@ function App() {
         setAgentThought({ text: '', totalLines: 0 });
         setPendingRequest(null);
         pendingRequestRef.current = null;
+        lastAgentResponseRef.current = null;
 
         if (!partial) {
             setAgentStatus({ type: 'error', title: 'Response stalled — No content received' });
@@ -539,8 +662,10 @@ function App() {
                 const normalizedAvatar = typeof nextAvatar === 'string' ? nextAvatar.trim() : null;
                 const currentAvatar = current.avatar_url ?? current.avatarUrl ?? current.avatar;
                 const normalizedCurrent = typeof currentAvatar === 'string' ? currentAvatar.trim() : null;
-                if (normalizedAvatar !== normalizedCurrent) {
-                    updated.avatar_url = normalizedAvatar || null;
+                const nextValue = normalizedAvatar || null;
+                const currentValue = normalizedCurrent || null;
+                if (nextValue !== currentValue) {
+                    updated.avatar_url = nextValue;
                     changed = true;
                 }
             }
@@ -572,6 +697,9 @@ function App() {
             if (data.type === 'done' || data.type === 'error') {
                 if (turnId && currentTurnIdRef.current && turnId !== currentTurnIdRef.current) {
                     return;
+                }
+                if (data.type === 'done') {
+                    notifyForFinalResponse(turnId || currentTurnIdRef.current);
                 }
                 clearAgentRunState();
                 setAgentStatus(null);
@@ -723,6 +851,10 @@ function App() {
         const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current;
         if (eventType === 'agent_response') {
             removeStalledPost();
+            lastAgentResponseRef.current = {
+                post: data,
+                turnId: currentTurnIdRef.current,
+            };
         }
         if (!activeHashtag && !activeSearch && (eventType === 'new_post' || eventType === 'agent_response')) {
             setPosts(prev => {
@@ -746,7 +878,7 @@ function App() {
                 }
             }
         }
-    }, [clearAgentRunState, noteAgentActivity, removeStalledPost, setActiveTurn, updateAgentProfile]);
+    }, [clearAgentRunState, noteAgentActivity, notifyForFinalResponse, removeStalledPost, setActiveTurn, updateAgentProfile]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -903,6 +1035,9 @@ function App() {
                     onRemoveFileRef=${removeFileRef}
                     onClearFileRefs=${clearFileRefs}
                     activeModel=${activeModel}
+                    notificationsEnabled=${notificationsEnabled}
+                    notificationPermission=${notificationPermission}
+                    onToggleNotifications=${handleToggleNotifications}
                 />
                 <${ConnectionStatus} status=${connectionStatus} />
                 <${AgentRequestModal}

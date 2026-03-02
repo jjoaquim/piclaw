@@ -6,8 +6,28 @@ export class RequestRouterService {
     async handle(req) {
         const url = new URL(req.url);
         const pathname = url.pathname;
-        if (req.method === "GET" && (pathname === "/" || pathname === "/index.html")) {
+        const isGetOrHead = req.method === "GET" || req.method === "HEAD";
+        if (isGetOrHead && (pathname === "/" || pathname === "/index.html")) {
             return this.channel.serveStatic("index.html");
+        }
+        if (isGetOrHead && pathname === "/manifest.json") {
+            const userAgent = req.headers.get("user-agent") || "unknown";
+            console.log(`[web] manifest request ${req.url} ua=${userAgent}`);
+            return this.channel.serveStatic("manifest.json");
+        }
+        if (isGetOrHead && pathname === "/favicon.ico") {
+            const userAgent = req.headers.get("user-agent") || "unknown";
+            console.log(`[web] icon request ${req.url} ua=${userAgent}`);
+            return this.channel.serveStatic("favicon.ico");
+        }
+        if (isGetOrHead && (pathname === "/apple-touch-icon.png"
+            || pathname === "/apple-touch-icon-precomposed.png"
+            || pathname === "/apple-touch-icon-180x180.png"
+            || pathname === "/apple-touch-icon-167x167.png"
+            || pathname === "/apple-touch-icon-152x152.png")) {
+            const userAgent = req.headers.get("user-agent") || "unknown";
+            console.log(`[web] icon request ${req.url} ua=${userAgent}`);
+            return this.channel.serveStatic(pathname.slice(1));
         }
         if (pathname.startsWith("/static/")) {
             const rel = pathname.replace("/static/", "");
