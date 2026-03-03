@@ -18,6 +18,8 @@
 | `token_usage` | Per‑assistant‑message token + cost usage |
 | `tool_outputs` | Stored tool output summaries |
 | `tool_outputs_fts` | Full‑text index for tool output |
+| `workspace_files` | Indexed workspace files (path, size, mtime) |
+| `workspace_fts` | Full‑text index for workspace content |
 | `router_state` | Polling cursors |
 | `keychain_entries` | Encrypted secrets for tool env injection |
 
@@ -34,6 +36,7 @@ erDiagram
   SCHEDULED_TASKS ||--o{ TASK_RUN_LOGS : logs
   MESSAGES ||--|| MESSAGES_FTS : indexes
   TOOL_OUTPUTS ||--|| TOOL_OUTPUTS_FTS : indexes
+  WORKSPACE_FILES ||--|| WORKSPACE_FTS : indexes
 
   CHATS {
     text jid
@@ -127,6 +130,18 @@ erDiagram
     text content
     text output_id
   }
+  WORKSPACE_FILES {
+    text path
+    int mtime_ms
+    int size_bytes
+    text indexed_at
+  }
+  WORKSPACE_FTS {
+    text content
+    text path
+    int mtime_ms
+    int size_bytes
+  }
   ROUTER_STATE {
     text key
     text value
@@ -167,7 +182,7 @@ erDiagram
 - `tool_outputs(created_at)` for recent tool output
 - `media(created_at)` for attachment timelines
 - `message_media(message_rowid)` and `message_media(media_id)` for joins
-- `messages_fts` and `tool_outputs_fts` for full-text search
+- `messages_fts`, `tool_outputs_fts`, and `workspace_fts` for full-text search
 - `keychain_entries(type)` for keychain lookups
 
 ## Data paths

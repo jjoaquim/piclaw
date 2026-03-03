@@ -41,7 +41,7 @@ piclaw/src/
 ├── agent-pool.ts            # AgentSession pool
 ├── agent-pool/              # Session helpers
 ├── agent-control/           # Slash command handling
-├── extensions/              # Inline extension factories (attach_file, search_messages, model tools)
+├── extensions/              # Inline extension factories (attach_file, search_messages, search_workspace, model tools)
 ├── channels/                # WhatsApp + Web channels
 │   └── web/handlers/        # HTTP handlers (agent, posts, media, workspace)
 ├── tools/                   # Bash tracking + optional context wrappers
@@ -52,12 +52,13 @@ piclaw/src/
 
 ## Extensions
 
-All `piclaw` extensions are shipped as **inline extension factories** — they are compiled into the package and registered via `extensionFactories` on the resource loader. No external files are loaded. The four built-in factories are:
+All `piclaw` extensions are shipped as **inline extension factories** — they are compiled into the package and registered via `extensionFactories` on the resource loader. No external files are loaded. The five built-in factories are:
 
 | Factory | Tools / Commands |
 |---------|-----------------|
 | `fileAttachments` | `attach_file` |
 | `messageSearch` | `search_messages` |
+| `workspaceSearch` | `search_workspace` |
 | `modelControl` | `get_model_state`, `list_models`, `switch_model`, `switch_thinking` |
 | `scheduledTasks` | `/tasks`, `/scheduled` slash commands |
 

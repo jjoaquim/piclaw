@@ -15,12 +15,24 @@ Core tools (from `pi`):
 
 - `attach_file` — attach a workspace file for download in the web UI (cards appear automatically; use `attachment:<filename>` only for inline embeds)
 - `search_messages` — full‑text search across stored messages (FTS + hashtags + row lookup)
+- `search_workspace` — full‑text search across notes + skills (FTS, with aggressive cleanup and size limits)
 - `get_model_state` — show current model, thinking level, and context usage
 - `list_models` — list available models/providers
 - `switch_model` — switch to a different model
 - `switch_thinking` — change thinking level (off → xhigh)
 
 `search_messages` accepts `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
+
+`search_workspace` accepts:
+- `query` — FTS query text
+- `scope` — `notes`, `skills`, or `all` (default)
+- `limit`, `offset`
+- `refresh` — re-index notes/skills before searching (default `true`)
+- `max_kb` — max file size to index (default 512KB, clamped 16–2048KB)
+
+The workspace index is **aggressively cleaned** on each refresh:
+- deleted files are removed from the index
+- oversized files are dropped immediately
 
 ## Skills
 
