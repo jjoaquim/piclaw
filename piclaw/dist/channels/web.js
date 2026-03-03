@@ -106,10 +106,16 @@ export class WebChannel {
     updateAgentStatus(chatJid, status) {
         const type = status?.type;
         if (type === "done" || type === "error") {
-            this.activeAgentStatuses.delete(chatJid);
+            const removed = this.activeAgentStatuses.delete(chatJid);
+            if (removed) {
+                this.state.setAgentStatus(chatJid, null);
+                this.saveState();
+            }
             return;
         }
         this.activeAgentStatuses.set(chatJid, status);
+        this.state.setAgentStatus(chatJid, status);
+        this.saveState();
     }
     getAgentStatus(chatJid) {
         return this.activeAgentStatuses.get(chatJid) ?? null;
@@ -158,6 +164,8 @@ export class WebChannel {
     }
     loadState() {
         this.state.load();
+        const restored = this.state.getAgentStatuses();
+        this.activeAgentStatuses = new Map(Object.entries(restored));
     }
     saveState() {
         this.state.save();

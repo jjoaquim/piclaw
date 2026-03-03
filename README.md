@@ -102,6 +102,26 @@ Web server settings:
 
 CLI overrides are also available: `piclaw --port`, `--host`, `--idle-timeout`, `--tls-cert`, `--tls-key`.
 
+### Web UI authentication (TOTP)
+
+You can gate the entire web UI behind a 6-digit TOTP challenge. Static assets needed by iOS/Android webapps (manifest, icons, avatars, `/static/*`) remain public so homescreen shortcuts keep working.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PICLAW_WEB_TOTP_SECRET` | _(empty)_ | Base32 TOTP secret. When set, `/login` requires a 6-digit code before issuing a `piclaw_session` cookie. Leave unset to keep the UI open. |
+| `PICLAW_WEB_TOTP_WINDOW` | `1` | TOTP step skew (number of 30s windows to accept on either side). |
+| `PICLAW_WEB_SESSION_TTL` | `604800` (7 days) | Session cookie lifetime in seconds. |
+| `PICLAW_WEB_INTERNAL_SECRET` / `PICLAW_INTERNAL_SECRET` | _(empty)_ | Optional shared secret for unattended POST/PATCH calls to `/internal/post`; required when TOTP is enabled and you want automations to keep posting. |
+
+Flow:
+
+1. Set `PICLAW_WEB_TOTP_SECRET` to a base32 string (e.g., output of `oathtool --totp -b`).
+2. Restart piclaw. Visiting the UI now redirects to `/login`.
+3. Enter the 6-digit code from your authenticator app to receive an HTTP-only `piclaw_session` cookie.
+4. Sessions expire automatically after `PICLAW_WEB_SESSION_TTL` seconds or when you delete the cookie.
+
+Internal automation still works via `/internal/post` as long as the client supplies the `PICLAW_WEB_INTERNAL_SECRET` header.
+
 ## Volumes & Persistence
 
 Everything that should survive container recreation lives on two volumes:

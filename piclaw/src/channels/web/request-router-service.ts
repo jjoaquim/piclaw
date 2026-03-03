@@ -57,6 +57,7 @@ export class RequestRouterService {
     const isAuthVerify = req.method === "POST" && pathname === "/auth/verify";
     const isInternalPost = req.method === "POST" && pathname === "/internal/post";
     const isInternalPatch = req.method === "PATCH" && pathname.startsWith("/post/");
+    const hasInternalAccess = internalSecretEnabled && this.channel.verifyInternalSecret(req);
     const isIndex = isGetOrHead && (pathname === "/" || pathname === "/index.html");
     const isManifest = isGetOrHead && pathname === "/manifest.json";
     const isFavicon = isGetOrHead && pathname === "/favicon.ico";
@@ -66,7 +67,7 @@ export class RequestRouterService {
     const isAvatar = isGetOrHead && pathname === "/avatar/agent";
 
     if (internalSecretEnabled && (isInternalPost || isInternalPatch)) {
-      if (!this.channel.verifyInternalSecret(req)) {
+      if (!hasInternalAccess) {
         return this.channel.json({ error: "Unauthorized" }, 401);
       }
     }
@@ -76,7 +77,15 @@ export class RequestRouterService {
     }
 
     const skipAuthCheck =
-      isLoginPage || isAuthVerify || isManifest || isFavicon || isAppleIcon || isStaticAsset || isDocsAsset || isAvatar;
+      hasInternalAccess ||
+      isLoginPage ||
+      isAuthVerify ||
+      isManifest ||
+      isFavicon ||
+      isAppleIcon ||
+      isStaticAsset ||
+      isDocsAsset ||
+      isAvatar;
 
     if (authEnabled) {
       if (isAuthVerify) {
@@ -85,7 +94,7 @@ export class RequestRouterService {
       if (isLoginPage) {
         return this.channel.serveLoginPage();
       }
-      if (!skipAuthCheck && !this.channel.isAuthenticated(req) && !isInternalPost && !isInternalPatch) {
+      if (!skipAuthCheck && !hasInternalAccess && !this.channel.isAuthenticated(req) && !isInternalPost && !isInternalPatch) {
         if (isIndex) {
           return this.channel.serveLoginPage();
         }

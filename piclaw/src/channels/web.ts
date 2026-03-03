@@ -173,10 +173,16 @@ export class WebChannel {
   updateAgentStatus(chatJid: string, status: Record<string, unknown>): void {
     const type = status?.type;
     if (type === "done" || type === "error") {
-      this.activeAgentStatuses.delete(chatJid);
+      const removed = this.activeAgentStatuses.delete(chatJid);
+      if (removed) {
+        this.state.setAgentStatus(chatJid, null);
+        this.saveState();
+      }
       return;
     }
     this.activeAgentStatuses.set(chatJid, status);
+    this.state.setAgentStatus(chatJid, status);
+    this.saveState();
   }
 
   getAgentStatus(chatJid: string): Record<string, unknown> | null {
@@ -248,6 +254,8 @@ export class WebChannel {
 
   loadState(): void {
     this.state.load();
+    const restored = this.state.getAgentStatuses();
+    this.activeAgentStatuses = new Map(Object.entries(restored));
   }
 
   saveState(): void {

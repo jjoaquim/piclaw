@@ -3,6 +3,7 @@ export class WebChannelState {
     stateKey;
     lastAgentTimestamp = {};
     pendingResumes = {};
+    agentStatuses = {};
     queuedFollowupPlaceholders = new Map();
     constructor(stateKey) {
         this.stateKey = stateKey;
@@ -19,25 +20,32 @@ export class WebChannelState {
                 this.pendingResumes = record.pendingResumes && typeof record.pendingResumes === "object"
                     ? record.pendingResumes
                     : {};
+                this.agentStatuses = record.agentStatuses && typeof record.agentStatuses === "object"
+                    ? record.agentStatuses
+                    : {};
             }
             else if (parsed && typeof parsed === "object") {
                 this.lastAgentTimestamp = parsed;
                 this.pendingResumes = {};
+                this.agentStatuses = {};
             }
             else {
                 this.lastAgentTimestamp = {};
                 this.pendingResumes = {};
+                this.agentStatuses = {};
             }
         }
         catch {
             this.lastAgentTimestamp = {};
             this.pendingResumes = {};
+            this.agentStatuses = {};
         }
     }
     save() {
         setRouterState(this.stateKey, JSON.stringify({
             lastAgentTimestamp: this.lastAgentTimestamp,
             pendingResumes: this.pendingResumes,
+            agentStatuses: this.agentStatuses,
         }));
     }
     setPendingResume(chatJid, info) {
@@ -51,6 +59,16 @@ export class WebChannelState {
     }
     getPendingResumes() {
         return { ...this.pendingResumes };
+    }
+    setAgentStatus(chatJid, status) {
+        if (!status) {
+            delete this.agentStatuses[chatJid];
+            return;
+        }
+        this.agentStatuses[chatJid] = status;
+    }
+    getAgentStatuses() {
+        return { ...this.agentStatuses };
     }
     enqueueFollowupPlaceholder(chatJid, rowId) {
         const existing = this.queuedFollowupPlaceholders.get(chatJid) ?? [];

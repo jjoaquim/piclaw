@@ -321,3 +321,31 @@ test("processChat advances cursor to pending steering timestamp", async () => {
   await web.processChat("web:default", "default");
   expect(web.state.lastAgentTimestamp["web:default"]).toBe(pendingTs);
 });
+
+test("web channel restores agent status from state", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const webMod = await import("../../../src/channels/web.js");
+  const first = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: { runAgent: async () => ({ status: "success", result: "ok" }) },
+  });
+
+  first.updateAgentStatus("web:default", { type: "auto_compact", title: "Auto-compacting", turn_id: "turn-42" });
+
+  const second = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: { runAgent: async () => ({ status: "success", result: "ok" }) },
+  });
+  second.loadState();
+  const restored = second.getAgentStatus("web:default");
+  expect(restored).not.toBeNull();
+  expect(restored?.turn_id || restored?.turnId).toBe("turn-42");
+});
