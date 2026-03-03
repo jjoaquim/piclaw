@@ -40,21 +40,23 @@ echo "Reload scheduled. Check /tmp/restart-piclaw-force.log for status."
 ## How It Works
 
 The restart script (`restart-piclaw.sh`):
-1. Reads `/tmp/piclaw.pid` to find the currently running piclaw
-2. Sends SIGTERM and waits up to 5s, then SIGKILL if needed
-3. Writes the child piclaw PID to `/tmp/piclaw.pid`
-4. Queues a `resume_pending` IPC task so interrupted turns can resume after restart (best-effort)
-5. Runs as a lightweight supervisor so it can reap child exits and restart if needed
+1. Waits for the current agent turn to finish by polling `/agent/status`
+2. Queues a `resume_pending` IPC task so interrupted turns can resume after restart (best-effort)
+3. Attempts to restart the Supervisor-managed service (`supervisorctl restart ${PICLAW_SUPERVISOR_SERVICE:-piclaw}`). The binary, path, and config can be overridden via `PICLAW_SUPERVISORCTL_BIN`/`PICLAW_SUPERVISORCTL_CONFIG`.
+4. If `supervisorctl` is **not found**, the script falls back to the legacy flow: kill the process (using `/tmp/piclaw.pid`), ensure the port is free, and launch the configured command under the script's tiny supervisor.
+5. If `supervisorctl` **is found** but the restart command fails, the script **aborts** (exit 1) to avoid conflicting with Supervisor's own restart logic.
 
-The supervisor PID is stored in `/tmp/piclaw-supervisor.pid` so the next reload can terminate it cleanly.
+When Supervisor is available the script no longer writes `/tmp/piclaw-supervisor.pid` or runs its own long-lived supervisor loop-those steps still happen in the fallback path for environments without Supervisor.
 
 ## Important Notes
 
-- The script waits (up to 120s) for the active agent turn to finish before killing the old process, then starts the new one under a tiny supervisor.
+- The script waits (up to 120s) for the active agent turn to finish before initiating a restart. When Supervisor is available it delegates to `supervisorctl`; otherwise it kills/launches the process under the tiny supervisor.
 - To debug synchronously, run `restart-piclaw.sh --sync ...` or set `PICLAW_RELOAD_ASYNC=0`.
 - The restart script queues a `resume_pending` IPC task. If the IPC tasks directory cannot be created or a resume task already exists, it logs and continues.
-- The new piclaw starts with `piclaw --port 3000` by default. Pass a custom command after `--`:
+- If `supervisorctl` is available but the restart fails (socket/config/service issues), the script aborts rather than falling back, to avoid fighting Supervisor.
+- The fallback path starts with `piclaw --port 3000` by default. Pass a custom command after `--` (fallback only):
   `restart-piclaw.sh -- piclaw --port 8080`
+- For Supervisor restarts, configure the service itself and optionally set `PICLAW_SUPERVISOR_SERVICE` (service name).
 - WhatsApp session state persists across restarts (stored in SQLite + auth dir).
 - Check `/tmp/restart-piclaw-force.log` if something goes wrong.
 - `bun add -g file:` creates symlinks; the pack+extract approach ensures real file copies.
