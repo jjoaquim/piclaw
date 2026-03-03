@@ -65,7 +65,7 @@ No ## headings. No [links](url). No **double stars**.
 ## Runtime layout
 
 - `/entrypoint.sh` initializes `/home/agent`, syncs `/config`, and then execs `/usr/bin/supervisord -n`, so Supervisor is always PID 1.
-- Supervisor reads `/etc/supervisor/conf.d/*.conf`. `piclaw` is launched via `/usr/local/bin/run-piclaw.sh`, which exports Bun paths, respects `PICLAW_WORKSPACE` (default `/workspace`), and starts the packaged `piclaw` binary.
+- When `/workspace` exists, entrypoint seeds `/workspace/.piclaw/supervisor/` and Supervisor reads `/workspace/.piclaw/supervisor/conf.d/*.conf` (fallback config is `/etc/supervisor/supervisord.conf`). `piclaw` is launched via `/usr/local/bin/run-piclaw.sh`, which exports Bun paths, respects `PICLAW_WORKSPACE` (default `/workspace`), and starts the packaged `piclaw` binary.
 - Bun, `pi`, and `piclaw` live under `/home/agent/.bun`. The `piclaw` CLI in PATH is a wrapper that runs the self-contained install under `/home/agent/.bun/install/global/node_modules/piclaw`, independent of `/workspace/piclaw`.
 - Piclaw logs go to `/var/log/piclaw/piclaw.stdout.log` and `.stderr.log`; Supervisor logs live under `/var/log/supervisor`.
 - `/workspace` is the bind-mounted project root. Persisted state lives under `/workspace/.piclaw` (SQLite, IPC, sessions) and `/workspace/.pi`. Do not delete `/workspace/.piclaw/store/messages.db`.

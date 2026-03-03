@@ -16,7 +16,7 @@ if [ "${PICLAW_AUTOSTART:-1}" != "1" ]; then
   tail -f /dev/null & wait $!
 fi
 
-PORT="${PICLAW_PORT:-3000}"
+PORT="${PICLAW_WEB_PORT:-8080}"
 WORKDIR="${PICLAW_WORKSPACE:-/workspace}"
 PICLAW_BIN="${PICLAW_BIN:-$BUN_INSTALL/bin/piclaw}"
 

@@ -28,7 +28,7 @@ make up
 docker logs -f piclaw
 ```
 
-`supervisord` now acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). Drop additional program files into `/etc/supervisor/conf.d/` (or bake them into the image) to keep other services — e.g., `tailscaled`, cron workers, log forwarders — alive alongside `piclaw`.
+`supervisord` now acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). On first boot, default supervisor config is copied into `/workspace/.piclaw/supervisor/` so it persists on the workspace volume; edits there survive container rebuilds/restarts.
 
 Once piclaw is running, open the web UI at:
 
@@ -193,6 +193,7 @@ WORKSPACE_PATH=/mnt/data/piclaw-workspace docker compose up -d
 | `PICLAW_WORKSPACE` | `/workspace` | Working directory for `pi` + `piclaw` |
 | `PICLAW_STORE` | `/workspace/.piclaw/store` | SQLite database location |
 | `PICLAW_DATA` | `/workspace/.piclaw/data` | Sessions, IPC, chats.json |
+| `SUPERVISOR_CONF` | `/workspace/.piclaw/supervisor/supervisord.conf` (when `/workspace` exists) | Supervisor config path (`/etc/supervisor/supervisord.conf` fallback) |
 
 ### Runtime & UI
 
