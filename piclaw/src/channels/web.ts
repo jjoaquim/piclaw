@@ -42,7 +42,7 @@ import {
   getTimelineResponse,
 } from "./web/timeline-service.js";
 import { getAgentsResponse } from "./web/agents-service.js";
-import { buildAvatarResponse, resolveAvatarUrl } from "./web/avatar-service.js";
+import { buildAvatarResponse, ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 
 const DEFAULT_CHAT_JID = "web:default";
@@ -318,6 +318,61 @@ export class WebChannel {
       userAvatarBackground: USER_AVATAR_BACKGROUND || null,
     });
     return this.json(result.body, result.status);
+  }
+
+  async handleManifest(req: Request): Promise<Response> {
+    const encoder = new TextEncoder();
+    const baseName = ASSISTANT_NAME || "PiClaw";
+    const icons: Array<{ src: string; sizes: string; type: string; purpose?: string }> = [
+      { src: "/static/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/static/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/static/icon-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/static/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ];
+
+    if (ASSISTANT_AVATAR) {
+      try {
+        const meta = await ensureAvatarCache("agent", ASSISTANT_AVATAR);
+        if (meta) {
+          const versionSource = meta.updatedAt || new Date().toISOString();
+          const version = encodeURIComponent(versionSource);
+          icons.unshift({
+            src: `/avatar/agent?v=${version}`,
+            sizes: "any",
+            type: meta.contentType || "image/png",
+            purpose: "any maskable",
+          });
+        }
+      } catch (err) {
+        console.warn("[web] Failed to prepare agent avatar for manifest:", err);
+      }
+    }
+
+    const manifest = {
+      name: baseName,
+      short_name: baseName,
+      description: "Slack-like interface for coding agents",
+      start_url: "/",
+      display: "standalone",
+      display_override: ["window-controls-overlay"],
+      background_color: "#ffffff",
+      theme_color: "#ffffff",
+      color_scheme: "dark light",
+      icons,
+    };
+
+    const body = `${JSON.stringify(manifest, null, 2)}\n`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/manifest+json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Length": String(encoder.encode(body).length),
+    };
+
+    if (req.method === "HEAD") {
+      return new Response(null, { status: 200, headers });
+    }
+
+    return new Response(body, { status: 200, headers });
   }
 
   async handleAvatar(kind: "agent" | "user", req: Request): Promise<Response> {
