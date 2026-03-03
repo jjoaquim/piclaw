@@ -126,7 +126,7 @@ function FileAttachmentCard({ mediaId }) {
 
 // ── WorkspaceExplorer ─────────────────────────────────────────────────────────
 
-export function WorkspaceExplorer({ onFileSelect }) {
+export function WorkspaceExplorer({ onFileSelect, visible = true }) {
     const [tree,          setTree]          = useState(null);
     const [expanded,      setExpanded]      = useState(new Set(['.']));
     const [selectedPath,  setSelectedPath]  = useState(null);
@@ -156,11 +156,13 @@ export function WorkspaceExplorer({ onFileSelect }) {
     const sidebarRef      = useRef(null);
     const previewHeightRef= useRef(0);
     const showHiddenRef   = useRef(showHidden);
+    const visibleRef      = useRef(visible);
 
     // Sync mutable refs each render
     onFileSelectRef.current = onFileSelect;
     useEffect(() => { expandedRef.current = expanded; }, [expanded]);
     useEffect(() => { showHiddenRef.current = showHidden; }, [showHidden]);
+    useEffect(() => { visibleRef.current = visible; }, [visible]);
 
     // ── loadPreview ───────────────────────────────────────────────────────────
     const loadPreview = async (path) => {
@@ -180,6 +182,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
 
     // ── loadTree ──────────────────────────────────────────────────────────────
     const loadTree = async () => {
+        if (!visibleRef.current) return;
         try {
             const data = await getWorkspaceTree('', 4, showHiddenRef.current);
             const sig = treeSignature(data.root, expandedRef.current, showHiddenRef.current);
@@ -254,7 +257,7 @@ export function WorkspaceExplorer({ onFileSelect }) {
     const updateVisibility = useRef(() => {
         if (typeof window === 'undefined') return;
         const media = window.matchMedia('(min-width: 1024px) and (orientation: landscape)');
-        const visible = media.matches && document.visibilityState !== 'hidden';
+        const visible = media.matches && document.visibilityState !== 'hidden' && visibleRef.current;
         setWorkspaceVisibility(visible, showHiddenRef.current).catch(() => {});
     }).current;
 
@@ -268,6 +271,13 @@ export function WorkspaceExplorer({ onFileSelect }) {
             updateVisibility();
         }, 250);
     }).current;
+
+    useEffect(() => {
+        if (visibleRef.current) {
+            loadTreeFnRef.current?.();
+        }
+        scheduleVisibilityUpdate();
+    }, [visible]);
 
     // Mount once; interval always calls the ref, never a stale copy.
     useEffect(() => {

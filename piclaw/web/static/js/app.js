@@ -116,6 +116,11 @@ function App() {
     const [activeModel, setActiveModel] = useState(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
     const [notificationPermission, setNotificationPermission] = useState('default');
+    const [workspaceOpen, setWorkspaceOpen] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        const stored = localStorage.getItem('workspaceOpen');
+        return stored === null ? true : stored === 'true';
+    });
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
     const hasConnectedOnceRef = useRef(false);
     const agentsRef = useRef({});
@@ -175,6 +180,11 @@ function App() {
     useEffect(() => {
         notificationsEnabledRef.current = notificationsEnabled;
     }, [notificationsEnabled]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        localStorage.setItem('workspaceOpen', String(workspaceOpen));
+    }, [workspaceOpen]);
 
     useEffect(() => {
         agentsRef.current = agents || {};
@@ -1098,11 +1108,28 @@ function App() {
         document.addEventListener('touchcancel', onUp);
     }).current;
 
+    const toggleWorkspace = useCallback(() => {
+        setWorkspaceOpen((prev) => !prev);
+    }, []);
+
     const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
 
     return html`
-        <div class="app-shell" ref=${appShellRef}>
-            <${WorkspaceExplorer} onFileSelect=${addFileRef} />
+        <div class=${`app-shell${workspaceOpen ? '' : ' workspace-collapsed'}`} ref=${appShellRef}>
+            <${WorkspaceExplorer} onFileSelect=${addFileRef} visible=${workspaceOpen} />
+            <button
+                class=${`workspace-toggle-tab${workspaceOpen ? ' open' : ' closed'}`}
+                onClick=${toggleWorkspace}
+                title=${workspaceOpen ? 'Hide workspace' : 'Show workspace'}
+                aria-label=${workspaceOpen ? 'Hide workspace' : 'Show workspace'}
+            >
+                <span class="workspace-toggle-tab-content">
+                    <svg class="workspace-toggle-tab-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 3 11 8 6 13" />
+                    </svg>
+                    <span class="workspace-toggle-tab-label">Workspace</span>
+                </span>
+            </button>
             <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown} onTouchStart=${handleSplitterTouchStart}></div>
             <div class="container">
                 ${searchQuery && isIOSDevice() && html`<div class="search-results-spacer"></div>`}
