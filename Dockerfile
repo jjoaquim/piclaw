@@ -7,7 +7,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
-    HOME=/home/agent
+    HOME=/home/agent \
+    HOMEBREW_NO_AUTO_UPDATE=1 \
+    HOMEBREW_NO_INSTALL_CLEANUP=1 \
+    HOMEBREW_BREW_GIT_REMOTE=https://mirrors.edge.kernel.org/homebrew/brew.git \
+    HOMEBREW_CORE_GIT_REMOTE=https://mirrors.edge.kernel.org/homebrew/homebrew-core.git \
+    BREW_GIT_REMOTE=https://mirrors.edge.kernel.org/homebrew/brew.git
 
 WORKDIR /tmp
 
@@ -46,18 +51,34 @@ RUN chmod +x /entrypoint.sh /usr/local/bin/run-piclaw.sh
 # Layer 4: Install Homebrew, Bun, and Pi Coding Agent as agent
 USER agent
 WORKDIR /home/agent
-RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && \
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc && \
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
-    brew update && \
-    brew install lazygit && \
-    curl -fsSL https://bun.sh/install | bash && \
-    export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
-    bun add -g @mariozechner/pi-coding-agent && \
-    PI_CLI="$(readlink -f $BUN_INSTALL/bin/pi)" && \
-    rm "$BUN_INSTALL/bin/pi" && \
-    printf '#!/usr/bin/env bash\nexec bun "%s" "$@"\n' "$PI_CLI" > "$BUN_INSTALL/bin/pi" && \
-    chmod +x "$BUN_INSTALL/bin/pi"
+RUN /bin/bash -lc 'set -euo pipefail
+curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/install-brew.sh
+/bin/bash /tmp/install-brew.sh
+rm /tmp/install-brew.sh
+echo "eval \"$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"" >> ~/.bashrc
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+for attempt in {1..5}; do
+  if brew update; then
+    break
+  fi
+  if [ "$attempt" -eq 5 ]; then
+    exit 1
+  fi
+  sleep $((attempt * 5))
+done
+brew install lazygit
+curl -fsSL https://bun.sh/install | bash
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+bun add -g @mariozechner/pi-coding-agent
+PI_CLI="$(readlink -f "$BUN_INSTALL/bin/pi")"
+rm "$BUN_INSTALL/bin/pi"
+cat <<EOF > "$BUN_INSTALL/bin/pi"
+#!/usr/bin/env bash
+exec bun "$PI_CLI" "\$@"
+EOF
+chmod +x "$BUN_INSTALL/bin/pi"
+'
 
 # Set up pi config directories and global AGENTS.md
 RUN mkdir -p ~/.pi/agent/skills ~/.pi/agent/sessions \
