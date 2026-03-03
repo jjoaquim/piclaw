@@ -57,6 +57,11 @@ for ((i=1;i<=$#;i++)); do
   fi
 done
 
+DATA_DIR="${PICLAW_DATA:-/workspace/.piclaw/data}"
+IPC_MESSAGES_DIR="$DATA_DIR/ipc/messages"
+IPC_TASKS_DIR="$DATA_DIR/ipc/tasks"
+NOTIFY_SENT_FILE="/tmp/piclaw-reload-notified"
+
 COMMAND="$1"
 if ! command -v "$COMMAND" >/dev/null 2>&1; then
   echo "[reload] Command not found: $COMMAND"
@@ -160,13 +165,52 @@ echo $$ > "$SUPERVISOR_PIDFILE"
 
 tidy_lock
 
+notify_ready() {
+  if [ -f "$NOTIFY_SENT_FILE" ]; then
+    return 0
+  fi
+  for _ in $(seq 1 40); do
+    if bash -c ":</dev/tcp/127.0.0.1/$PORT" >/dev/null 2>&1; then
+      mkdir -p "$IPC_MESSAGES_DIR"
+      cat > "$IPC_MESSAGES_DIR/reload_$(date +%s%N).json" <<EOF
+{"type":"message","chatJid":"web:default","text":"Piclaw reload complete."}
+EOF
+      echo "ready" > "$NOTIFY_SENT_FILE"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "[reload] Ready check timed out; skipping reload notification."
+}
+
+queue_resume_pending() {
+  if ! mkdir -p "$IPC_TASKS_DIR" 2>/dev/null; then
+    echo "[reload] Unable to create IPC tasks dir at $IPC_TASKS_DIR; skipping resume queue."
+    return 0
+  fi
+  if ls "$IPC_TASKS_DIR"/resume_pending_*.json >/dev/null 2>&1; then
+    echo "[reload] Resume IPC already queued; skipping."
+    return 0
+  fi
+  cat > "$IPC_TASKS_DIR/resume_pending_$(date +%s%N).json" <<EOF
+{"type":"resume_pending","chatJid":"all","reason":"reload"}
+EOF
+  echo "[reload] Queued resume_pending IPC."
+}
+
+queue_resume_pending
+
 echo "[reload] Starting: $* (supervisor PID $$)"
 ATTEMPT=0
+rm -f "$NOTIFY_SENT_FILE"
 while true; do
   ATTEMPT=$((ATTEMPT + 1))
   "$@" &
   CHILD_PID=$!
   echo "$CHILD_PID" > "$PIDFILE"
+  if [ ! -f "$NOTIFY_SENT_FILE" ]; then
+    notify_ready &
+  fi
   wait "$CHILD_PID"
   STATUS=$?
   CHILD_PID=""

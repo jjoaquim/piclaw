@@ -44,13 +44,15 @@ The restart script (`restart-piclaw.sh`):
 1. Reads `/tmp/piclaw.pid` to find the currently running piclaw
 2. Sends SIGTERM and waits up to 5s, then SIGKILL if needed
 3. Writes the child piclaw PID to `/tmp/piclaw.pid`
-4. Runs as a lightweight supervisor so it can reap child exits and restart if needed
+4. Queues a `resume_pending` IPC task so interrupted turns can resume after restart (best-effort)
+5. Runs as a lightweight supervisor so it can reap child exits and restart if needed
 
 The supervisor PID is stored in `/tmp/piclaw-supervisor.pid` so the next reload can terminate it cleanly.
 
 ## Important Notes
 
 - This kills the running piclaw immediately — the current response may be cut off.
+- The restart script queues a `resume_pending` IPC task. If the IPC tasks directory cannot be created or a resume task already exists, it logs and continues.
 - The new piclaw starts with `piclaw --port 3000` by default. Pass a custom command after `--`:
   `restart-piclaw.sh -- piclaw --port 8080`
 - WhatsApp session state persists across restarts (stored in SQLite + auth dir).
