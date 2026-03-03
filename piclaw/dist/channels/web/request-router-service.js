@@ -65,6 +65,10 @@ export class RequestRouterService {
         if (req.method === "GET" && pathname === "/agents") {
             return await this.channel.handleAgents();
         }
+        if (isGetOrHead && (pathname === "/avatar/agent" || pathname === "/avatar/user")) {
+            const kind = pathname.endsWith("/user") ? "user" : "agent";
+            return await this.channel.handleAvatar(kind, req);
+        }
         if (req.method === "GET" && pathname === "/timeline") {
             const limit = this.channel.clampInt(url.searchParams.get("limit"), 10, 1, 100);
             const before = this.channel.parseOptionalInt(url.searchParams.get("before"));
@@ -79,8 +83,14 @@ export class RequestRouterService {
         if (req.method === "GET" && pathname === "/workspace/raw") {
             return this.channel.handleWorkspaceRaw(req);
         }
+        if (req.method === "GET" && pathname === "/workspace/download") {
+            return this.channel.handleWorkspaceDownload(req);
+        }
         if (req.method === "POST" && pathname === "/workspace/attach") {
             return this.channel.handleWorkspaceAttach(req);
+        }
+        if (req.method === "POST" && pathname === "/workspace/upload") {
+            return this.channel.handleWorkspaceUpload(req);
         }
         if (req.method === "POST" && pathname === "/workspace/visibility") {
             return this.channel.handleWorkspaceVisibility(req);

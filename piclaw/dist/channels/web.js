@@ -1,7 +1,7 @@
 import { initTheme } from "@mariozechner/pi-coding-agent";
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY } from "../core/config.js";
+import { ASSISTANT_AVATAR, ASSISTANT_NAME, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY, } from "../core/config.js";
 import { handleMedia, handleMediaInfo, handleMediaUpload } from "./web/handlers/media.js";
-import { handleWorkspaceAttach, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, startWorkspaceWatcher } from "./web/handlers/workspace.js";
+import { handleWorkspaceAttach, handleWorkspaceDownload, handleWorkspaceFile, handleWorkspaceRaw, handleWorkspaceTree, handleWorkspaceUpload, startWorkspaceWatcher, } from "./web/handlers/workspace.js";
 import { SseHub } from "./web/sse-hub.js";
 import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
@@ -10,6 +10,7 @@ import { WebChannelState } from "./web/channel-state.js";
 import { storeWebMessage } from "./web/message-store.js";
 import { deletePostResponse, getHashtagResponse, getSearchResponse, getThreadResponse, getTimelineResponse, } from "./web/timeline-service.js";
 import { getAgentsResponse } from "./web/agents-service.js";
+import { buildAvatarResponse, resolveAvatarUrl } from "./web/avatar-service.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -70,7 +71,7 @@ export class WebChannel {
     async sendMessage(chatJid, text, threadId) {
         const interaction = this.storeMessage(chatJid, text, true, [], threadId ? { threadId } : undefined);
         if (interaction) {
-            broadcastAgentResponse(this, interaction, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
+            broadcastAgentResponse(this, interaction, ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
         }
     }
     queueFollowupPlaceholder(chatJid, text, threadId) {
@@ -78,7 +79,7 @@ export class WebChannel {
         if (!interaction)
             return null;
         this.state.enqueueFollowupPlaceholder(chatJid, interaction.id);
-        broadcastAgentResponse(this, interaction, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
+        broadcastAgentResponse(this, interaction, ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
         return interaction;
     }
     consumeQueuedFollowupPlaceholder(chatJid) {
@@ -120,7 +121,7 @@ export class WebChannel {
         updated.data.agent_id = DEFAULT_AGENT_ID;
         if (threadId)
             updated.data.thread_id = threadId;
-        broadcastInteractionUpdated(this, updated, ASSISTANT_NAME, ASSISTANT_AVATAR || null);
+        broadcastInteractionUpdated(this, updated, ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
         return updated;
     }
     getThreadRootId(chatJid, messageId) {
@@ -222,9 +223,21 @@ export class WebChannel {
             chatJid: DEFAULT_CHAT_JID,
             agentId: DEFAULT_AGENT_ID,
             agentName: ASSISTANT_NAME,
-            agentAvatar: ASSISTANT_AVATAR || null,
+            agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+            userName: USER_NAME || null,
+            userAvatar: resolveAvatarUrl("user", USER_AVATAR),
+            userAvatarBackground: USER_AVATAR_BACKGROUND || null,
         });
         return this.json(result.body, result.status);
+    }
+    async handleAvatar(kind, req) {
+        const source = kind === "agent" ? ASSISTANT_AVATAR : USER_AVATAR;
+        if (!source)
+            return this.json({ error: "Avatar not found" }, 404);
+        const response = await buildAvatarResponse(kind, source, req);
+        if (response)
+            return response;
+        return this.json({ error: "Avatar not found" }, 404);
     }
     async handleWorkspaceVisibility(req) {
         let data;
@@ -367,6 +380,12 @@ export class WebChannel {
     }
     async handleWorkspaceAttach(req) {
         return handleWorkspaceAttach(this, req);
+    }
+    async handleWorkspaceUpload(req) {
+        return handleWorkspaceUpload(this, req);
+    }
+    async handleWorkspaceDownload(req) {
+        return handleWorkspaceDownload(this, req);
     }
     async serveStatic(relPath) {
         return this.responses.serveStatic(relPath);

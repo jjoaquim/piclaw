@@ -110,6 +110,59 @@ export function updateAssistantConfig(patch) {
         avatar: typeof assistant.assistantAvatar === "string" ? assistant.assistantAvatar : undefined,
     };
 }
+export function updateUserConfig(patch) {
+    const config = readJsonConfig(PICLAW_CONFIG_PATH);
+    const user = config.user && typeof config.user === "object"
+        ? { ...config.user }
+        : {};
+    const nameKeys = ["userName", "user_name", "name", "PICLAW_USER_NAME"];
+    const avatarKeys = ["userAvatar", "user_avatar", "avatar", "PICLAW_USER_AVATAR"];
+    const backgroundKeys = [
+        "userAvatarBackground",
+        "user_avatar_background",
+        "userAvatarBg",
+        "user_avatar_bg",
+        "avatarBackground",
+        "avatar_background",
+        "PICLAW_USER_AVATAR_BACKGROUND",
+    ];
+    const clearKeys = (keys) => {
+        for (const key of keys) {
+            if (key in user)
+                delete user[key];
+        }
+    };
+    if (patch.name !== undefined) {
+        clearKeys(nameKeys);
+        if (patch.name !== null) {
+            user.userName = patch.name;
+        }
+    }
+    if (patch.avatar !== undefined) {
+        clearKeys(avatarKeys);
+        if (patch.avatar !== null) {
+            user.userAvatar = patch.avatar;
+        }
+    }
+    if (patch.avatarBackground !== undefined) {
+        clearKeys(backgroundKeys);
+        if (patch.avatarBackground !== null) {
+            user.userAvatarBackground = patch.avatarBackground;
+        }
+    }
+    if (Object.keys(user).length > 0) {
+        config.user = user;
+    }
+    else {
+        delete config.user;
+    }
+    writeJsonConfig(PICLAW_CONFIG_PATH, config);
+    return {
+        name: typeof user.userName === "string" ? user.userName : undefined,
+        avatar: typeof user.userAvatar === "string" ? user.userAvatar : undefined,
+        avatarBackground: typeof user.userAvatarBackground === "string" ? user.userAvatarBackground : undefined,
+    };
+}
 export async function runPromptAndCapture(session, text) {
     let assistantBuffer = "";
     const customBuffers = [];

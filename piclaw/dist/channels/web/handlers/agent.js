@@ -1,9 +1,10 @@
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, BACKGROUND_AGENT_TIMEOUT, TRIGGER_PATTERN } from "../../../core/config.js";
+import { ASSISTANT_AVATAR, ASSISTANT_NAME, BACKGROUND_AGENT_TIMEOUT, TRIGGER_PATTERN, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
 import { normalizeAgentMessagePayload, parseAgentMessageRequest, storeAgentUserMessage, } from "../agent-message-service.js";
 import { getMessageRowIdById, getMessagesSince } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
 import { createAgentProfileBuilder } from "../agent-utils.js";
+import { resolveAvatarUrl } from "../avatar-service.js";
 import { createAgentEventEmitter, createStreamingEventHandler } from "../agent-events.js";
 import { storeAgentTurn } from "../agent-message-store.js";
 import { resolveThreadId, resolveThreadRootId } from "../threading.js";
@@ -44,6 +45,12 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             else {
                 await channel.sendMessage(chatJid, formatted, interaction.id);
             }
+        }
+        // Broadcast model changes so the UI hint updates immediately
+        const modelCommands = ["model", "thinking", "cycle_model", "cycle_thinking"];
+        if (result.status === "success" && modelCommands.includes(command.type)) {
+            const model = await channel.agentPool.getCurrentModelLabel(chatJid).catch(() => null);
+            channel.broadcastEvent("model_changed", { chat_jid: chatJid, model: model ?? null });
         }
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: result }, 201);
@@ -104,7 +111,7 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
     const DRAFT_PREVIEW_LINES = 8;
     const PREVIEW_MAX_CHARS_PER_LINE = 160;
     const turnId = createUuid("turn");
-    const withAgentProfile = createAgentProfileBuilder(ASSISTANT_NAME, ASSISTANT_AVATAR);
+    const withAgentProfile = createAgentProfileBuilder(ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
     const emitter = createAgentEventEmitter(channel, withAgentProfile);
     const trackedEmitter = {
         ...emitter,

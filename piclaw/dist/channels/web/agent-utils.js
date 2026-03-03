@@ -1,9 +1,12 @@
 import { buildPreviewLines, countSoftLines, splitLines } from "../../utils/preview.js";
-export function createAgentProfileBuilder(agentName, agentAvatar) {
+export function createAgentProfileBuilder(agentName, agentAvatar, userName, userAvatar, userAvatarBackground) {
     return (payload) => ({
         ...payload,
         agent_name: agentName,
         agent_avatar: agentAvatar ?? null,
+        user_name: userName ?? null,
+        user_avatar: userAvatar ?? null,
+        user_avatar_background: userAvatarBackground ?? null,
     });
 }
 export function buildPreview(text, maxLines, maxCharsPerLine) {

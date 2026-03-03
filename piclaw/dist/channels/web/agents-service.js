@@ -14,6 +14,11 @@ export async function getAgentsResponse(agentPool, options) {
                     model: model ?? null,
                 },
             ],
+            user: {
+                name: options.userName || null,
+                avatar_url: options.userAvatar || null,
+                avatar_background: options.userAvatarBackground || null,
+            },
         },
     };
 }
