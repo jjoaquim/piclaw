@@ -1,5 +1,5 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 MARKER_FILE="/home/agent/.container_initialized"
 HOME_DIR="/home/agent"
@@ -85,4 +85,4 @@ if [ ! -f "$SUPERVISOR_CONF" ]; then
     exit 1
 fi
 
-exec /usr/bin/supervisord -c "$SUPERVISOR_CONF"
+exec /usr/bin/supervisord -n -c "$SUPERVISOR_CONF"

@@ -14,7 +14,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HOMEBREW_NO_AUTO_UPDATE=1 \
     HOMEBREW_NO_INSTALL_CLEANUP=1 \
     HOMEBREW_BREW_GIT_REMOTES=${HOMEBREW_BREW_GIT_REMOTES} \
-    HOMEBREW_CORE_GIT_REMOTES=${HOMEBREW_CORE_GIT_REMOTES}
+    HOMEBREW_CORE_GIT_REMOTES=${HOMEBREW_CORE_GIT_REMOTES} \
+    BUN_INSTALL=/home/agent/.bun \
+    PATH=/home/agent/.bun/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 WORKDIR /tmp
 
@@ -111,12 +113,12 @@ export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 bun add -g @mariozechner/pi-coding-agent
 PI_CLI="$(readlink -f "$BUN_INSTALL/bin/pi")"
-rm "$BUN_INSTALL/bin/pi"
-cat <<'WRAPPER' > "$BUN_INSTALL/bin/pi"
-#!/usr/bin/env bash
-exec bun "$PI_CLI" "\$@"
-WRAPPER
-chmod +x "$BUN_INSTALL/bin/pi"
+if [ -n "$PI_CLI" ] && [ -f "$PI_CLI" ]; then
+  if head -n1 "$PI_CLI" | grep -q 'env node'; then
+    sed -i '1s/env node/env bun/' "$PI_CLI"
+  fi
+  chmod +x "$PI_CLI"
+fi
 EOF
 
 # Set up pi config directories and global AGENTS.md
@@ -130,14 +132,37 @@ COPY --chown=agent:agent skel/ /home/agent/workspace-skel/
 COPY --chown=agent:agent piclaw/skills/ /home/agent/.pi/agent/skills/
 
 # Ship piclaw orchestrator and install as global binary
-COPY --chown=agent:agent piclaw/ /home/agent/piclaw/
-RUN export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
-    cd /home/agent/piclaw && bun update && bun install && \
-    cd /tmp && bun add -g --no-save file:/home/agent/piclaw
+COPY --chown=agent:agent piclaw/piclaw/ /home/agent/piclaw/
+RUN set -euo pipefail && \
+    export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && \
+    rm -f /tmp/piclaw-*.tgz && \
+    cd /home/agent/piclaw && bun update && bun install && bun run build && bun run build:web && \
+    bun pm pack --outdir /tmp && \
+    TARBALL=$(ls -t /tmp/piclaw-*.tgz | head -1) && \
+    DEST="$BUN_INSTALL/install/global/node_modules/piclaw" && \
+    rm -rf "$DEST" && mkdir -p "$DEST" && \
+    tar -xzf "$TARBALL" -C "$DEST" --strip-components=1 && \
+    rm -f "$TARBALL" && \
+    cd "$DEST" && bun install --production && \
+    BUN_BIN="$BUN_INSTALL/bin/bun" && \
+    mkdir -p "$BUN_INSTALL/bin" && \
+    cat <<PICLAW_BIN > "$BUN_INSTALL/bin/piclaw" && \
+    chmod +x "$BUN_INSTALL/bin/piclaw"
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$BUN_BIN" "$DEST/src/index.ts" "\$@"
+PICLAW_BIN
 
-# Layer 5: Save skeleton
+# Layer 5: Save skeleton + global shims
 USER root
-RUN cp -a /home/agent/. /etc/skel.agent/ && \
+RUN set -eux; \
+    for bin in bun bunx pi piclaw; do \
+        target="/home/agent/.bun/bin/${bin}"; \
+        if [ -f "${target}" ]; then \
+            ln -sf "${target}" "/usr/local/bin/${bin}"; \
+        fi; \
+    done; \
+    cp -a /home/agent/. /etc/skel.agent/; \
     echo "Skeleton: $(find /etc/skel.agent -type f | wc -l) files"
 
 ENTRYPOINT ["/entrypoint.sh"]

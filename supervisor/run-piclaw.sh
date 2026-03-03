@@ -17,6 +17,14 @@ if [ "${PICLAW_AUTOSTART:-1}" != "1" ]; then
 fi
 
 PORT="${PICLAW_PORT:-3000}"
+WORKDIR="${PICLAW_WORKSPACE:-/workspace}"
+PICLAW_BIN="${PICLAW_BIN:-$BUN_INSTALL/bin/piclaw}"
 
-cd /workspace 2>/dev/null || cd "$HOME"
-exec piclaw --port "$PORT"
+if [ ! -x "$PICLAW_BIN" ]; then
+  echo "[run-piclaw] Unable to find piclaw binary at $PICLAW_BIN" >&2
+  exit 1
+fi
+
+cd "$WORKDIR" 2>/dev/null || cd "$HOME"
+echo "[run-piclaw] Starting piclaw from ${PICLAW_BIN} (port ${PORT}) in $(pwd)"
+exec "$PICLAW_BIN" --port "$PORT"
