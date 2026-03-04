@@ -96,20 +96,23 @@ Ensure ports 80/443 are open and DNS points to the VM.
 - Move SSH to a custom port (e.g. 2211).
 - Disable password login after key auth is working.
 
-## 8) Optional: Azure OpenAI extension
+## 8) Optional: Azure OpenAI + Foundry managed-identity extension
 
-If you want a managed‑identity Azure OpenAI provider:
+If you want managed‑identity Azure OpenAI + Foundry providers:
 
 - Copy `docs/azure/azure-openai-token.ts` to `~/.pi/agent/extensions/azure-openai-token.ts`.
 - Configure:
   - `AOAI_BASE_URL` (Responses API base URL)
-  - `AOAI_MODEL_ID` / `AOAI_MODEL_NAME`
+  - `AOAI_MODEL_ID` / `AOAI_MODEL_NAME` / `AOAI_MODEL_IDS`
   - `AOAI_RESOURCE` (defaults to `https://cognitiveservices.azure.com/`)
+  - `FOUNDRY_BASE_URL` / `FOUNDRY_MODEL_IDS` / `FOUNDRY_MODEL_NAMES` (optional)
+  - `FOUNDRY_RESOURCE` (defaults to `https://cognitiveservices.azure.com/`)
 - Restart Piclaw after installing.
 
-See `docs/azure/azure-openai-extension.md` for design notes.
+The extension uses **custom API names** (`azure-openai-responses-mi`, `azure-foundry-openai-completions-mi`) so it does **not** override global OpenAI handlers. See `docs/azure/azure-openai-extension.md` for design notes and pitfalls.
 
 ## Operational notes
 
 - Prefer `systemctl --user restart piclaw.service` over killing port 3000 directly.
 - Keep `/workspace/.piclaw` on persistent storage if possible.
+- See `docs/azure/azurevm-ops.md` for sanitized ops notes.
