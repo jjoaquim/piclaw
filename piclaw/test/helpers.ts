@@ -1,3 +1,13 @@
+/**
+ * test/helpers.ts – Shared test utilities and fixtures.
+ *
+ * Provides createTempWorkspace() for isolated temp directories,
+ * getTestWorkspace() for a shared workspace across tests, and
+ * setEnv() for temporarily overriding environment variables.
+ *
+ * Imported by nearly every test file as a setup side-effect.
+ */
+
 import { mkdtempSync, rmSync, mkdirSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";

@@ -1,3 +1,10 @@
+/**
+ * test/tools/tool-output.test.ts – Tests for tool output persistence.
+ *
+ * Verifies writeToolOutput() stores files to disk and records metadata
+ * in the database, and that outputs are retrievable by ID.
+ */
+
 import { expect, test, afterEach } from "bun:test";
 import { existsSync } from "fs";
 import { getTestWorkspace, setEnv } from "../helpers.js";

@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-build.test.ts – Build verification tests.
+ *
+ * Confirms that the web/static output directory contains the expected
+ * JS, CSS, and HTML files after a build.
+ */
+
 import { expect, test } from "bun:test";
 import { existsSync } from "fs";
 import { join } from "path";

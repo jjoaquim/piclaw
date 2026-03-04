@@ -1,3 +1,10 @@
+/**
+ * test/runtime/scheduler.test.ts – Tests for the task scheduler.
+ *
+ * Verifies cron-based and one-shot task scheduling, execution timing,
+ * task persistence, and cleanup of completed tasks.
+ */
+
 import { afterEach, expect, test } from "bun:test";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 

@@ -1,3 +1,10 @@
+/**
+ * test/queue/queue.test.ts – Tests for the agent message queue.
+ *
+ * Verifies AgentQueue enqueue/dequeue, ordering, priority, deduplication,
+ * drain behaviour, and concurrent access safety.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

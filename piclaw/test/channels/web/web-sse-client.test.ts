@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-sse-client.test.ts – Tests for the browser-side SSEClient.
+ *
+ * Verifies reconnection scheduling, cooldown enforcement, and
+ * event dispatch in the frontend SSE client class.
+ */
+
 import { expect, test } from "bun:test";
 
 import { SSEClient } from "../../../web/src/api.ts";

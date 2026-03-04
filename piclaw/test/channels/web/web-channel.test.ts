@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-channel.test.ts – Integration tests for WebChannel.
+ *
+ * Tests HTTP server startup, request routing, authentication,
+ * SSE connections, and the full message lifecycle.
+ */
+
 import { expect, test, afterEach } from "bun:test";
 import { createTempWorkspace, setEnv } from "../../helpers.js";
 

@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/ui-context.test.ts – Tests for the extension UI context.
+ *
+ * Verifies UiBridge and UIContext handle confirm/input dialogs, timeouts,
+ * cancellation, and session binding correctly.
+ */
+
 import { describe, test, expect } from "bun:test";
 import { UiBridge } from "../../../src/channels/web/ui-bridge.js";
 import { bindSessionUiContext, createUiContext } from "../../../src/channels/web/ui-context.js";

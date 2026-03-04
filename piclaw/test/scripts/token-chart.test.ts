@@ -1,3 +1,10 @@
+/**
+ * test/scripts/token-chart.test.ts – Tests for token chart data generation.
+ *
+ * Verifies aggregateTokenUsage() produces correct daily buckets, cost
+ * summaries, and chart-ready data from token_usage records.
+ */
+
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";

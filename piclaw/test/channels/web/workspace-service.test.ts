@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/workspace-service.test.ts – Tests for the workspace explorer service.
+ *
+ * Verifies tree cache TTL, update throttling, file read/write, and
+ * directory creation through the WorkspaceService.
+ */
+
 import { afterEach, expect, test } from "bun:test";
 
 import { getTestWorkspace, importFresh, setEnv } from "../../helpers.js";

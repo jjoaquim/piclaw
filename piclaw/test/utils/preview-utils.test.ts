@@ -1,3 +1,10 @@
+/**
+ * test/utils/preview-utils.test.ts – Tests for text preview utilities.
+ *
+ * Verifies buildPreviewLines(), countSoftLines(), splitLines(), and
+ * line truncation behaviour used for agent draft/thought previews.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

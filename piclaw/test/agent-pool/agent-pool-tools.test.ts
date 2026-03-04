@@ -1,3 +1,11 @@
+/**
+ * test/agent-pool/agent-pool-tools.test.ts – Tests for built-in extension tool registration.
+ *
+ * Verifies that builtinExtensionFactories register the expected tools
+ * (attach_file, search_messages, model control, workspace search) and
+ * slash commands (/tasks, /scheduled) on a mock ExtensionAPI.
+ */
+
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { builtinExtensionFactories } from "../../src/extensions/index.js";

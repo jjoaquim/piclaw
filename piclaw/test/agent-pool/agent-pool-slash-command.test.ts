@@ -1,3 +1,10 @@
+/**
+ * test/agent-pool/agent-pool-slash-command.test.ts – Tests for slash command execution.
+ *
+ * Verifies executeSlashCommand() handles /skill, /prompt-template, /help,
+ * and unknown commands correctly via a StubSession.
+ */
+
 import { expect, test } from "bun:test";
 
 import { executeSlashCommand } from "../../src/agent-pool/slash-command.js";

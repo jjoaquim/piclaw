@@ -1,3 +1,10 @@
+/**
+ * test/extensions/extensions-scheduled-tasks.test.ts – Tests for the scheduled-tasks extension.
+ *
+ * Verifies /tasks and /scheduled slash commands list pending and
+ * completed tasks from the database correctly.
+ */
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync } from "fs";
 import { join } from "path";

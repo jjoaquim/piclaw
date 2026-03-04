@@ -1,3 +1,11 @@
+/**
+ * test/agent-pool/usage.test.ts – Tests for token usage recording.
+ *
+ * Verifies recordMessageUsage() correctly extracts token counts,
+ * cache metrics, and cost data from agent message objects and
+ * persists them to the token_usage database table.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

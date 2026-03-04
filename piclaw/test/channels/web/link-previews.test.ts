@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/link-previews.test.ts – Tests for OpenGraph link preview fetching.
+ *
+ * Verifies URL extraction from messages, OG metadata parsing, DNS safety
+ * checks, and link preview storage/broadcast via SSE.
+ */
+
 import { afterEach, expect, test } from "bun:test";
 import { getTestWorkspace, setEnv, waitFor } from "../../helpers.js";
 

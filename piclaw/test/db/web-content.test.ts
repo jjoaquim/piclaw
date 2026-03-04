@@ -1,3 +1,10 @@
+/**
+ * test/db/web-content.test.ts – Tests for web content storage.
+ *
+ * Verifies createWebContent(), getWebContent(), and auto-expiry of
+ * stored web content blobs used by link previews and media.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

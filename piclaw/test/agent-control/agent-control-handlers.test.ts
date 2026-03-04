@@ -1,3 +1,11 @@
+/**
+ * test/agent-control/agent-control-handlers.test.ts – Tests for command handler dispatch.
+ *
+ * Exercises applyControlCommand() with various command types, verifying
+ * correct handler selection, model registry interactions, state changes,
+ * and error/success result formatting.
+ */
+
 import { afterEach, expect, test } from "bun:test";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 

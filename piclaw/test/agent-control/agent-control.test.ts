@@ -1,3 +1,11 @@
+/**
+ * test/agent-control/agent-control.test.ts – Integration tests for the control command pipeline.
+ *
+ * Tests parseControlCommand() → applyControlCommand() end-to-end with a
+ * StubSession, covering model switching, thinking levels, abort, compact,
+ * session management, queue, and steering/followup mode commands.
+ */
+
 import { expect, test } from "bun:test";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import { applyControlCommand, parseControlCommand } from "../../src/agent-control/index.js";

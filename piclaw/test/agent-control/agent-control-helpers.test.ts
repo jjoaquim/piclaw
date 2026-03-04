@@ -1,3 +1,11 @@
+/**
+ * test/agent-control/agent-control-helpers.test.ts – Tests for helper functions.
+ *
+ * Covers formatCompactNumber(), formatCurrency(), formatShellBlock(),
+ * truncateText(), extractTextFromContent(), normalizeModelMatch(),
+ * and runPromptAndCapture().
+ */
+
 import { expect, test } from "bun:test";
 
 import {

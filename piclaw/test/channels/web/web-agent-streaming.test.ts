@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-agent-streaming.test.ts – Tests for agent event streaming over SSE.
+ *
+ * Verifies that agent session events (drafts, thoughts, completions) are
+ * correctly translated into SSE payloads and broadcast to connected clients.
+ */
+
 import { describe, test, expect } from "bun:test";
 import { AgentQueue } from "../../../src/queue.js";
 import { WebChannel } from "../../../src/channels/web.js";

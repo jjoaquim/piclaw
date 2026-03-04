@@ -1,3 +1,10 @@
+/**
+ * test/keychain.test.ts – Tests for the encrypted keychain store.
+ *
+ * Verifies set/get/list/delete operations on the keychain, including
+ * encryption, key derivation, and error handling for missing entries.
+ */
+
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { createTempWorkspace, setEnv, importFresh } from "./helpers.js";
 

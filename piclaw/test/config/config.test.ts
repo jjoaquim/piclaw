@@ -1,3 +1,10 @@
+/**
+ * test/config/config.test.ts – Tests for piclaw config loading and persistence.
+ *
+ * Verifies JSON config file reading/writing, default values, identity
+ * fields (name, avatar), and environment variable overrides.
+ */
+
 import { expect, test, afterEach } from "bun:test";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";

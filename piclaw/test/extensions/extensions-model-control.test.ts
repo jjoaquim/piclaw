@@ -1,3 +1,10 @@
+/**
+ * test/extensions/extensions-model-control.test.ts – Tests for the model-control extension.
+ *
+ * Verifies get_model_state, list_models, switch_model, and switch_thinking
+ * tools against mock sessions and model registries.
+ */
+
 import { describe, expect, test, beforeEach } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { Model } from "@mariozechner/pi-ai";

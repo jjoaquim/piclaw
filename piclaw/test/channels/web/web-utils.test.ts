@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-utils.test.ts – Tests for HTTP utility functions.
+ *
+ * Covers jsonResponse(), parseOptionalInt(), clampInt(), and static
+ * file existence checks.
+ */
+
 import { expect, test } from "bun:test";
 import { existsSync } from "fs";
 import { join } from "path";

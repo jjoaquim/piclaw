@@ -1,3 +1,10 @@
+/**
+ * test/channels/web/web-response-service.test.ts – Tests for ResponseService.
+ *
+ * Verifies JSON response building, static file serving, and
+ * content-type detection.
+ */
+
 import { expect, test } from "bun:test";
 
 import { ResponseService } from "../../../src/channels/web/http/response-service.js";

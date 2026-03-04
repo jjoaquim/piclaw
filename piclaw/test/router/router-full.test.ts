@@ -1,3 +1,10 @@
+/**
+ * test/router/router-full.test.ts – Integration tests for the message router.
+ *
+ * Verifies end-to-end message routing through the WhatsApp and web
+ * channels, including retry logic, channel selection, and error handling.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

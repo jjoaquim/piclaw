@@ -1,3 +1,10 @@
+/**
+ * test/cli-keychain.test.ts – Tests for the CLI keychain sub-command.
+ *
+ * Exercises `piclaw keychain set/get/list/delete` via handleCliOptions()
+ * in a temp workspace, verifying encrypted storage and retrieval.
+ */
+
 import { afterAll, expect, test } from "bun:test";
 import { createTempWorkspace, setEnv, importFresh } from "./helpers.js";
 

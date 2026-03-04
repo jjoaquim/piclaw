@@ -1,3 +1,10 @@
+/**
+ * test/extensions/extensions-workspace-search.test.ts – Tests for the workspace-search extension.
+ *
+ * Verifies search_workspace tool indexes workspace files and returns
+ * matching results with correct scope filtering and pagination.
+ */
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import path from "node:path";

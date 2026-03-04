@@ -1,3 +1,10 @@
+/**
+ * test/agent-control/agent-control-operations.test.ts – Tests for /shell and /bash handlers.
+ *
+ * Verifies shell command execution, output formatting, error handling,
+ * and the distinction between /shell (tracked) and /bash (raw) modes.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

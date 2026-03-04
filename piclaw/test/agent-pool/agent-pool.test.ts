@@ -1,3 +1,10 @@
+/**
+ * test/agent-pool/agent-pool.test.ts – Tests for agent pool initialisation and session management.
+ *
+ * Verifies createAgentPool(), session creation, AGENTS.md loading,
+ * config persistence, and workspace directory setup.
+ */
+
 import { expect, test, afterEach } from "bun:test";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";

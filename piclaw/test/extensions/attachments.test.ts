@@ -1,3 +1,10 @@
+/**
+ * test/extensions/attachments.test.ts – Tests for the file-attachments extension.
+ *
+ * Verifies the attach_file tool creates media entries, handles missing
+ * files, respects size limits, and correctly detects MIME types.
+ */
+
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";

@@ -1,3 +1,10 @@
+/**
+ * test/db/db.test.ts – Tests for database initialisation and core operations.
+ *
+ * Verifies initDatabase(), schema migrations, message CRUD, media storage,
+ * task management, and interaction queries.
+ */
+
 import { beforeAll, expect, test } from "bun:test";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 

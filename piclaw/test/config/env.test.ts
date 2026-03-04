@@ -1,3 +1,10 @@
+/**
+ * test/config/env.test.ts – Tests for environment variable parsing.
+ *
+ * Verifies that core/env.ts correctly reads, validates, and applies
+ * default values for environment-based configuration.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

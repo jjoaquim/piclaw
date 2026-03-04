@@ -1,3 +1,10 @@
+/**
+ * test/agent-control/parser-utils.test.ts – Unit tests for parser utility functions.
+ *
+ * Covers parseToggle(), parseQueueMode(), splitArgs(), parseTreeArgs(),
+ * and stripTrigger() — the low-level helpers used by command-parsers.ts.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

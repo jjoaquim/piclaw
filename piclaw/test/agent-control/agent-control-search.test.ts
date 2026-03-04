@@ -1,3 +1,10 @@
+/**
+ * test/agent-control/agent-control-search.test.ts – Tests for /search-workspace handler.
+ *
+ * Uses a temp workspace with indexed files to verify full-text search
+ * results, scope filtering (notes/skills/all), and pagination.
+ */
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import fs from "node:fs/promises";

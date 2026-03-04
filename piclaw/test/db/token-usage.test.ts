@@ -1,3 +1,10 @@
+/**
+ * test/db/token-usage.test.ts – Tests for token usage tracking.
+ *
+ * Verifies token_usage table operations: recording, querying by time
+ * range, aggregation, and summary formatting.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

@@ -1,3 +1,10 @@
+/**
+ * test/tools/tracked-bash.test.ts – Tests for tracked bash tool operations.
+ *
+ * Verifies createTrackedBashOperations() executes commands, captures
+ * output, respects timeouts, and tracks child processes.
+ */
+
 import { expect, test } from "bun:test";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 import { initDatabase } from "../../src/db.js";

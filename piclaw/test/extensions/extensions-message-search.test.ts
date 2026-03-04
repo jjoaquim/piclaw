@@ -1,3 +1,10 @@
+/**
+ * test/extensions/extensions-message-search.test.ts – Tests for the message-search extension.
+ *
+ * Verifies search_messages tool queries against the messages DB, including
+ * full-text search, role filtering, and result formatting.
+ */
+
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getTestWorkspace, setEnv } from "../helpers.js";

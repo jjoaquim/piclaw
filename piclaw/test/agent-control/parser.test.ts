@@ -1,3 +1,11 @@
+/**
+ * test/agent-control/parser.test.ts – Unit tests for parseControlCommand().
+ *
+ * Covers parsing of every command type: /model, /thinking, /compact, /abort,
+ * /tree, /label, /session, /fork, /export, /search-workspace, etc.
+ * Verifies correct extraction of arguments, aliases, and edge cases.
+ */
+
 import { describe, test, expect } from "bun:test";
 import "../helpers.js";
 

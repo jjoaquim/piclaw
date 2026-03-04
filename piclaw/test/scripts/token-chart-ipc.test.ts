@@ -1,3 +1,10 @@
+/**
+ * test/scripts/token-chart-ipc.test.ts – Tests for token chart IPC integration.
+ *
+ * Verifies that the token-chart skill script creates IPC files with
+ * the correct chart data payload for the web timeline.
+ */
+
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync, readFileSync, rmSync } from "fs";
 import { join } from "path";

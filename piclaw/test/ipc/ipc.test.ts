@@ -1,3 +1,10 @@
+/**
+ * test/ipc/ipc.test.ts – Tests for the IPC file-based messaging system.
+ *
+ * Verifies IPC file creation, watcher detection, message parsing,
+ * scheduled task registration, and cleanup of processed files.
+ */
+
 import { beforeAll, beforeEach, afterAll, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync, readdirSync } from "fs";
 import { join } from "path";
