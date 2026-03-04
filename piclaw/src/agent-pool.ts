@@ -1,3 +1,26 @@
+/**
+ * agent-pool.ts – Manages per-chat pi-agent sessions and orchestrates agent runs.
+ *
+ * The AgentPool is the central coordinator between inbound messages and the
+ * pi-coding-agent SDK. It:
+ *   - Maintains a map of chat JID → AgentSession (lazy-initialised).
+ *   - Provides runAgent() which prompts the agent, streams events, records
+ *     token usage, detects auto-compaction needs, and returns the result.
+ *   - Handles slash commands by delegating to agent-pool/slash-command.ts.
+ *   - Forwards agent-control commands (model switch, session management, etc.)
+ *     to the agent-control module.
+ *   - Manages session lifecycle: save/restore position (for scheduled tasks),
+ *     clear sessions, reload resources.
+ *   - Integrates the attachment registry for file-delivery tools.
+ *
+ * Consumers:
+ *   - runtime.ts / runtime/message-loop.ts creates the AgentPool at startup
+ *     and calls runAgent() for each inbound message.
+ *   - task-scheduler.ts calls runAgent() for scheduled task execution.
+ *   - channels/web.ts uses applyControlCommand() and agent status queries.
+ *   - agent-control handlers call methods on AgentPool for session/model ops.
+ */
+
 import { mkdirSync } from "fs";
 import { join } from "path";
 import {

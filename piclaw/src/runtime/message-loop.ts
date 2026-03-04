@@ -1,3 +1,21 @@
+/**
+ * runtime/message-loop.ts – Core message processing and enqueue logic.
+ *
+ * Implements the main polling callback that:
+ *   1. Fetches new messages since the last timestamp (via db/messages.ts).
+ *   2. Detects whether each message is a control command (agent-control) or
+ *      a regular user message.
+ *   3. Formats messages into XML and enqueues agent runs on the AgentQueue.
+ *   4. Delivers agent responses via the WhatsApp channel.
+ *
+ * Also provides the processChat() helper used by the web channel to inject
+ * messages directly into the queue without going through the poll cycle.
+ *
+ * Consumers:
+ *   - runtime.ts passes processMessages() to the polling timer.
+ *   - channels/web.ts calls processChat() when a web-channel message arrives.
+ */
+
 import type { AgentPool } from "../agent-pool.js";
 import type { AgentQueue } from "../queue.js";
 import type { WhatsAppChannel } from "../channels/whatsapp.js";
@@ -6,6 +24,10 @@ import { parseControlCommand, type AgentControlCommand } from "../agent-control/
 import { detectChannel, formatMessages, formatOutbound } from "../router.js";
 import type { RuntimeState } from "./state.js";
 
+/**
+ * Dependencies injected into the message-processing functions.
+ * Provided by runtime.ts to avoid circular imports.
+ */
 export interface MessageProcessingDeps {
   agentPool: AgentPool;
   whatsapp: WhatsAppChannel;

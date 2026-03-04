@@ -1,3 +1,17 @@
+/**
+ * runtime.ts – Application lifecycle: startup, polling loop, and shutdown.
+ *
+ * This is the top-level orchestrator that wires together all subsystems:
+ *   - Initialises the database (db/connection.ts).
+ *   - Creates the AgentPool, AgentQueue, and RuntimeState.
+ *   - Starts the WhatsApp channel (if configured), web channel, Pushover, IPC.
+ *   - Runs the main message-polling loop and task scheduler.
+ *   - Handles graceful shutdown (SIGINT/SIGTERM).
+ *
+ * Consumers:
+ *   - index.ts calls startRuntime() as the entry point.
+ */
+
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 

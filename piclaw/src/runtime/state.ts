@@ -1,3 +1,15 @@
+/**
+ * runtime/state.ts – Mutable runtime state for the message-polling loop.
+ *
+ * Tracks per-chat high-water-mark timestamps, the set of known chat JIDs,
+ * and a dedup set for already-processed control commands. State is persisted
+ * to the router_state DB table so it survives restarts.
+ *
+ * Consumers:
+ *   - runtime.ts creates and owns a single RuntimeState instance.
+ *   - runtime/message-loop.ts reads/writes timestamps and JID sets.
+ */
+
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
