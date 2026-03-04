@@ -165,6 +165,13 @@ export function searchMessages(chatJid, query, limit, offset) {
             .all(chatJid, pattern, limit, offset);
         return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
     }
+    const rawQuery = query.trim();
+    const hasOperators = /(?:\bAND\b|\bOR\b|\bNOT\b|\bNEAR\b|["():*])/i.test(rawQuery);
+    const terms = rawQuery
+        .split(/\s+/)
+        .map((term) => term.replace(/^["']+|["']+$/g, ""))
+        .filter(Boolean);
+    const ftsQuery = !hasOperators && terms.length > 1 ? terms.join(" AND ") : rawQuery;
     try {
         const rows = db
             .prepare(`SELECT messages.rowid, messages.chat_jid, messages.sender, messages.sender_name, messages.content, messages.content_blocks, messages.link_previews, messages.thread_id, messages.timestamp, messages.is_bot_message
@@ -173,13 +180,17 @@ export function searchMessages(chatJid, query, limit, offset) {
          WHERE messages.chat_jid = ? AND messages_fts MATCH ?
          ORDER BY messages.rowid DESC
          LIMIT ? OFFSET ?`)
-            .all(chatJid, query, limit, offset);
+            .all(chatJid, ftsQuery, limit, offset);
         return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
     }
     catch {
-        const rows = db
-            .prepare(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_jid = ? AND content LIKE ? COLLATE NOCASE ORDER BY rowid DESC LIMIT ? OFFSET ?`)
-            .all(chatJid, `%${query}%`, limit, offset);
+        const fallbackTerms = terms.length > 0 ? terms : rawQuery ? [rawQuery] : [];
+        if (fallbackTerms.length === 0)
+            return [];
+        const clauses = fallbackTerms.map(() => "content LIKE ? COLLATE NOCASE").join(" AND ");
+        const sql = `SELECT ${MESSAGE_COLUMNS} FROM messages WHERE chat_jid = ? AND ${clauses} ORDER BY rowid DESC LIMIT ? OFFSET ?`;
+        const params = [chatJid, ...fallbackTerms.map((term) => `%${term}%`), limit, offset];
+        const rows = db.prepare(sql).all(...params);
         return rows.map((row) => buildInteraction(row, getMediaIdsForMessage(row.rowid)));
     }
 }
