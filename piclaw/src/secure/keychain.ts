@@ -5,6 +5,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 const KEYCHAIN_PREFIX = "keychain:";
+const KEYCHAIN_PLACEHOLDER = /keychain:[A-Za-z0-9._\/-]+(?::[A-Za-z0-9._-]+)?/g;
 const KDF_ALGO = "pbkdf2-sha256";
 const KDF_ITERATIONS = 150_000;
 const SALT_BYTES = 16;
@@ -220,4 +221,33 @@ export async function resolveKeychainEnv(
     resolved[key] = entry.secret;
   }
   return resolved;
+}
+
+export async function resolveKeychainPlaceholders(input: string): Promise<string> {
+  if (!input || !input.includes(KEYCHAIN_PREFIX)) {
+    return input;
+  }
+
+  const matches = input.match(KEYCHAIN_PLACEHOLDER);
+  if (!matches?.length) {
+    return input;
+  }
+
+  const unique = Array.from(new Set(matches));
+  const replacements = new Map<string, string>();
+
+  for (const placeholder of unique) {
+    const ref = parseKeychainReference(placeholder);
+    const entry = await getKeychainEntry(ref.name);
+    if (ref.field === "username") {
+      if (!entry.username) {
+        throw new Error(`Keychain entry ${ref.name} has no username.`);
+      }
+      replacements.set(placeholder, entry.username);
+    } else {
+      replacements.set(placeholder, entry.secret);
+    }
+  }
+
+  return input.replace(KEYCHAIN_PLACEHOLDER, (match) => replacements.get(match) ?? match);
 }

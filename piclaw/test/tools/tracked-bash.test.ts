@@ -68,3 +68,34 @@ test("tracked bash resolves keychain env", async () => {
     restore();
   }
 });
+
+test("tracked bash resolves keychain placeholders in commands", async () => {
+  const ws = getTestWorkspace();
+  const restore = setEnv({ PICLAW_KEYCHAIN_KEY: "test-key" });
+  initDatabase();
+
+  await setKeychainEntry({
+    name: "bash-cmd",
+    type: "token",
+    secret: "cmd-secret",
+    username: "cmd-user",
+  });
+
+  const ops = createTrackedBashOperations();
+  let output = "";
+
+  try {
+    const result = await ops.exec("echo keychain:bash-cmd keychain:bash-cmd:username", ws.workspace, {
+      onData: (data) => {
+        output += data.toString("utf8");
+      },
+      timeout: 5,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(output.trim()).toBe("cmd-secret cmd-user");
+  } finally {
+    deleteKeychainEntry("bash-cmd");
+    restore();
+  }
+});

@@ -98,6 +98,17 @@ Example:
 
 Only explicitly declared env vars are resolved. Nothing is injected automatically.
 
+## Using keychain placeholders in bash commands
+
+The tracked bash runner also replaces `keychain:<name>` placeholders directly in command strings. This lets `/bash` and `/shell` calls reference secrets without manually exporting env vars:
+
+```bash
+/bash echo keychain:github/deploy
+/bash "curl -H 'Authorization: Bearer keychain:github/token' https://api.github.com"
+```
+
+`keychain:<name>:username` resolves to the stored username (if present).
+
 ## Notes
 
 - Entry names can be hierarchical (`github/foo/bar`).

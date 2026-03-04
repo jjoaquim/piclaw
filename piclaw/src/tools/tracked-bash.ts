@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { existsSync } from "fs";
 import type { BashOperations } from "@mariozechner/pi-coding-agent";
-import { resolveKeychainEnv } from "../secure/keychain.js";
+import { resolveKeychainEnv, resolveKeychainPlaceholders } from "../secure/keychain.js";
 import { killProcessTree, registerProcess, unregisterProcess } from "../utils/process-tracker.js";
 
 function resolveShellConfig(): { shell: string; args: string[] } {
@@ -30,14 +30,16 @@ export function createTrackedBashOperations(): BashOperations {
           }
 
           let resolvedEnv: NodeJS.ProcessEnv;
+          let resolvedCommand = command;
           try {
             resolvedEnv = env ? await resolveKeychainEnv(env) : { ...process.env };
+            resolvedCommand = await resolveKeychainPlaceholders(command);
           } catch (error) {
             reject(error as Error);
             return;
           }
 
-          const child = spawn(shell, [...args, command], {
+          const child = spawn(shell, [...args, resolvedCommand], {
             cwd,
             detached: true,
             env: resolvedEnv,
