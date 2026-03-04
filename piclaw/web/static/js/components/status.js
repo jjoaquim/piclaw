@@ -4,6 +4,7 @@ import { addToWhitelist, respondToAgentRequest } from '../api.js';
 import { renderThinkingMarkdown } from '../markdown.js';
 import { getTurnColor } from '../ui/agent-utils.js';
 
+/** Preact component: agent status bar with draft/thought/plan panels. */
 export function AgentStatus({ status, draft, plan, thought, pendingRequest, turnId, steerQueued, onPanelToggle }) {
     const THOUGHT_MAX_LINES = 8;
     const DRAFT_MAX_LINES = 8;
@@ -180,6 +181,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
     `;
 }
 
+/** Preact component: modal for agent confirmation/input requests. */
 export function AgentRequestModal({ request, onRespond }) {
     if (!request) return null;
 
@@ -288,6 +290,7 @@ export function AgentRequestModal({ request, onRespond }) {
     `;
 }
 
+/** Preact component: SSE connection status indicator. */
 export function ConnectionStatus({ status }) {
     if (status === 'connected') return null;
 

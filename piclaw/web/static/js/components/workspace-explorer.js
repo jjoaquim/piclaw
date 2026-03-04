@@ -128,6 +128,7 @@ function FileAttachmentCard({ mediaId }) {
 
 // ── WorkspaceExplorer ─────────────────────────────────────────────────────────
 
+/** Preact component: file tree explorer with upload, rename, and preview. */
 export function WorkspaceExplorer({ onFileSelect, visible = true }) {
     const [tree,          setTree]          = useState(null);
     const [expanded,      setExpanded]      = useState(new Set(['.']));

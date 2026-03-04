@@ -1,5 +1,6 @@
 // @ts-nocheck
 
+/** Default display name when no agent name is configured. */
 export const DEFAULT_AGENT_NAME = 'PiClaw';
 const AGENT_AVATAR_URL = '/static/icon-192.png';
 
@@ -52,18 +53,21 @@ export function getAvatarInfo(name, avatarUrl) {
     return { letter, color, image };
 }
 
+/** Resolve the display name for an agent ID from the agents map. */
 export function getAgentName(agentId, agents) {
     if (!agentId) return DEFAULT_AGENT_NAME;
     const name = agents[agentId]?.name || agentId;
     return name ? name.charAt(0).toUpperCase() + name.slice(1) : DEFAULT_AGENT_NAME;
 }
 
+/** Resolve the avatar URL for an agent ID from the agents map. */
 export function getAgentAvatarUrl(agentId, agents) {
     if (!agentId) return null;
     const agent = agents[agentId] || {};
     return agent.avatar_url || agent.avatarUrl || agent.avatar || null;
 }
 
+/** Return a consistent palette colour for a conversation turn ID. */
 export function getTurnColor(turnId) {
     if (!turnId) return null;
     const palette = [

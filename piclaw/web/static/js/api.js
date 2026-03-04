@@ -166,11 +166,13 @@ export async function addToWhitelist(pattern, description) {
     return response.json();
 }
 
+/** Fetch the agent thought/plan panel content for a given turn. */
 export async function getAgentThought(turnId, panel = 'thought') {
     const url = `/agent/thought?turn_id=${encodeURIComponent(turnId)}&panel=${encodeURIComponent(panel)}`;
     return request(url);
 }
 
+/** Toggle visibility of a thought/plan panel in the UI. */
 export async function setAgentThoughtVisibility(turnId, panel, expanded) {
     return request('/agent/thought/visibility', {
         method: 'POST',
@@ -227,6 +229,7 @@ export async function attachWorkspaceFile(path) {
     });
 }
 
+/** Upload a file to the workspace via multipart form data. */
 export async function uploadWorkspaceFile(file, targetPath = '') {
     const formData = new FormData();
     formData.append('file', file);
@@ -244,6 +247,7 @@ export async function uploadWorkspaceFile(file, targetPath = '') {
     return response.json();
 }
 
+/** Toggle workspace explorer visibility and hidden-file display. */
 export async function setWorkspaceVisibility(visible, showHidden = false) {
     return request('/workspace/visibility', {
         method: 'POST',

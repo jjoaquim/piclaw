@@ -1,6 +1,8 @@
 // @ts-nocheck
 
+/** Regex matching HTTP/HTTPS URLs in message text. */
 export const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+/** Regex matching #hashtag tokens in message text. */
 export const HASHTAG_REGEX = /#(\w+)/g;
 
 const ALLOWED_HTML_TAGS = new Set([
@@ -29,6 +31,7 @@ export function decodeEntities(text) {
     return doc.documentElement.textContent;
 }
 
+/** Recursively decode HTML entities up to maxDepth iterations. */
 export function decodeEntitiesDeep(text, maxDepth = 2) {
     if (!text) return text;
     let current = text;
@@ -270,6 +273,7 @@ function normalizeMathFences(text) {
     return output.join('\n');
 }
 
+/** Render markdown text to sanitised HTML with syntax highlighting. */
 export function renderMarkdown(text, onHashtagClick) {
     if (!text) return '';
 
@@ -325,6 +329,7 @@ export function renderThinkingMarkdown(text) {
 }
 
 // Render pending mermaid diagrams in the DOM
+/** Find mermaid code blocks in a container and render them as SVG diagrams. */
 export async function renderMermaidDiagrams(container) {
     if (!window.beautifulMermaid) return;
 
