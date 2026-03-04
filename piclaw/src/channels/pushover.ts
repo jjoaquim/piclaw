@@ -1,3 +1,19 @@
+/**
+ * channels/pushover.ts – Pushover notification channel.
+ *
+ * Sends push notifications to mobile devices via the Pushover API.
+ * Used as a "nudge" channel to alert the user when the agent produces
+ * output, especially for scheduled task results.
+ *
+ * Configuration is loaded from core/config.ts (PUSHOVER_* constants) and
+ * passed in via PushoverChannelOpts at construction time.
+ *
+ * Consumers:
+ *   - runtime.ts creates a PushoverChannel instance when credentials are
+ *     configured and uses its sendMessage() as the `sendNudge` callback
+ *     passed to the IPC watcher and task scheduler.
+ */
+
 import { ASSISTANT_NAME } from "../core/config.js";
 
 const PUSHOVER_API = "https://api.pushover.net/1/messages.json";

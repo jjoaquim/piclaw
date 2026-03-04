@@ -1,3 +1,27 @@
+/**
+ * secure/keychain.ts – Encrypted credential storage using AES-256-GCM.
+ *
+ * Provides a simple keychain API for storing and retrieving secrets (API
+ * tokens, passwords, etc.) encrypted at rest in the SQLite database.
+ *
+ * Encryption details:
+ *   - Key derivation: PBKDF2-SHA256 with 150k iterations and a random salt.
+ *   - Encryption: AES-256-GCM with a random 12-byte nonce and the entry
+ *     name as additional authenticated data (AAD).
+ *   - The master key material is read from the PICLAW_KEYCHAIN_KEY env var
+ *     or from a file specified by PICLAW_KEYCHAIN_KEY_FILE.
+ *
+ * Placeholder resolution:
+ *   - resolveKeychainEnv() replaces "keychain:name" values in env records.
+ *   - resolveKeychainPlaceholders() replaces inline placeholders in strings.
+ *   Both are used by tools/tracked-bash.ts before spawning child processes.
+ *
+ * Consumers:
+ *   - tools/tracked-bash.ts calls resolveKeychainEnv/resolveKeychainPlaceholders.
+ *   - agent-control/handlers (via CLI) calls set/get/list/delete operations.
+ *   - cli.ts exposes keychain sub-commands.
+ */
+
 import { readFileSync } from "fs";
 import { getDb } from "../db/connection.js";
 
