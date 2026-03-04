@@ -77,6 +77,7 @@ If the channel is unknown, default to WhatsApp formatting rules.
 
 - The container entrypoint (`/entrypoint.sh`) initializes `/home/agent`, syncs `/config`, and then execs `supervisord -n -c /workspace/.piclaw/supervisor/supervisord.conf`, so Supervisor is always PID 1.
 - Supervisor loads program configs from `/workspace/.piclaw/supervisor/conf.d` (seeded from `/workspace/piclaw/supervisor/conf.d` on first boot). Keep all Supervisor config changes inside `/workspace/.piclaw/supervisor` (do not edit `/etc/supervisor`). The bundled `piclaw` program runs `/usr/local/bin/run-piclaw.sh`, which exports Bun paths, honors `PICLAW_WORKSPACE` (defaults to `/workspace`) and `PICLAW_WEB_PORT` (defaults to `8080`), and starts the packaged `piclaw` binary via Bun.
+- Optional services should use the safe template at `/workspace/.piclaw/supervisor/conf.d/optional-service-template.conf` so missing binaries don’t break startup.
 - Bun and `piclaw` are installed globally under `/home/agent/.bun`. The `piclaw` CLI in PATH is a wrapper that executes the self-contained copy under `/home/agent/.bun/install/global/node_modules/piclaw`, independent of `/workspace/piclaw`.
 - Logs stream to `/var/log/piclaw/piclaw.stdout.log` and `…stderr.log`; Supervisor itself logs under `/var/log/supervisor`.
 - The workspace lives at `/workspace` (bind-mounted). SQLite state, IPC files, and skills under `.piclaw/` and `.pi/` persist there — avoid deleting them unless you know the impact.

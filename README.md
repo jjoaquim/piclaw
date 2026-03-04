@@ -30,6 +30,8 @@ docker logs -f piclaw
 
 `supervisord` now acts as PID 1 and keeps `piclaw` running (see [`supervisor/conf.d/piclaw.conf`](supervisor/conf.d/piclaw.conf)). On first boot, default supervisor config is copied into `/workspace/.piclaw/supervisor/` so it persists on the workspace volume; edits there survive container rebuilds/restarts.
 
+Optional services can use [`supervisor/conf.d/optional-service-template.conf`](supervisor/conf.d/optional-service-template.conf) — it guards missing binaries so a failed optional service does not impact `piclaw`.
+
 Once piclaw is running, open the web UI at:
 
 ```
