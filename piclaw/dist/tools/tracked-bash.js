@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { existsSync } from "fs";
-import { resolveKeychainEnv } from "../secure/keychain.js";
+import { resolveKeychainEnv, resolveKeychainPlaceholders } from "../secure/keychain.js";
 import { killProcessTree, registerProcess, unregisterProcess } from "../utils/process-tracker.js";
 function resolveShellConfig() {
     if (process.platform === "win32") {
@@ -25,14 +25,16 @@ export function createTrackedBashOperations() {
                         return;
                     }
                     let resolvedEnv;
+                    let resolvedCommand = command;
                     try {
                         resolvedEnv = env ? await resolveKeychainEnv(env) : { ...process.env };
+                        resolvedCommand = await resolveKeychainPlaceholders(command);
                     }
                     catch (error) {
                         reject(error);
                         return;
                     }
-                    const child = spawn(shell, [...args, command], {
+                    const child = spawn(shell, [...args, resolvedCommand], {
                         cwd,
                         detached: true,
                         env: resolvedEnv,
