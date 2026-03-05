@@ -109,6 +109,9 @@ export class RequestRouterService {
       isAuthVerify ||
       isWebauthnLoginStart ||
       isWebauthnLoginFinish ||
+      isWebauthnRegisterStart ||
+      isWebauthnRegisterFinish ||
+      isWebauthnEnrollPage ||
       isManifest ||
       isFavicon ||
       isAppleIcon ||

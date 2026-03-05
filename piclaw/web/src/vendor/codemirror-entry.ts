@@ -6,6 +6,7 @@ export {
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
+  highlightWhitespace,
   scrollPastEnd,
   showPanel,
 } from "@codemirror/view";
