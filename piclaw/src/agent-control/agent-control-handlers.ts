@@ -49,6 +49,8 @@ import {
   handleSwitchSession,
 } from "./handlers/session.js";
 import { handlePasskey } from "./handlers/passkey.js";
+import { handleTotp } from "./handlers/totp.js";
+import { handleQr } from "./handlers/qr.js";
 import { handleLabel, handleLabels, handleTree } from "./handlers/tree.js";
 
 /** Dispatch a parsed control command to the appropriate handler and return the result. */
@@ -109,6 +111,10 @@ export async function applyControlCommand(
       return handleExportHtml(session, command);
     case "passkey":
       return handlePasskey(session, command);
+    case "totp":
+      return handleTotp(session, command);
+    case "qr":
+      return handleQr(session, command);
     case "search_workspace":
       return handleSearchWorkspace(session, command);
     case "tree":

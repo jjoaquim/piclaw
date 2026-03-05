@@ -207,6 +207,26 @@ export function parsePasskey(args: string, raw: string): AgentControlCommand {
   };
 }
 
+/** Parse /totp arguments: action. */
+export function parseTotp(args: string, raw: string): AgentControlCommand {
+  const tokens = splitArgs(args);
+  const action = tokens[0] ? tokens[0].toLowerCase() : undefined;
+  return {
+    type: "totp",
+    action: action as any,
+    raw,
+  };
+}
+
+/** Parse /qr arguments: raw text. */
+export function parseQr(args: string, raw: string): AgentControlCommand {
+  return {
+    type: "qr",
+    text: args || undefined,
+    raw,
+  };
+}
+
 /** Parse /bash arguments: optional command string. */
 export function parseBash(args: string, raw: string): AgentControlCommand {
   return {
@@ -419,6 +439,8 @@ export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/forks": simple("forks"),
   "/export-html": parseExportHtml,
   "/passkey": parsePasskey,
+  "/totp": parseTotp,
+  "/qr": parseQr,
   "/search": parseSearch,
   "/bash": parseBash,
   "/tree": parseTree,

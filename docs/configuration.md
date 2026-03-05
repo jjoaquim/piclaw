@@ -71,6 +71,7 @@ You can gate the entire web UI behind a 6-digit TOTP challenge and optionally en
 2. Restart piclaw. Visiting the UI redirects to `/login`.
 3. Enter the 6-digit code from your authenticator app to receive an HTTP-only `piclaw_session` cookie.
 4. Sessions expire automatically after `PICLAW_WEB_SESSION_TTL` seconds or when you delete the cookie.
+5. To show a QR code for the configured secret, run `/totp enrol` in the web UI.
 
 ### Passkey enrolment
 

@@ -149,6 +149,16 @@ export type AgentControlCommand =
       raw: string;
     }
   | {
+      type: "totp";
+      action?: "enrol" | "enroll";
+      raw: string;
+    }
+  | {
+      type: "qr";
+      text?: string;
+      raw: string;
+    }
+  | {
       type: "search_workspace";
       query?: string;
       scope?: "notes" | "skills" | "all";

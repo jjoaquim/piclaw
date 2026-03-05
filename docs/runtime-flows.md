@@ -9,6 +9,7 @@ The web UI can be gated behind TOTP with optional WebAuthn passkeys. Passkeys ar
 - **Passkey enrolment**: `/passkey enrol` → one‑time link → WebAuthn registration
 - **Login**: passkey first (conditional mediation or first input focus), then TOTP fallback
 - **Multiple passkeys** are supported per user; manage with `/passkey list` and `/passkey delete`
+- Use `/totp enrol` to display a QR code for the configured TOTP secret
 
 ## Web UI → Agent → Web UI
 

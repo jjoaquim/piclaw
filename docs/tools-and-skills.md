@@ -102,6 +102,8 @@ Direct commands (no LLM round-trip):
 | `/user-github <url>` | Set your name/avatar from a GitHub profile |
 | `/export-html` | Export session to HTML |
 | `/passkey [enrol|list|delete]` | Manage passkeys (enrolment link, list, delete) |
+| `/totp enrol` | Show a TOTP enrolment QR code |
+| `/qr <text>` | Generate a QR code for text or a URL |
 | `/search <query>` | Search notes and skills in the workspace |
 | `/restart` | Restart the agent and stop subprocesses |
 | `/commands` | List available commands |

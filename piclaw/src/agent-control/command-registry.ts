@@ -53,6 +53,8 @@ export const CONTROL_COMMAND_DEFINITIONS: ControlCommandDefinition[] = [
   { name: "/user-github", description: "Set your name/avatar from a GitHub profile URL" },
   { name: "/export-html", description: "Export session to HTML" },
   { name: "/passkey", description: "Manage passkeys (enrol/list/delete)", aliases: ["/passkeys"] },
+  { name: "/totp", description: "Show a TOTP enrolment QR code" },
+  { name: "/qr", description: "Generate a QR code for text or a URL" },
   { name: "/search", description: "Search notes and skills in the workspace" },
   { name: "/restart", description: "Restart the agent and stop subprocesses" },
   { name: "/commands", description: "List available commands" },
