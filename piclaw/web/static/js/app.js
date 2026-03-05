@@ -640,6 +640,23 @@ function App() {
             noteAgentActivity({ running: true, clearSilence: true });
             clearLastActivityFlag();
             setAgentStatus(payload);
+
+            // Restore draft/thought buffers if the server has them and the
+            // client doesn't (e.g. after reconnect or SSE gap).
+            if (res.thought && res.thought.text) {
+                setAgentThought((prev) => {
+                    if (prev && prev.text && prev.text.length >= res.thought.text.length) return prev;
+                    thoughtBufferRef.current = res.thought.text;
+                    return { text: res.thought.text, totalLines: res.thought.totalLines || 0 };
+                });
+            }
+            if (res.draft && res.draft.text) {
+                setAgentDraft((prev) => {
+                    if (prev && prev.text && prev.text.length >= res.draft.text.length) return prev;
+                    draftBufferRef.current = res.draft.text;
+                    return { text: res.draft.text, totalLines: res.draft.totalLines || 0 };
+                });
+            }
         } catch (err) {
             console.warn('Failed to fetch agent status:', err);
         }
@@ -661,11 +678,14 @@ function App() {
             hasConnectedOnceRef.current = true;
             return;
         }
+        // On reconnect: refresh timeline for any missed posts and restore
+        // in-progress agent state (status + draft/thought buffers).
         const { currentHashtag: activeHashtag, searchQuery: activeSearch } = viewStateRef.current;
         if (!activeHashtag && !activeSearch) {
             refreshTimeline();
         }
-    }, [clearAgentRunState, refreshTimeline]);
+        refreshAgentStatus();
+    }, [clearAgentRunState, refreshTimeline, refreshAgentStatus]);
     
     // Load older messages (prepend)
     const loadMore = useCallback(async (options = {}) => {
@@ -952,6 +972,16 @@ function App() {
                     if (activeTurn) setActiveTurn(activeTurn);
                     noteAgentActivity({ clearSilence: true });
                     showLastActivity(payload);
+
+                    // Restore draft/thought buffers from enriched status
+                    if (res.thought && res.thought.text) {
+                        thoughtBufferRef.current = res.thought.text;
+                        setAgentThought({ text: res.thought.text, totalLines: res.thought.totalLines || 0 });
+                    }
+                    if (res.draft && res.draft.text) {
+                        draftBufferRef.current = res.draft.text;
+                        setAgentDraft({ text: res.draft.text, totalLines: res.draft.totalLines || 0 });
+                    }
                 })
                 .catch((err) => {
                     console.warn('Failed to fetch agent status:', err);

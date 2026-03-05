@@ -681,7 +681,22 @@ export class WebChannel {
     const url = new URL(req.url);
     const chatJid = (url.searchParams.get("chat_jid") || DEFAULT_CHAT_JID).trim() || DEFAULT_CHAT_JID;
     const status = this.getAgentStatus(chatJid);
-    return this.json({ status: status ? "active" : "idle", data: status });
+    if (!status) {
+      return this.json({ status: "idle", data: null });
+    }
+    // Enrich with current draft/thought buffers so the client can restore
+    // state after a disconnect or SSE failure without waiting for the next
+    // streaming delta.
+    const turnId = (status.turn_id || status.turnId) as string | undefined;
+    let thought: { text: string; totalLines: number } | undefined;
+    let draft: { text: string; totalLines: number } | undefined;
+    if (turnId) {
+      const tb = this.getBuffer(turnId, "thought");
+      if (tb) thought = { text: tb.text, totalLines: tb.totalLines };
+      const db = this.getBuffer(turnId, "draft");
+      if (db) draft = { text: db.text, totalLines: db.totalLines };
+    }
+    return this.json({ status: "active", data: status, thought, draft });
   }
 
   async handleAgentRespond(req: Request): Promise<Response> {
