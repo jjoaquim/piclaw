@@ -168,6 +168,18 @@ export function parseExportHtml(args, raw) {
         raw,
     };
 }
+/** Parse /passkey arguments: action + optional target. */
+export function parsePasskey(args, raw) {
+    const tokens = splitArgs(args);
+    const action = tokens[0] ? tokens[0].toLowerCase() : undefined;
+    const target = tokens.slice(1).join(" ").trim() || undefined;
+    return {
+        type: "passkey",
+        action: action,
+        target,
+        raw,
+    };
+}
 /** Parse /bash arguments: optional command string. */
 export function parseBash(args, raw) {
     return {
@@ -393,6 +405,7 @@ export const COMMAND_PARSERS = {
     "/fork": parseFork,
     "/forks": simple("forks"),
     "/export-html": parseExportHtml,
+    "/passkey": parsePasskey,
     "/search": parseSearch,
     "/bash": parseBash,
     "/tree": parseTree,

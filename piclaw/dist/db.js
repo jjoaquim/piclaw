@@ -15,3 +15,5 @@ export { createTask, getTaskById, updateTask, deleteTask, getDueTasks, updateTas
 export { storeToolOutput, insertToolOutputChunk, getToolOutputById, deleteToolOutputById, deleteToolOutputsBefore, searchToolOutputSnippets, } from "./db/tool-outputs.js";
 export { getRouterState, setRouterState } from "./db/router-state.js";
 export { storeTokenUsage } from "./db/token-usage.js";
+export { DEFAULT_PASSKEY_USER_ID, createWebauthnEnrollment, getWebauthnEnrollment, consumeWebauthnEnrollment, listWebauthnCredentials, getWebauthnCredentialsForRpId, getWebauthnCredentialById, findWebauthnCredentialsByPrefix, storeWebauthnCredential, updateWebauthnCredentialCounter, deleteWebauthnCredential, } from "./db/webauthn.js";
+export { DEFAULT_WEB_USER_ID, createWebSession, getWebSession, deleteWebSession, deleteExpiredWebSessions, } from "./db/web-sessions.js";

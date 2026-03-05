@@ -56,6 +56,11 @@ export class RequestRouterService {
         const internalSecretEnabled = this.channel.isInternalSecretEnabled();
         const isLoginPage = isGetOrHead && (pathname === "/login" || pathname === "/login.html");
         const isAuthVerify = req.method === "POST" && pathname === "/auth/verify";
+        const isWebauthnLoginStart = req.method === "POST" && pathname === "/auth/webauthn/login/start";
+        const isWebauthnLoginFinish = req.method === "POST" && pathname === "/auth/webauthn/login/finish";
+        const isWebauthnRegisterStart = req.method === "POST" && pathname === "/auth/webauthn/register/start";
+        const isWebauthnRegisterFinish = req.method === "POST" && pathname === "/auth/webauthn/register/finish";
+        const isWebauthnEnrollPage = isGetOrHead && pathname === "/auth/webauthn/enrol";
         const isInternalPost = req.method === "POST" && pathname === "/internal/post";
         const isInternalPatch = req.method === "PATCH" && pathname.startsWith("/post/");
         const hasInternalAccess = internalSecretEnabled && this.channel.verifyInternalSecret(req);
@@ -84,6 +89,8 @@ export class RequestRouterService {
         const skipAuthCheck = hasInternalAccess ||
             isLoginPage ||
             isAuthVerify ||
+            isWebauthnLoginStart ||
+            isWebauthnLoginFinish ||
             isManifest ||
             isFavicon ||
             isAppleIcon ||
@@ -108,6 +115,21 @@ export class RequestRouterService {
         }
         else if (isLoginPage) {
             return this.channel.json({ error: "Not found" }, 404);
+        }
+        if (isWebauthnEnrollPage) {
+            return this.channel.handleWebauthnEnrollPage(req);
+        }
+        if (isWebauthnLoginStart) {
+            return this.channel.handleWebauthnLoginStart(req);
+        }
+        if (isWebauthnLoginFinish) {
+            return this.channel.handleWebauthnLoginFinish(req);
+        }
+        if (isWebauthnRegisterStart) {
+            return this.channel.handleWebauthnRegisterStart(req);
+        }
+        if (isWebauthnRegisterFinish) {
+            return this.channel.handleWebauthnRegisterFinish(req);
         }
         if (isIndex) {
             return this.channel.serveStatic("index.html");

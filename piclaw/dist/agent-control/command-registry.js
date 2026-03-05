@@ -11,7 +11,7 @@
  */
 /** Metadata for all control commands: name, description, aliases. */
 export const CONTROL_COMMAND_DEFINITIONS = [
-    { name: "/model", description: "Select model or list available models", aliases: ["/models"] },
+    { name: "/model", description: "Select model or list available models (alias /models)", aliases: ["/models"] },
     { name: "/cycle-model", description: "Cycle to the next available model" },
     { name: "/thinking", description: "Show or set thinking level" },
     { name: "/cycle-thinking", description: "Cycle thinking level" },
@@ -45,6 +45,7 @@ export const CONTROL_COMMAND_DEFINITIONS = [
     { name: "/user-avatar", description: "Set or show your avatar URL" },
     { name: "/user-github", description: "Set your name/avatar from a GitHub profile URL" },
     { name: "/export-html", description: "Export session to HTML" },
+    { name: "/passkey", description: "Manage passkeys (enrol/list/delete)", aliases: ["/passkeys"] },
     { name: "/search", description: "Search notes and skills in the workspace" },
     { name: "/restart", description: "Restart the agent and stop subprocesses" },
     { name: "/commands", description: "List available commands" },

@@ -214,6 +214,38 @@ function createSchema(database) {
     );
     CREATE INDEX IF NOT EXISTS idx_keychain_entries_type ON keychain_entries(type);
 
+    -- WebAuthn passkey credentials and enrolment tokens.
+    CREATE TABLE IF NOT EXISTS webauthn_credentials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      rp_id TEXT NOT NULL,
+      credential_id TEXT NOT NULL UNIQUE,
+      public_key TEXT NOT NULL,
+      sign_count INTEGER NOT NULL DEFAULT 0,
+      transports TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_used_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id);
+    CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_rp_id ON webauthn_credentials(rp_id);
+
+    CREATE TABLE IF NOT EXISTS webauthn_enrollments (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_webauthn_enrollments_expires_at ON webauthn_enrollments(expires_at);
+
+    -- Web auth sessions (TOTP + passkey). Stored for persistence across restarts.
+    CREATE TABLE IF NOT EXISTS web_sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_web_sessions_expires_at ON web_sessions(expires_at);
+
     -- File metadata cache for workspace-search.ts full-text indexing.
     CREATE TABLE IF NOT EXISTS workspace_files (
       path TEXT PRIMARY KEY,
