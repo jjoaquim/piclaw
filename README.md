@@ -48,7 +48,7 @@ The UI is single-user, mobile-friendly, and streams updates over SSE:
 
 ![Screenshot showing explorer](docs/screenshot-explorer-light.jpg)
 
-The sidebar shows a file tree of `/workspace` with auto-refresh. Click a file to preview it or add a **file reference pill** to the next prompt.
+The sidebar shows a file tree of `/workspace` with auto-refresh. Click a file to preview it or add a **file reference pill** to the next prompt. Drag and drop files onto the tree to upload them.
 
 ### Code editor
 
