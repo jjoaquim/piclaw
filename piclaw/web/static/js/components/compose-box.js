@@ -64,8 +64,8 @@ function ContextPie({ usage }) {
         : `Context: ${pct.toFixed(0)}%`;
 
     // Pie arc: SVG circle with stroke-dasharray trick.
-    // Circle circumference = 2πr = 2π×6 ≈ 37.70
-    const r = 6;
+    // Circle circumference = 2πr = 2π×8 ≈ 50.27
+    const r = 8;
     const circ = 2 * Math.PI * r;
     const filled = (pct / 100) * circ;
 
@@ -75,15 +75,15 @@ function ContextPie({ usage }) {
 
     return html`
         <span class="compose-context-pie" title=${label}>
-            <svg width="14" height="14" viewBox="0 0 20 20">
+            <svg width="18" height="18" viewBox="0 0 20 20">
                 <circle cx="10" cy="10" r=${r}
                     fill="none"
                     stroke="var(--context-track, rgba(128,128,128,0.2))"
-                    stroke-width="2.5" />
+                    stroke-width="3" />
                 <circle cx="10" cy="10" r=${r}
                     fill="none"
                     stroke=${color}
-                    stroke-width="2.5"
+                    stroke-width="3"
                     stroke-dasharray=${`${filled} ${circ}`}
                     stroke-linecap="round"
                     transform="rotate(-90 10 10)" />
@@ -178,7 +178,7 @@ export function ComposeBox({
     const notificationActive = notificationPermission === 'granted' && notificationsEnabled;
     const notificationTitle = notificationActive ? 'Disable notifications' : 'Enable notifications';
 
-    const MAX_TEXTAREA_HEIGHT = 48;
+    const MAX_TEXTAREA_HEIGHT = 52;
 
     const resizeTextarea = () => {
         const textarea = textareaRef.current;
