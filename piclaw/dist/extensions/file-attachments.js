@@ -112,7 +112,9 @@ async function executeReadAttachment(_toolCallId, params) {
     const contentType = record.content_type || "application/octet-stream";
     const filename = record.filename || `attachment-${id}`;
     const size = record.data?.length || 0;
-    const maxBytes = Number.isFinite(params.max_bytes) ? Math.max(1, params.max_bytes) : 5 * 1024 * 1024;
+    const maxBytes = typeof params.max_bytes === "number" && Number.isFinite(params.max_bytes)
+        ? Math.max(1, params.max_bytes)
+        : 5 * 1024 * 1024;
     const mode = (params.mode || "auto").toLowerCase();
     const isImage = contentType.startsWith("image/");
     const isText = isTextContentType(contentType);
