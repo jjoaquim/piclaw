@@ -23,6 +23,38 @@ function parseToolOutputSearchArgs(args) {
         return null;
     }
 }
+function findReasoningForCall(item, reasoningItems) {
+    if (!item || typeof item !== "object")
+        return undefined;
+    const explicit = (typeof item.reasoning === "string" ? item.reasoning : undefined) ||
+        (typeof item.reasoning_id === "string" ? item.reasoning_id : undefined) ||
+        (typeof item.reasoning?.id === "string" ? item.reasoning.id : undefined);
+    const itemId = typeof item.id === "string" ? item.id : "";
+    let candidate = explicit;
+    if (!candidate && itemId) {
+        if (itemId.startsWith("fc_")) {
+            candidate = `rs_${itemId.slice(3)}`;
+        }
+        else if (itemId.startsWith("fc-")) {
+            candidate = `rs-${itemId.slice(3)}`;
+        }
+    }
+    if (candidate) {
+        const matched = reasoningItems.find((entry) => entry.id === candidate && !entry.paired);
+        if (matched) {
+            matched.paired = true;
+            return matched.index;
+        }
+    }
+    for (let i = reasoningItems.length - 1; i >= 0; i -= 1) {
+        const entry = reasoningItems[i];
+        if (!entry.paired) {
+            entry.paired = true;
+            return entry.index;
+        }
+    }
+    return undefined;
+}
 function describeToolCall(entry, outputChars) {
     const name = entry.name || "tool";
     const outputPreview = formatToolCallSnippet(entry.output || "", outputChars);
@@ -44,19 +76,27 @@ function describeToolCall(entry, outputChars) {
 export function applyToolCallLimit(messages, config) {
     const entries = [];
     const entryByCallId = new Map();
+    const reasoningItems = [];
     messages.forEach((item, index) => {
         if (!item || typeof item !== "object")
             return;
+        if (item.type === "reasoning") {
+            const id = typeof item.id === "string" ? item.id : undefined;
+            reasoningItems.push({ index, id, paired: false });
+            return;
+        }
         if (item.type === "function_call") {
             const callId = String(item.call_id || item.id || "").trim();
             if (!callId)
                 return;
             const entry = {
                 callId,
+                itemId: typeof item.id === "string" ? item.id : undefined,
                 name: typeof item.name === "string" ? item.name : undefined,
                 args: typeof item.arguments === "string" ? item.arguments : undefined,
                 callIndex: index,
             };
+            entry.reasoningIndex = findReasoningForCall(item, reasoningItems);
             entries.push(entry);
             entryByCallId.set(callId, entry);
             return;
@@ -115,11 +155,20 @@ export function applyToolCallLimit(messages, config) {
         return { messages, toolCallTotal, toolCallKept: toolCallTotal, toolCallRemoved: 0, toolCallDeduped };
     }
     const removeIndexes = new Set();
+    const keptReasoningIndexes = new Set();
+    for (const entry of entries) {
+        if (!entry.removed && entry.reasoningIndex !== undefined) {
+            keptReasoningIndexes.add(entry.reasoningIndex);
+        }
+    }
     for (const entry of removedEntries) {
         if (entry.callIndex >= 0)
             removeIndexes.add(entry.callIndex);
         if (entry.outputIndex !== undefined)
             removeIndexes.add(entry.outputIndex);
+        if (entry.reasoningIndex !== undefined && !keptReasoningIndexes.has(entry.reasoningIndex)) {
+            removeIndexes.add(entry.reasoningIndex);
+        }
     }
     const summaryLines = removedEntries
         .filter((entry) => entry.callIndex >= 0)
