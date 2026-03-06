@@ -64,8 +64,8 @@ function ContextPie({ usage }) {
         : `Context: ${pct.toFixed(0)}%`;
 
     // Pie arc: SVG circle with stroke-dasharray trick.
-    // Circle circumference = 2πr = 2π×8 ≈ 50.27
-    const r = 8;
+    // Circle circumference = 2πr = 2π×7 ≈ 43.98
+    const r = 7;
     const circ = 2 * Math.PI * r;
     const filled = (pct / 100) * circ;
 
@@ -75,15 +75,15 @@ function ContextPie({ usage }) {
 
     return html`
         <span class="compose-context-pie" title=${label}>
-            <svg width="18" height="18" viewBox="0 0 20 20">
+            <svg width="16" height="16" viewBox="0 0 20 20">
                 <circle cx="10" cy="10" r=${r}
                     fill="none"
                     stroke="var(--context-track, rgba(128,128,128,0.2))"
-                    stroke-width="3" />
+                    stroke-width="2.5" />
                 <circle cx="10" cy="10" r=${r}
                     fill="none"
                     stroke=${color}
-                    stroke-width="3"
+                    stroke-width="2.5"
                     stroke-dasharray=${`${filled} ${circ}`}
                     stroke-linecap="round"
                     transform="rotate(-90 10 10)" />
