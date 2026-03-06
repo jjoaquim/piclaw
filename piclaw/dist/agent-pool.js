@@ -154,6 +154,16 @@ export class AgentPool {
         const model = session.model;
         return model ? `${model.provider}/${model.id}` : null;
     }
+    /** Return available model labels and current model for a chat session. */
+    async getAvailableModels(chatJid) {
+        const session = await this.getOrCreate(chatJid);
+        const registry = session.modelRegistry ?? this.modelRegistry;
+        registry.refresh();
+        const available = registry.getAvailable();
+        const models = available.map((model) => `${model.provider}/${model.id}`);
+        const currentModel = session.model ? `${session.model.provider}/${session.model.id}` : null;
+        return { current: currentModel, models };
+    }
     /** Return the current context token usage for a chat session, or null if unknown. */
     async getContextUsageForChat(chatJid) {
         const entry = this.pool.get(chatJid);

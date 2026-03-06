@@ -101,6 +101,9 @@ export async function handleWebRequest(channel, req) {
     if (req.method === "GET" && pathname === "/agent/context") {
         return channel.handleAgentContext(req);
     }
+    if (req.method === "GET" && pathname === "/agent/models") {
+        return channel.handleAgentModels(req);
+    }
     if (req.method === "POST" && pathname === "/agent/respond") {
         return channel.handleAgentRespond(req);
     }

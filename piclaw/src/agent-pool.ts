@@ -242,7 +242,6 @@ export class AgentPool {
   async getAvailableModels(chatJid: string): Promise<{ current: string | null; models: string[] }> {
     const session = await this.getOrCreate(chatJid);
     const registry = (session as AgentSession & { modelRegistry?: ModelRegistry }).modelRegistry ?? this.modelRegistry;
-    registry.refresh();
     const available = registry.getAvailable();
     const models = available.map((model) => `${model.provider}/${model.id}`);
     const currentModel = session.model ? `${session.model.provider}/${session.model.id}` : null;

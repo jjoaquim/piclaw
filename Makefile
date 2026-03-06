@@ -112,6 +112,10 @@ local-install: pack ## Pack, install globally, and restart piclaw
 		--registry https://registry.npmjs.org; \
 	sudo chmod -R a+rX /usr/local/lib/bun; \
 	rm -f "$$TGZ"; \
+	DEST=/usr/local/lib/bun/install/global/node_modules/piclaw; \
+	if [ -d "$$DEST/extensions" ] && [ -d "$$DEST/node_modules" ]; then \
+		sudo ln -sfn "$$DEST/node_modules" "$$DEST/extensions/node_modules" 2>/dev/null || true; \
+	fi; \
 	echo "[local-install] Restarting piclaw..."; \
 	$(MAKE) restart; \
 	echo "[local-install] Done (v$${VERSION})"
