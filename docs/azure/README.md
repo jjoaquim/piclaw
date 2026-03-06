@@ -15,10 +15,15 @@ This is a concise checklist for deploying Piclaw on an Azure VM.
 ```bash
 sudo apt update
 sudo apt install -y git curl build-essential ca-certificates
-curl -fsSL https://bun.sh/install | bash
-```
 
-Ensure `~/.bun/bin` is on the PATH.
+# Install bun system-wide
+export BUN_INSTALL="/usr/local/lib/bun"
+sudo mkdir -p "$BUN_INSTALL"
+curl -fsSL https://bun.sh/install | sudo BUN_INSTALL="$BUN_INSTALL" bash
+sudo chmod -R a+rX "$BUN_INSTALL"
+sudo ln -sf "$BUN_INSTALL/bin/bun"  /usr/local/bin/bun
+sudo ln -sf "$BUN_INSTALL/bin/bunx" /usr/local/bin/bunx
+```
 
 ## 3) Prepare workspace
 
@@ -29,19 +34,19 @@ sudo chown -R $USER:$USER /workspace
 
 Clone your Piclaw repo into `/workspace/piclaw`.
 
-## 4) Build + install Piclaw (no symlinks)
+## 4) Build + install Piclaw globally
 
 ```bash
 cd /workspace/piclaw && make build-piclaw
 cd /workspace/piclaw/piclaw
 bun pm pack --destination /tmp
 TARBALL=$(ls -t /tmp/piclaw-*.tgz | head -1)
-DEST=/home/$USER/.bun/install/global/node_modules/piclaw
-rm -rf "$DEST"
-mkdir -p "$DEST"
-tar -xzf "$TARBALL" -C "$DEST" --strip-components=1
+sudo BUN_INSTALL=/usr/local/lib/bun bun add -g "$TARBALL"
+sudo chmod -R a+rX /usr/local/lib/bun
 rm -f "$TARBALL"
-cd "$DEST" && bun install --production
+
+# Symlink piclaw into PATH
+sudo ln -sf /usr/local/lib/bun/bin/piclaw /usr/local/bin/piclaw
 ```
 
 ## 5) Systemd user service
@@ -55,12 +60,15 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/workspace/piclaw
+WorkingDirectory=/workspace
+Environment=HOME=/home/agent
+Environment=BUN_INSTALL=/usr/local/lib/bun
+Environment=PATH=/usr/local/lib/bun/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PICLAW_WORKSPACE=/workspace
 Environment=PICLAW_STORE=/workspace/.piclaw/store
 Environment=PICLAW_DATA=/workspace/.piclaw/data
 Environment=PICLAW_AGENT_TIMEOUT=1800000
-ExecStart=/home/USER/.bun/bin/piclaw --port 3000
+ExecStart=/usr/local/bin/piclaw --port 3000
 Restart=always
 RestartSec=2
 
@@ -113,10 +121,14 @@ The extension uses **custom API names** (`azure-openai-responses-mi`, `azure-fou
 
 ## Operational notes
 
-- Prefer `systemctl --user restart piclaw.service` over killing port 3000 directly.
+- The restart script (`restart-piclaw.sh`) auto-detects the service manager:
+  - Supervisord → `supervisorctl restart piclaw`
+  - systemd --user → `systemctl --user restart piclaw.service`
+  - Neither → manual kill/start fallback
+- Override with `PICLAW_SERVICE_MANAGER=supervisor|systemd|manual`.
 - Keep `/workspace/.piclaw` on persistent storage if possible.
 - See `docs/azure/azurevm-ops.md` for ops notes.
 
 ## Known issues
 
-- `gpt-5-3-codex` can still emit `response.failed` / “Unknown error” after model switching. Phase replay and tool/ reasoning toggles reduce some errors but do not fully eliminate failures yet. See `docs/azure/azure-openai-extension.md`.
+- `gpt-5-3-codex` can still emit `response.failed` / "Unknown error" after model switching. Phase replay and tool/ reasoning toggles reduce some errors but do not fully eliminate failures yet. See `docs/azure/azure-openai-extension.md`.
