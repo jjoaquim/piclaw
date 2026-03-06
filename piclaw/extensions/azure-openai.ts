@@ -240,6 +240,22 @@ function applyPhasesToResponseInput(items: Array<any>, phases: Map<string, strin
   }
 }
 
+function stripOrphanReasoningItems(items: Array<any>): Array<any> {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  const cleaned: Array<any> = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
+    if (item?.type === "reasoning") {
+      const next = items[i + 1];
+      if (!next || next.type !== "message") {
+        continue;
+      }
+    }
+    cleaned.push(item);
+  }
+  return cleaned;
+}
+
 // After streaming completes, copy the phase from Responses output items onto our stored text blocks
 // so future requests can replay it (phase is required for gpt-5.3-codex continuity).
 function applyPhasesToOutputMessage(output: { content?: Array<any> }, phases: Map<string, string>): void {
@@ -616,6 +632,11 @@ function streamAzureOpenAIResponses(model: any, context: any, options: any) {
     let requestSummary: Record<string, unknown> | undefined;
     const loggedRef = { logged: false };
 
+    // Track the best error message extracted from stream events so we can
+    // override pi-ai's generic "Unknown error" with something actionable.
+    // Declared here so it's accessible in the catch block.
+    let streamErrorDetail = "";
+
     try {
       const headers = { ...model.headers };
       if (options?.headers) {
@@ -639,7 +660,7 @@ function streamAzureOpenAIResponses(model: any, context: any, options: any) {
         outputChars: TOOL_CALL_OUTPUT_CHARS,
         dedupeToolOutputSearch: DEDUPE_TOOL_OUTPUT_SEARCH,
       });
-      const messages = toolCallTrim.messages;
+      const messages = stripOrphanReasoningItems(toolCallTrim.messages);
       const phaseReplaySummary = LOG_PHASES ? summarizeResponseInputPhases(messages as Array<any>) : null;
 
       const messageTypeCounts = messages.reduce<Record<string, number>>((acc, item: any) => {
@@ -746,11 +767,6 @@ function streamAzureOpenAIResponses(model: any, context: any, options: any) {
       };
 
       await getAccessToken();
-
-      // Track the best error message extracted from stream events so we can
-      // override pi-ai's generic "Unknown error" with something actionable.
-      // Declared here (before createStream) so it's accessible in the catch block.
-      let streamErrorDetail = "";
 
       let openaiStream;
       try {
