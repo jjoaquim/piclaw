@@ -152,3 +152,57 @@ test("web processChat stores attachment content blocks", async () => {
     size: 6,
   });
 });
+
+test("read_attachment tool returns text content", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../src/db.js");
+  db.initDatabase();
+
+  const mediaId = db.createMedia(
+    "note.txt",
+    "text/plain",
+    new TextEncoder().encode("hello world"),
+    null,
+    { size: 11 }
+  );
+
+  const { fileAttachments } = await import("../../src/extensions/file-attachments.js");
+  const fake = makeFakeApi();
+  fileAttachments(fake.api);
+
+  const tool = fake.tools.get("read_attachment");
+  expect(tool).toBeDefined();
+
+  const result = await tool.execute("call", { id: mediaId, mode: "text" });
+  const text = result.content?.[0]?.text || "";
+  expect(text).toContain("hello world");
+});
+
+test("export_attachment tool writes to workspace tmp", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../src/db.js");
+  db.initDatabase();
+
+  const mediaId = db.createMedia(
+    "note.txt",
+    "text/plain",
+    new TextEncoder().encode("hello world"),
+    null,
+    { size: 11 }
+  );
+
+  const { fileAttachments } = await import("../../src/extensions/file-attachments.js");
+  const fake = makeFakeApi();
+  fileAttachments(fake.api);
+
+  const tool = fake.tools.get("export_attachment");
+  expect(tool).toBeDefined();
+
+  const result = await tool.execute("call", { id: mediaId });
+  const outputPath = result.details?.output_path;
+  expect(typeof outputPath).toBe("string");
+});
