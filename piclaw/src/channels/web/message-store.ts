@@ -13,6 +13,7 @@ import {
   attachMediaToMessage,
   clampWebContent,
   createMedia,
+  getDb,
   getMessageByRowId,
   storeChatMetadata,
   storeMessage,
@@ -102,12 +103,19 @@ export function storeWebMessage(
     attachMediaToMessage(rowId, allMediaIds);
   }
 
+  // Ensure user messages are threaded to themselves when no explicit threadId
+  // is provided. This creates a consistent thread root for replies.
+  if (!params.isBot && (options.threadId === null || options.threadId === undefined)) {
+    getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rowId, rowId);
+  }
+
   storeChatMetadata(params.chatJid, timestamp, "Web");
 
   const interaction = getMessageByRowId(params.chatJid, rowId);
   if (interaction) {
     interaction.data.agent_id = params.agentId;
     if (options.threadId) interaction.data.thread_id = options.threadId;
+    else if (!params.isBot) interaction.data.thread_id = rowId;
     scheduleLinkPreviews(channel, params.chatJid, rowId, params.content, options.linkPreviews);
     return interaction;
   }
@@ -121,6 +129,7 @@ export function storeWebMessage(
     media_ids: allMediaIds,
   };
   if (options.threadId) data.thread_id = options.threadId;
+  else if (!params.isBot) data.thread_id = rowId;
   if (contentBlocks?.length) data.content_blocks = contentBlocks;
   if (options.linkPreviews?.length) data.link_previews = options.linkPreviews;
   scheduleLinkPreviews(channel, params.chatJid, rowId, params.content, options.linkPreviews);
