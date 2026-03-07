@@ -176,6 +176,65 @@ function createSchema(database) {
     );
     CREATE INDEX IF NOT EXISTS idx_task_run_logs ON task_run_logs(task_id, run_at);
 
+    -- Remote interop peer registry.
+    CREATE TABLE IF NOT EXISTS remote_peers (
+      instance_id TEXT PRIMARY KEY,
+      public_key TEXT NOT NULL,
+      display_name TEXT,
+      status TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'mediated',
+      profile TEXT NOT NULL DEFAULT 'restricted',
+      trust_epoch INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_seen_at TEXT,
+      blocked_reason TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_remote_peers_status ON remote_peers(status);
+
+    -- Pending inbound pairing requests.
+    CREATE TABLE IF NOT EXISTS remote_pair_requests (
+      id TEXT PRIMARY KEY,
+      instance_id TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      display_name TEXT,
+      callback_url TEXT,
+      protocol_version TEXT,
+      nonce TEXT,
+      expires_at TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      source_ip TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_remote_pair_requests_instance ON remote_pair_requests(instance_id);
+    CREATE INDEX IF NOT EXISTS idx_remote_pair_requests_status ON remote_pair_requests(status);
+
+    -- Remote request ledger (proposals, executes).
+    CREATE TABLE IF NOT EXISTS remote_requests (
+      id TEXT PRIMARY KEY,
+      peer_instance_id TEXT NOT NULL,
+      request_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      prompt TEXT,
+      created_at TEXT NOT NULL,
+      decision TEXT,
+      remote_mode TEXT,
+      error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_remote_requests_peer ON remote_requests(peer_instance_id, created_at);
+
+    -- Remote audit logs for interop requests.
+    CREATE TABLE IF NOT EXISTS remote_audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      peer_instance_id TEXT,
+      endpoint TEXT NOT NULL,
+      decision TEXT,
+      status TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_remote_audit_created_at ON remote_audit_logs(created_at);
+
     -- Simple key-value store for the router's per-chat cursor positions.
     CREATE TABLE IF NOT EXISTS router_state (
       key TEXT PRIMARY KEY,

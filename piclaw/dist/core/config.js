@@ -53,6 +53,11 @@ const envConfig = readEnvFile([
     "PICLAW_WEB_INTERNAL_SECRET",
     "PICLAW_WEB_PASSKEY_MODE",
     "PICLAW_INTERNAL_SECRET",
+    "PICLAW_REMOTE_INTEROP_ENABLED",
+    "PICLAW_REMOTE_INTEROP_ALLOW_HTTP",
+    "PICLAW_REMOTE_INSTANCE_NAME",
+    "PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED",
+    "PICLAW_REMOTE_INTEROP_DECISION_MODEL",
 ]);
 // ---------------------------------------------------------------------------
 // Helpers for extracting typed values from a config object.
@@ -76,6 +81,24 @@ function pickNumber(config, keys) {
             const parsed = parseInt(value, 10);
             if (!Number.isNaN(parsed))
                 return parsed;
+        }
+    }
+    return undefined;
+}
+/** Return the first boolean-like value found under the given keys. */
+function pickBoolean(config, keys) {
+    for (const key of keys) {
+        const value = config[key];
+        if (typeof value === "boolean")
+            return value;
+        if (typeof value === "number")
+            return value !== 0;
+        if (typeof value === "string" && value.trim()) {
+            const raw = value.trim().toLowerCase();
+            if (["1", "true", "yes", "on"].includes(raw))
+                return true;
+            if (["0", "false", "no", "off"].includes(raw))
+                return false;
         }
     }
     return undefined;
@@ -346,6 +369,32 @@ export const WEB_PASSKEY_MODE = (process.env.PICLAW_WEB_PASSKEY_MODE ||
     envConfig.PICLAW_WEB_PASSKEY_MODE ||
     configWebPasskeyMode ||
     "totp-fallback").toLowerCase();
+// ---------------------------------------------------------------------------
+// Remote interop configuration (cross-instance IPC).
+// ---------------------------------------------------------------------------
+const REMOTE_INTEROP_ENABLED_RAW = pickBoolean(piclawConfig, ["remoteInteropEnabled", "PICLAW_REMOTE_INTEROP_ENABLED"]);
+const REMOTE_INTEROP_ALLOW_HTTP_RAW = pickBoolean(piclawConfig, ["remoteInteropAllowHttp", "PICLAW_REMOTE_INTEROP_ALLOW_HTTP"]);
+const REMOTE_SHORT_CIRCUIT_RAW = pickBoolean(piclawConfig, ["remoteInteropShortCircuitEnabled", "PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED"]);
+/** Enable cross-instance interop endpoints (default false). */
+export const REMOTE_INTEROP_ENABLED = REMOTE_INTEROP_ENABLED_RAW ??
+    ((process.env.PICLAW_REMOTE_INTEROP_ENABLED || "").toLowerCase() === "true" ||
+        process.env.PICLAW_REMOTE_INTEROP_ENABLED === "1");
+/** Allow http:// callback URLs for interop (default false). */
+export const REMOTE_INTEROP_ALLOW_HTTP = REMOTE_INTEROP_ALLOW_HTTP_RAW ??
+    ((process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP || "").toLowerCase() === "true" ||
+        process.env.PICLAW_REMOTE_INTEROP_ALLOW_HTTP === "1");
+/** Enable short-circuit execution mode (default false). */
+export const REMOTE_SHORT_CIRCUIT_ENABLED = REMOTE_SHORT_CIRCUIT_RAW ??
+    ((process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED || "").toLowerCase() === "true" ||
+        process.env.PICLAW_REMOTE_SHORT_CIRCUIT_ENABLED === "1");
+/** Optional display name for this instance in interop metadata. */
+export const REMOTE_INSTANCE_NAME = pickString(piclawConfig, ["remoteInstanceName", "PICLAW_REMOTE_INSTANCE_NAME"]) ||
+    process.env.PICLAW_REMOTE_INSTANCE_NAME ||
+    "";
+/** Optional decision model label for interop mediation (metadata only). */
+export const REMOTE_INTEROP_DECISION_MODEL = pickString(piclawConfig, ["remoteInteropDecisionModel", "PICLAW_REMOTE_INTEROP_DECISION_MODEL"]) ||
+    process.env.PICLAW_REMOTE_INTEROP_DECISION_MODEL ||
+    "";
 /** Directory for WhatsApp session auth files. */
 export const SESSIONS_DIR = resolve(DATA_DIR, "sessions");
 // ---------------------------------------------------------------------------

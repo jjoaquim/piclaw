@@ -1,0 +1,42 @@
+import { createHash } from "crypto";
+import { signPayload, verifyPayload } from "./identity.js";
+export function hashBody(body) {
+    return createHash("sha256").update(body).digest("hex");
+}
+export function buildCanonicalRequest(params) {
+    const lines = [
+        params.method.toUpperCase(),
+        params.pathWithQuery,
+        params.contentType,
+        params.bodyHash,
+        params.timestamp,
+        params.nonce,
+        params.instanceId,
+        params.sigVersion,
+    ];
+    if (params.trustEpoch !== undefined) {
+        lines.push(params.trustEpoch);
+    }
+    return lines.join("\n");
+}
+export function signRequest(identity, canonical) {
+    return signPayload(identity, canonical);
+}
+export function verifyRequestSignature(publicKey, canonical, signature) {
+    return verifyPayload(publicKey, canonical, signature);
+}
+export function parseTimestamp(value) {
+    if (!value)
+        return null;
+    const trimmed = value.trim();
+    if (!trimmed)
+        return null;
+    if (/^\d+$/.test(trimmed)) {
+        const numeric = Number(trimmed);
+        if (!Number.isFinite(numeric))
+            return null;
+        return numeric > 10_000_000_000 ? numeric : numeric * 1000;
+    }
+    const parsed = Date.parse(trimmed);
+    return Number.isNaN(parsed) ? null : parsed;
+}
