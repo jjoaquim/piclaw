@@ -131,7 +131,7 @@ export function sanitizeUrl(url, options = {}) {
     }
 }
 
-function sanitizeHtml(html) {
+function sanitizeHtml(html, options = {}) {
     if (!html) return '';
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const nodes = [];
@@ -176,7 +176,10 @@ function sanitizeHtml(html) {
                         }
                     }
                 } else if (name === 'src') {
-                    const safe = sanitizeUrl(value, { allowDataImage: tag === 'img' });
+                    const rewritten = tag === 'img' && typeof options.rewriteImageSrc === 'function'
+                        ? options.rewriteImageSrc(value)
+                        : value;
+                    const safe = sanitizeUrl(rewritten, { allowDataImage: tag === 'img' });
                     if (!safe) {
                         el.removeAttribute(attr.name);
                     } else {
@@ -476,7 +479,7 @@ function normalizeMathFences(text) {
 }
 
 /** Render markdown text to sanitised HTML with syntax highlighting. */
-export function renderMarkdown(text, onHashtagClick) {
+export function renderMarkdown(text, onHashtagClick, options = {}) {
     if (!text) return '';
 
     const normalizedMath = normalizeMathFences(text);
@@ -508,7 +511,7 @@ export function renderMarkdown(text, onHashtagClick) {
     html_content = injectMermaidBlocks(html_content, mermaidBlocks);
 
     // Sanitize HTML output (links/attributes/tags)
-    html_content = sanitizeHtml(html_content);
+    html_content = sanitizeHtml(html_content, options);
 
     return html_content;
 }

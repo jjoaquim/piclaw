@@ -19,7 +19,7 @@
  *   import anything from this module tree.
  */
 import { html, render, useState, useEffect, useCallback, useRef } from './vendor/preact-htm.js';
-import { searchPosts, deletePost, getAgents, getAgentThought, setAgentThoughtVisibility, getAgentStatus, getAgentContext, getAgentModels, getWorkspaceFile, updateWorkspaceFile } from './api.js';
+import * as api from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/status.js';
 import { Timeline } from './components/timeline.js';
@@ -32,6 +32,28 @@ import { useTimeline } from './ui/use-timeline.js';
 import { dedupePosts } from './ui/timeline-utils.js';
 import { useAgentState } from './ui/use-agent-state.js';
 import { useSplitters } from './ui/use-splitters.js';
+
+function missingApi(name, fallback) {
+    if (typeof window !== 'undefined') {
+        console.warn(`[app] API export missing: ${name}. Using fallback behavior.`);
+    }
+    return async () => fallback;
+}
+
+const searchPosts = api.searchPosts;
+const deletePost = api.deletePost;
+const getAgents = api.getAgents;
+const getAgentThought = api.getAgentThought;
+const setAgentThoughtVisibility = api.setAgentThoughtVisibility;
+const getAgentStatus = api.getAgentStatus;
+const getWorkspaceFile = api.getWorkspaceFile;
+const updateWorkspaceFile = api.updateWorkspaceFile;
+const getAgentContext = typeof api.getAgentContext === 'function'
+    ? api.getAgentContext
+    : missingApi('getAgentContext', null);
+const getAgentModels = typeof api.getAgentModels === 'function'
+    ? api.getAgentModels
+    : missingApi('getAgentModels', { current: null, models: [] });
 
 function readSilenceOverride(key, fallback) {
     try {
