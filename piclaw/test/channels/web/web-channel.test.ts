@@ -335,6 +335,51 @@ test("processChat advances cursor to pending steering timestamp", async () => {
   expect(db.getChatCursor("web:default")).toBe(pendingTs);
 });
 
+test("processChat rolls back cursor when agent is already processing", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const messageTs = "2024-01-01T00:00:00.000Z";
+  db.storeMessage({
+    id: `msg-${Math.random()}`,
+    chat_jid: "web:default",
+    sender: "user",
+    sender_name: "User",
+    content: "hello",
+    timestamp: messageTs,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => ({ status: "error", error: "already processing", result: null }),
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  let error: Error | null = null;
+  try {
+    await web.processChat("web:default", "default");
+  } catch (err) {
+    error = err as Error;
+  }
+
+  expect(error).toBeTruthy();
+  expect(error?.message).toContain("already processing");
+  expect(db.getChatCursor("web:default")).toBe("");
+  expect(db.getInflightRuns().some((run: any) => run.chatJid === "web:default")).toBe(false);
+});
+
 test("web channel clears stale agent status on load", async () => {
   const ws = createTempWorkspace("piclaw-web-channel-");
   cleanupWorkspace = ws.cleanup;

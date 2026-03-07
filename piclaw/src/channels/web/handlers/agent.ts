@@ -33,6 +33,7 @@ import {
   getMessageRowIdById,
   getMessagesSince,
   getDb,
+  rollbackInflightRun,
   setChatCursor,
 } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
@@ -303,10 +304,10 @@ export async function processChat(
 
   if (output.status === "error") {
     if (output.error && output.error.includes("already processing")) {
-      // A concurrent run is already handling this chat. Clear the inflight
-      // marker we set (the other run will manage its own) and throw so the
-      // queue retries after backoff.
-      endChatRun(chatJid);
+      // A concurrent run is already handling this chat. Roll back the cursor
+      // we advanced so this message stays pending, then throw so the queue
+      // retries after backoff.
+      rollbackInflightRun(chatJid, prevCursor);
       trackedEmitter.status({
         thread_id: threadId,
         agent_id: agentId,
