@@ -159,12 +159,12 @@ export const scheduledTasks: ExtensionFactory = (pi: ExtensionAPI) => {
       if (taskKind === "agent") {
         const prompt = typeof params.prompt === "string" ? params.prompt.trim() : "";
         if (!prompt) {
-          return { content: [{ type: "text", text: "Missing prompt for agent task." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+          return { content: [{ type: "text", text: "Missing prompt for agent task." }], details: failureDetails };
         }
 
         const nextRun = computeNextRun(params.schedule_type, params.schedule_value);
         if (!nextRun) {
-          return { content: [{ type: "text", text: "Invalid schedule value." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+          return { content: [{ type: "text", text: "Invalid schedule value." }], details: failureDetails };
         }
 
         const taskId = createUuid("task");
@@ -184,28 +184,29 @@ export const scheduledTasks: ExtensionFactory = (pi: ExtensionAPI) => {
           created_at: new Date().toISOString(),
         });
 
+        const details: ScheduleTaskDetails = { ok: true, id: taskId, task_kind: "agent", next_run: nextRun };
         return {
           content: [{ type: "text", text: `Scheduled agent task for ${chatJid}.` }],
-          details: { ok: true, id: taskId, task_kind: "agent", next_run: nextRun },
+          details,
         };
       }
 
       const validated = validateShellCommand(params.command);
       if (!validated.ok) {
-        return { content: [{ type: "text", text: validated.error || "Invalid shell command." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+        return { content: [{ type: "text", text: validated.error || "Invalid shell command." }], details: failureDetails };
       }
       if (params.model) {
-        return { content: [{ type: "text", text: "Model overrides are not supported for shell tasks." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+        return { content: [{ type: "text", text: "Model overrides are not supported for shell tasks." }], details: failureDetails };
       }
 
       const cwdResult = validateShellCwd(params.cwd);
       if (!cwdResult.ok) {
-        return { content: [{ type: "text", text: cwdResult.error || "Invalid cwd." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+        return { content: [{ type: "text", text: cwdResult.error || "Invalid cwd." }], details: failureDetails };
       }
 
       const nextRun = computeNextRun(params.schedule_type, params.schedule_value);
       if (!nextRun) {
-        return { content: [{ type: "text", text: "Invalid schedule value." }], details: { ok: false, id: null, task_kind: null, next_run: null } };
+        return { content: [{ type: "text", text: "Invalid schedule value." }], details: failureDetails };
       }
 
       const taskId = createUuid("task");
@@ -225,9 +226,10 @@ export const scheduledTasks: ExtensionFactory = (pi: ExtensionAPI) => {
         created_at: new Date().toISOString(),
       });
 
+      const details: ScheduleTaskDetails = { ok: true, id: taskId, task_kind: "shell", next_run: nextRun };
       return {
         content: [{ type: "text", text: `Scheduled shell task for ${chatJid}.` }],
-        details: { ok: true, id: taskId, task_kind: "shell", next_run: nextRun },
+        details,
       };
     },
   });
