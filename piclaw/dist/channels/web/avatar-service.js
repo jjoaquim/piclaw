@@ -141,6 +141,21 @@ async function loadAvatarSource(source) {
     }
     return loadLocalAvatar(source);
 }
+/**
+ * Content types that are valid for use in webapp manifests and as
+ * apple-touch-icon images. SVG and ICO are excluded because most
+ * browsers require raster images for PWA icons.
+ */
+const MANIFEST_ICON_TYPES = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+]);
+/** Check whether a content type is valid for manifest/PWA icons. */
+export function isManifestIconType(contentType) {
+    return MANIFEST_ICON_TYPES.has(normalizeContentType(contentType));
+}
 /** Ensure the avatar cache directory exists on disk. */
 export async function ensureAvatarCache(kind, source) {
     const sanitized = sanitizeAvatarSource(source);
@@ -153,6 +168,11 @@ export async function ensureAvatarCache(kind, source) {
     const loaded = await loadAvatarSource(sanitized);
     if (!loaded)
         return null;
+    const normalizedType = normalizeContentType(loaded.contentType);
+    if (kind === "agent" && !isManifestIconType(normalizedType)) {
+        console.warn(`[avatar] Agent avatar has content type "${normalizedType}" which is not valid for PWA manifest icons. ` +
+            `Use PNG, JPEG, WebP, or GIF for best compatibility.`);
+    }
     const extension = guessExtension(loaded.contentType, sanitized);
     const filePath = resolve(AVATAR_DIR, `${kind}${extension}`);
     mkdirSync(AVATAR_DIR, { recursive: true });

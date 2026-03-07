@@ -714,7 +714,7 @@ export function ComposeBox({
                         </div>
                     `}
                     <div class="compose-actions ${searchMode ? 'search-mode' : ''}">
-                    ${contextUsage && contextUsage.percent != null && html`
+                    ${!searchMode && contextUsage && contextUsage.percent != null && html`
                         <${ContextPie} usage=${contextUsage} />
                     `}
                     <button

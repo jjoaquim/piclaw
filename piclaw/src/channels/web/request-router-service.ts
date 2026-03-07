@@ -256,10 +256,17 @@ export class RequestRouterService {
     }
 
     if (isFavicon) {
+      // Prefer agent avatar for favicon if configured
+      const avatarResp = await this.channel.handleAvatar("agent", req);
+      if (avatarResp.status === 200) return avatarResp;
       return this.serveStaticAsset(req, "favicon.ico");
     }
 
     if (isAppleIcon) {
+      // If a custom agent avatar is configured, serve it for apple-touch-icon paths
+      // so the PWA home-screen icon matches the configured avatar.
+      const avatarResp = await this.channel.handleAvatar("agent", req);
+      if (avatarResp.status === 200) return avatarResp;
       return this.serveStaticAsset(req, pathname.slice(1));
     }
 

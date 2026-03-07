@@ -52,7 +52,7 @@ export function AgentStatus({ status, draft, plan, thought, pendingRequest, turn
     const draftInfo = normalizePreview(draft);
     const hasPlan = Boolean(planInfo.text) || planInfo.totalLines > 0;
     const hasThought = Boolean(thoughtInfo.text) || thoughtInfo.totalLines > 0;
-    const hasDraft = Boolean(draftInfo.text) || draftInfo.totalLines > 0;
+    const hasDraft = Boolean(draftInfo.fullText?.trim() || draftInfo.text?.trim());
 
     if (!status && !hasDraft && !hasPlan && !hasThought && !pendingRequest) return null;
 
