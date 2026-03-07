@@ -66,6 +66,18 @@ describe("parseAgentMessageRequest", () => {
     expect(result.payload).toBeUndefined();
   });
 
+  test("accepts content at exactly 100 KB", async () => {
+    const content = "x".repeat(100 * 1024);
+    const req = new Request("http://localhost/agent/default/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const result = await parseAgentMessageRequest(req);
+    expect(result.error).toBeUndefined();
+    expect(result.payload?.content).toBe(content);
+  });
+
   test("accepts normal content", async () => {
     const req = new Request("http://localhost/agent/default/message", {
       method: "POST",
@@ -213,6 +225,63 @@ describe("SSE client cap", () => {
     for (const client of channel.clients) {
       clearInterval(client.heartbeat);
       clearTimeout(client.heartbeat);
+    }
+  });
+
+  test("rejects connection when over capacity (51)", () => {
+    const channel: SseClientContainer = {
+      clients: new Set<PendingClient>(),
+    };
+    for (let i = 0; i < 51; i++) {
+      channel.clients.add({
+        controller: {} as any,
+        heartbeat: setTimeout(() => {}, 0) as any,
+      });
+    }
+
+    const response = handleSse(channel);
+    expect(response.status).toBe(503);
+
+    for (const client of channel.clients) {
+      clearInterval(client.heartbeat);
+      clearTimeout(client.heartbeat);
+    }
+  });
+
+  test("clears heartbeat interval on client disconnect", async () => {
+    const channel: SseClientContainer = {
+      clients: new Set<PendingClient>(),
+    };
+
+    const originalSetInterval = globalThis.setInterval;
+    const originalClearInterval = globalThis.clearInterval;
+    const intervals: any[] = [];
+    const cleared: any[] = [];
+
+    globalThis.setInterval = ((fn: any, ms?: number) => {
+      const id = originalSetInterval(fn, ms as any);
+      intervals.push(id);
+      return id as any;
+    }) as typeof setInterval;
+
+    globalThis.clearInterval = ((id: any) => {
+      cleared.push(id);
+      return originalClearInterval(id);
+    }) as typeof clearInterval;
+
+    try {
+      const response = handleSse(channel);
+      expect(response.status).toBe(200);
+      const reader = response.body?.getReader();
+      await reader?.read();
+      await reader?.cancel();
+
+      expect(channel.clients.size).toBe(0);
+      expect(cleared.length).toBeGreaterThan(0);
+      expect(cleared).toContain(intervals[0]);
+    } finally {
+      globalThis.setInterval = originalSetInterval;
+      globalThis.clearInterval = originalClearInterval;
     }
   });
 });

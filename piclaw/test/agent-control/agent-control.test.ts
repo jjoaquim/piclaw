@@ -197,3 +197,21 @@ test("applyControlCommand lists models when /model has no args", async () => {
   expect(result.message).toContain("Available models:");
   expect(result.message).toContain("openai/gpt-test (current)");
 });
+
+test("/model uses session registry when available", async () => {
+  const session = new StubSession();
+  (session as any).modelRegistry = {
+    refresh: () => {},
+    getAvailable: () => [modelSimple],
+    getAll: () => [modelSimple],
+  } as any;
+
+  const result = await applyControlCommand(session as any, registry, {
+    type: "model",
+    raw: "/model",
+  });
+
+  expect(result.status).toBe("success");
+  expect(result.message).toContain("anthropic/claude-test");
+  expect(result.message).not.toContain("openai/gpt-test");
+});

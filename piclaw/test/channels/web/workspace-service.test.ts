@@ -10,10 +10,13 @@ import { afterEach, expect, test } from "bun:test";
 import { getTestWorkspace, importFresh, setEnv } from "../../helpers.js";
 
 let restoreEnv: (() => void) | null = null;
+let cleanupWorkspace: (() => void) | null = null;
 
 afterEach(() => {
   restoreEnv?.();
   restoreEnv = null;
+  cleanupWorkspace?.();
+  cleanupWorkspace = null;
 });
 
 test("workspace tree cache reuses responses briefly", async () => {
@@ -58,4 +61,62 @@ test("workspace update throttle delays bursts", async () => {
   expect(updates[1][0].path).toBe("b");
 
   throttler.clear();
+});
+
+// --- New coverage: tree depth clamp, hidden files, and truncation ---
+
+test("workspace tree clamps depth and respects hidden files", async () => {
+  const { WorkspaceService } = await importFresh<typeof import("../src/channels/web/workspace/service.js")>(
+    "../src/channels/web/workspace/service.js"
+  );
+  const { resolveWorkspacePath } = await import("../../../src/channels/web/workspace/paths.js");
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+
+  const rootPath = resolveWorkspacePath("")!;
+  const testDirName = `web-tree-test-${Math.random().toString(36).slice(2, 8)}`;
+  const base = path.join(rootPath, testDirName);
+  cleanupWorkspace = () => {
+    void fs.rm(base, { recursive: true, force: true });
+  };
+
+  await fs.mkdir(path.join(base, "deep", "child"), { recursive: true });
+  await fs.writeFile(path.join(base, "deep", "child", "file.txt"), "hello");
+  await fs.writeFile(path.join(base, ".hidden.txt"), "hidden");
+
+  const service = new WorkspaceService();
+
+  // depth 0 should clamp to 1 → root children exist, but no grandchildren
+  const depth0 = service.getTree(testDirName, "0", false);
+  expect(depth0.status).toBe(200);
+  const root0 = (depth0.body as any).root;
+  expect(Array.isArray(root0.children)).toBe(true);
+  expect(root0.children.length).toBeGreaterThan(0);
+  expect(root0.children.every((c: any) => c.children === undefined)).toBe(true);
+
+  // includeHidden=false should not include hidden files
+  const names0 = root0.children?.map((c: any) => c.name) || [];
+  expect(names0).not.toContain(".hidden.txt");
+
+  // includeHidden=true should include hidden files
+  const withHidden = service.getTree(testDirName, "1", true);
+  const rootHidden = (withHidden.body as any).root;
+  const namesHidden = rootHidden.children?.map((c: any) => c.name) || [];
+  expect(namesHidden).toContain(".hidden.txt");
+});
+
+test("workspace tree truncates when entry cap is reached", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const { buildTree } = await import("../../../src/channels/web/workspace/tree.js");
+  const { MAX_TREE_ENTRIES } = await import("../../../src/channels/web/workspace/constants.js");
+  const { resolveWorkspacePath } = await import("../../../src/channels/web/workspace/paths.js");
+
+  const rootPath = resolveWorkspacePath("")!;
+  const state = { count: MAX_TREE_ENTRIES, truncated: false };
+
+  const tree = buildTree(rootPath, 1, state, { includeHidden: false });
+  expect(state.truncated).toBe(true);
+  expect(tree.children).toBeUndefined();
 });

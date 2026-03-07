@@ -5,10 +5,29 @@
  * compare helper behavior, and session token generation shape.
  */
 
-import { afterEach, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 
 import { randomSessionToken, safeEqual, verifyTotp } from "../../../src/channels/web/auth.js";
+import { createWebSession, deleteExpiredWebSessions, getWebSession, initDatabase } from "../../../src/db.js";
+import { getTestWorkspace, setEnv } from "../../helpers.js";
+
+let restoreEnv: (() => void) | null = null;
+
+beforeAll(() => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({
+    PICLAW_WORKSPACE: ws.workspace,
+    PICLAW_STORE: ws.store,
+    PICLAW_DATA: ws.data,
+  });
+  initDatabase();
+});
+
+afterAll(() => {
+  restoreEnv?.();
+  restoreEnv = null;
+});
 
 function decodeBase32(value: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -82,4 +101,36 @@ test("randomSessionToken produces URL-safe random value", () => {
   expect(a).not.toBe(b);
   expect(a.length).toBeGreaterThanOrEqual(32);
   expect(a).toMatch(/^[A-Za-z0-9_-]+$/);
+});
+
+test("verifyTotp rejects invalid code length", () => {
+  const secret = "JBSWY3DPEHPK3PXP";
+  const now = 1_700_000_000_000;
+  Date.now = () => now;
+
+  // Too short
+  expect(verifyTotp(secret, "123", 0)).toBe(false);
+  // Too long
+  expect(verifyTotp(secret, "1234567", 0)).toBe(false);
+  // Non-digits
+  expect(verifyTotp(secret, "12ab56", 0)).toBe(false);
+});
+
+test("getWebSession returns null for invalid or expired tokens", () => {
+  const missing = getWebSession("missing-token");
+  expect(missing).toBeNull();
+
+  const token = "expired-token";
+  // ttlSeconds < 0 → already expired
+  createWebSession(token, "default", -10, "totp");
+  const expired = getWebSession(token);
+  expect(expired).toBeNull();
+});
+
+test("deleteExpiredWebSessions removes expired sessions", () => {
+  const token = "expire-me";
+  createWebSession(token, "default", -5, "totp");
+  const removed = deleteExpiredWebSessions();
+  expect(removed).toBeGreaterThanOrEqual(1);
+  expect(getWebSession(token)).toBeNull();
 });

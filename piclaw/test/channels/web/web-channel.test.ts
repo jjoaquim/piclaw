@@ -364,3 +364,157 @@ test("web channel clears stale agent status on load", async () => {
   const restored = second.getAgentStatus("web:default");
   expect(restored).toBeNull();
 });
+
+// --- New coverage: agent status lifecycle ---
+
+test("web channel status transitions from thinking to idle during a run", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  db.storeMessage({
+    id: `msg-${Math.random()}`,
+    chat_jid: "web:default",
+    sender: "user",
+    sender_name: "User",
+    content: "hello",
+    timestamp: new Date().toISOString(),
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  let resolveRun: (() => void) | null = null;
+  const runGate = new Promise<void>((resolve) => { resolveRun = resolve; });
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => {} },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => {
+        await runGate;
+        return { status: "success", result: "ok", attachments: [] };
+      },
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const runPromise = web.processChat("web:default", "default");
+  await Bun.sleep(10);
+
+  const activeRes = await web.handleRequest(new Request("http://test/agent/status"));
+  const activeJson = await activeRes.json();
+  expect(activeJson.status).toBe("active");
+
+  resolveRun?.();
+  await runPromise;
+
+  const idleRes = await web.handleRequest(new Request("http://test/agent/status"));
+  const idleJson = await idleRes.json();
+  expect(idleJson.status).toBe("idle");
+});
+
+// --- New coverage: inflight recovery ---
+
+test("recoverInflightRuns rolls back cursor and retries the run", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const ts = "2024-01-01T00:00:00.000Z";
+  const messageId = `msg-${Math.random()}`;
+  db.storeMessage({
+    id: messageId,
+    chat_jid: "web:default",
+    sender: "user",
+    sender_name: "User",
+    content: "hello",
+    timestamp: ts,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+
+  // Simulate a crash mid-run: inflight marker exists, cursor advanced.
+  db.beginChatRun("web:default", ts, {
+    prevTs: "",
+    messageId,
+    startedAt: ts,
+  });
+
+  let ran = 0;
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: async (fn: () => Promise<void>) => fn() },
+    agentPool: {
+      setSessionBinder: () => {},
+      runAgent: async () => {
+        ran += 1;
+        return { status: "success", result: "ok", attachments: [] };
+      },
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  web.recoverInflightRuns();
+  await Bun.sleep(20);
+  expect(ran).toBe(1);
+  expect(db.getInflightRuns().filter((r: any) => r.chatJid === "web:default").length).toBe(0);
+  expect(db.getChatCursor("web:default")).toBe(ts);
+
+  const timeline = db.getTimeline("web:default", 10);
+  expect(timeline.length).toBeGreaterThanOrEqual(2); // user + agent response
+});
+
+// --- New coverage: /model error path ---
+
+test("web channel reports /model errors without queueing agent", async () => {
+  const ws = createTempWorkspace("piclaw-web-channel-");
+  cleanupWorkspace = ws.cleanup;
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../../src/db.js");
+  db.initDatabase();
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
+  db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  let queued = false;
+  let commandHandled = false;
+
+  const webMod = await import("../../../src/channels/web.js");
+  const web = new (webMod.WebChannel as any)({
+    queue: { enqueue: () => { queued = true; } },
+    agentPool: {
+      runAgent: async () => ({ status: "success", result: "ok" }),
+      applyControlCommand: async () => {
+        commandHandled = true;
+        return { status: "error", message: "Model not found" };
+      },
+      getContextUsageForChat: async () => null,
+    },
+  });
+
+  const req = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "/model nope/unknown" }),
+  });
+
+  const res = await (web as any).handleRequest(req);
+  expect(res.status).toBe(201);
+  expect(commandHandled).toBe(true);
+  expect(queued).toBe(false);
+
+  const timeline = db.getTimeline("web:default", 10);
+  const last = timeline[timeline.length - 1];
+  expect(last.data.content).toContain("Model not found");
+});
