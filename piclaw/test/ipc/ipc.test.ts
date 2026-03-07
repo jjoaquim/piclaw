@@ -170,3 +170,57 @@ test("IPC update_task with invalid model reports error", async () => {
   const task = db.getTaskById(taskId);
   expect(task?.model ?? null).toBe(null);
 });
+
+test("IPC cleanup_tasks removes completed tasks and logs", async () => {
+  const tasksDir = join(config.DATA_DIR, "ipc", "tasks");
+  mkdirSync(tasksDir, { recursive: true });
+
+  const completedId = `task_completed_${Date.now()}`;
+  db.createTask({
+    id: completedId,
+    chat_jid: "web:default",
+    prompt: "done",
+    model: null,
+    schedule_type: "once",
+    schedule_value: new Date().toISOString(),
+    next_run: null,
+    status: "completed",
+    created_at: new Date().toISOString(),
+  });
+  db.logTaskRun({
+    task_id: completedId,
+    run_at: new Date().toISOString(),
+    duration_ms: 10,
+    status: "success",
+    result: "ok",
+    error: null,
+  });
+
+  const activeId = `task_active_${Date.now()}`;
+  db.createTask({
+    id: activeId,
+    chat_jid: "web:default",
+    prompt: "active",
+    model: null,
+    schedule_type: "once",
+    schedule_value: new Date().toISOString(),
+    next_run: null,
+    status: "active",
+    created_at: new Date().toISOString(),
+  });
+
+  const filePath = join(tasksDir, `cleanup_${Date.now()}.json`);
+  writeFileSync(
+    filePath,
+    JSON.stringify({
+      type: "cleanup_tasks",
+      chatJid: "web:default",
+    })
+  );
+
+  await waitFor(() => sentMessages.length === 1);
+  expect(sentMessages[0].text).toContain("Cleaned up 1 completed task");
+  expect(db.getTaskById(completedId)).toBeNull();
+  expect(db.getTaskRunLogs(completedId).length).toBe(0);
+  expect(db.getTaskById(activeId)).not.toBeNull();
+});

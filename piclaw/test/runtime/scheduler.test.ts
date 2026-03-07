@@ -6,7 +6,7 @@
  */
 
 import { afterEach, expect, test } from "bun:test";
-import { getTestWorkspace, setEnv } from "../helpers.js";
+import { getTestWorkspace, importFresh, setEnv } from "../helpers.js";
 
 let restoreEnv: (() => void) | null = null;
 
@@ -29,6 +29,28 @@ test("computeNextRun handles cron and interval", async () => {
 
   const onceNext = scheduler.computeNextRun("once", "2020-01-01T00:00:00.000Z");
   expect(onceNext).toBeNull();
+});
+
+test("computeNextRun handles invalid cron and timezone", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({
+    PICLAW_WORKSPACE: ws.workspace,
+    PICLAW_STORE: ws.store,
+    PICLAW_DATA: ws.data,
+    TZ: "UTC",
+  });
+
+  const scheduler = await importFresh<typeof import("../src/task-scheduler.js")>("../src/task-scheduler.js");
+
+  const invalidCron = scheduler.computeNextRun("cron", "not a cron");
+  expect(invalidCron).toBeNull();
+
+  const cronNext = scheduler.computeNextRun("cron", "0 0 * * *");
+  expect(cronNext).not.toBeNull();
+  expect(cronNext).toMatch(/T00:00:00\.000Z$/);
+
+  const onceFuture = scheduler.computeNextRun("once", "2099-01-01T00:00:00.000Z");
+  expect(onceFuture).toBeNull();
 });
 
 test("runScheduledTask logs run and updates task", async () => {
@@ -177,4 +199,64 @@ test("runScheduledTask stops when model switch fails", async () => {
   expect(runCount).toBe(0);
   expect(modelCalls.length).toBe(2);
   expect(modelCalls[1].raw).toBe("/model openai/gpt-3.5");
+});
+
+test("runScheduledTask logs restore-model failures", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const db = await import("../../src/db.js");
+  db.initDatabase();
+
+  const scheduler = await import("../../src/task-scheduler.js");
+
+  const taskId = `task-model-restore-${Date.now()}`;
+  db.createTask({
+    id: taskId,
+    chat_jid: "web:default",
+    prompt: "say hi",
+    model: "openai/gpt-4",
+    schedule_type: "interval",
+    schedule_value: "60000",
+    next_run: new Date(Date.now() - 1000).toISOString(),
+    status: "active",
+    created_at: new Date().toISOString(),
+  });
+
+  const modelCalls: any[] = [];
+  const errors: string[] = [];
+  const originalError = console.error;
+  console.error = (...args: any[]) => {
+    errors.push(args.map(String).join(" "));
+  };
+
+  const deps = {
+    queue: { enqueueTask: (_id: string, fn: () => Promise<void>) => fn() } as any,
+    agentPool: {
+      runAgent: async () => ({ status: "success", result: "Hello" }),
+      saveSessionPosition: async () => "leaf-restore",
+      restoreSessionPosition: async () => {},
+      getCurrentModelLabel: async () => "openai/gpt-3.5",
+      applyControlCommand: async (_jid: string, payload: any) => {
+        modelCalls.push(payload);
+        if (modelCalls.length === 2) {
+          return { status: "error", message: "restore failed" };
+        }
+        return { status: "success", message: "" };
+      },
+    } as any,
+    sendMessage: async () => {},
+  };
+
+  const task = db.getTaskById(taskId)!;
+  await scheduler.runScheduledTask(task, deps as any);
+
+  console.error = originalError;
+
+  expect(modelCalls.length).toBe(2);
+  expect(errors.some((line) => line.includes("Failed to restore model"))).toBe(true);
+
+  const logs = db.getTaskRunLogs(taskId);
+  expect(logs.length).toBe(1);
+  expect(logs[0].status).toBe("success");
 });
