@@ -50,14 +50,14 @@ export const keychainTools: ExtensionFactory = (pi: ExtensionAPI) => {
         if (entries.length === 0) {
           return {
             content: [{ type: "text", text: "No keychain entries found." }],
-            details: { count: 0, entries: [] },
+            details: { count: 0, entries: [], name: "", field: "", type: "" },
           };
         }
 
         const lines = entries.map((entry) => `• ${entry.name} (${entry.type})`);
         return {
           content: [{ type: "text", text: `Keychain entries (${entries.length}):\n${lines.join("\n")}` }],
-          details: { count: entries.length, entries },
+          details: { count: entries.length, entries, name: "", field: "", type: "" },
         };
       }
 
@@ -65,7 +65,7 @@ export const keychainTools: ExtensionFactory = (pi: ExtensionAPI) => {
       if (!name) {
         return {
           content: [{ type: "text", text: "Provide name for action=get." }],
-          details: {},
+          details: { count: 0, entries: [], name: "", field: "", type: "" },
         };
       }
 
@@ -76,23 +76,23 @@ export const keychainTools: ExtensionFactory = (pi: ExtensionAPI) => {
           if (!entry.username) {
             return {
               content: [{ type: "text", text: `Entry ${name} has no username.` }],
-              details: { name, field },
+              details: { count: 0, entries: [], name, field, type: entry.type },
             };
           }
           return {
             content: [{ type: "text", text: entry.username }],
-            details: { name, field, type: entry.type },
+            details: { count: 1, entries: [], name, field, type: entry.type },
           };
         }
 
         return {
           content: [{ type: "text", text: entry.secret }],
-          details: { name, field, type: entry.type },
+          details: { count: 1, entries: [], name, field, type: entry.type },
         };
       } catch (error) {
         return {
           content: [{ type: "text", text: (error as Error).message || "Failed to read keychain entry." }],
-          details: { name, field },
+          details: { count: 0, entries: [], name, field, type: "" },
         };
       }
     },

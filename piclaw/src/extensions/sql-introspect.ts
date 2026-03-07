@@ -89,14 +89,14 @@ export const sqlIntrospect: ExtensionFactory = (pi: ExtensionAPI) => {
       if (!query) {
         return {
           content: [{ type: "text", text: "Provide a SQL query." }],
-          details: {},
+          details: { query: "", count: 0, returned: 0, truncated: false, rows: [] },
         };
       }
 
       if (!isReadOnlyIntrospectionQuery(query)) {
         return {
           content: [{ type: "text", text: "Only read-only single-statement SELECT/PRAGMA/WITH/EXPLAIN queries are allowed." }],
-          details: { query },
+          details: { query, count: 0, returned: 0, truncated: false, rows: [] },
         };
       }
 
@@ -110,7 +110,7 @@ export const sqlIntrospect: ExtensionFactory = (pi: ExtensionAPI) => {
         if (!sliced.length) {
           return {
             content: [{ type: "text", text: "Query executed successfully (0 rows)." }],
-            details: { query, count: 0, rows: [] },
+            details: { query, count: 0, returned: 0, truncated: false, rows: [] },
           };
         }
 
@@ -132,7 +132,7 @@ export const sqlIntrospect: ExtensionFactory = (pi: ExtensionAPI) => {
       } catch (error) {
         return {
           content: [{ type: "text", text: (error as Error).message || "SQL query failed." }],
-          details: { query },
+          details: { query, count: 0, returned: 0, truncated: false, rows: [] },
         };
       }
     },

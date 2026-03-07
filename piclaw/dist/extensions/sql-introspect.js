@@ -79,13 +79,13 @@ export const sqlIntrospect = (pi) => {
             if (!query) {
                 return {
                     content: [{ type: "text", text: "Provide a SQL query." }],
-                    details: {},
+                    details: { query: "", count: 0, returned: 0, truncated: false, rows: [] },
                 };
             }
             if (!isReadOnlyIntrospectionQuery(query)) {
                 return {
                     content: [{ type: "text", text: "Only read-only single-statement SELECT/PRAGMA/WITH/EXPLAIN queries are allowed." }],
-                    details: { query },
+                    details: { query, count: 0, returned: 0, truncated: false, rows: [] },
                 };
             }
             try {
@@ -97,7 +97,7 @@ export const sqlIntrospect = (pi) => {
                 if (!sliced.length) {
                     return {
                         content: [{ type: "text", text: "Query executed successfully (0 rows)." }],
-                        details: { query, count: 0, rows: [] },
+                        details: { query, count: 0, returned: 0, truncated: false, rows: [] },
                     };
                 }
                 const previewLines = sliced.slice(0, 5).map((row) => `• ${safePreview(row)}`);
@@ -118,7 +118,7 @@ export const sqlIntrospect = (pi) => {
             catch (error) {
                 return {
                     content: [{ type: "text", text: error.message || "SQL query failed." }],
-                    details: { query },
+                    details: { query, count: 0, returned: 0, truncated: false, rows: [] },
                 };
             }
         },
