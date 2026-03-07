@@ -56,6 +56,8 @@ const MODEL_NAMES = (process.env.AOAI_MODEL_NAMES || "")
   .map((entry) => entry.trim());
 const BASE_URL = process.env.AOAI_BASE_URL || "https://{RESOURCE_NAME}.openai.azure.com/openai/v1";
 const AOAI_IMAGE_MODEL_ID = process.env.AOAI_IMAGE_MODEL_ID || "gpt-image-1-5";
+// API version for direct Azure OpenAI access. The proxy ignores this, but it must
+// be settable locally so the extension works against Azure endpoints without a proxy.
 const AOAI_API_VERSION = process.env.AOAI_API_VERSION || process.env.OPENAI_API_VERSION || "2024-02-15-preview";
 const FOUNDRY_BASE_URL =
   process.env.FOUNDRY_BASE_URL || "https://{FOUNDRY_RESOURCE}.cognitiveservices.azure.com/openai/v1";
@@ -67,8 +69,11 @@ const FOUNDRY_MODEL_NAMES = (process.env.FOUNDRY_MODEL_NAMES || "")
   .split(",")
   .map((entry) => entry.trim());
 const FOUNDRY_IMAGE_MODEL_ID = process.env.FOUNDRY_IMAGE_MODEL_ID || "flux-2-pro";
+// API version constants — used for direct Azure/Foundry access (non-proxy mode).
+// Even when running through a proxy, these env vars should be settable locally
+// so the extension can be pointed at Azure endpoints directly without code changes.
 const FOUNDRY_API_VERSION = process.env.FOUNDRY_API_VERSION || AOAI_API_VERSION;
-const FOUNDRY_IMAGE_API_VERSION = process.env.FOUNDRY_IMAGE_API_VERSION || "preview";
+const FOUNDRY_IMAGE_API_VERSION = process.env.FOUNDRY_IMAGE_API_VERSION || FOUNDRY_API_VERSION;
 const FOUNDRY_IMAGE_BASE_URL = process.env.FOUNDRY_IMAGE_BASE_URL || "";
 const FOUNDRY_TEXT_MODEL_IDS = FOUNDRY_MODEL_IDS.filter(
   (id) => id !== FOUNDRY_IMAGE_MODEL_ID && !id.startsWith("flux-")
@@ -148,17 +153,6 @@ function sanitizeOpenAIId(value?: string): string | undefined {
   let next = value.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/_+$/, "");
   if (next.length > 64) next = next.slice(0, 64).replace(/_+$/, "");
   return next;
-}
-
-function sanitizeToolCallId(value?: string): string | undefined {
-  if (!value) return value;
-  if (!value.includes("|")) return sanitizeOpenAIId(value);
-  const [callId, itemId, ...rest] = value.split("|");
-  const sanitizedCallId = sanitizeOpenAIId(callId) || callId;
-  const sanitizedItemId = sanitizeOpenAIId(itemId) || itemId;
-  const tail = rest.length ? `|${rest.join("|")}` : "";
-  if (sanitizedItemId) return `${sanitizedCallId}|${sanitizedItemId}${tail}`;
-  return sanitizedCallId;
 }
 
 function logStreamFailureEvent(event: any, requestSummary?: Record<string, unknown>, loggedRef?: { logged: boolean }): void {
@@ -241,11 +235,10 @@ function applyPhasesToResponseInput(items: Array<any>, phases: Map<string, strin
 }
 
 function stripOrphanReasoningItems(items: Array<any>): Array<any> {
-  // Azure requires strict reasoning↔function_call pairing (rs_ ↔ fc_ IDs).
-  // Since we unconditionally strip fc_ IDs (to avoid orphan fc_ errors),
-  // ALL reasoning items become orphans. Rather than trying to reconstruct
-  // the pairing, just strip all reasoning items — the model generates fresh
-  // reasoning each turn and doesn't need prior reasoning for context.
+  // Azure pairs reasoning items (rs_) with both messages (msg_) and function_calls (fc_).
+  // We strip msg_ and fc_ IDs to avoid pairing validation errors, which makes ALL reasoning
+  // items orphans. Strip them entirely — the model generates fresh reasoning each turn and
+  // the encrypted_content blobs would just waste context tokens.
   if (!Array.isArray(items) || items.length === 0) return items;
   return items.filter((item) => item?.type !== "reasoning");
 }
@@ -689,12 +682,15 @@ function streamAzureOpenAIResponses(model: any, context: any, options: any) {
 
       // Post-conversion sanitization for Azure OpenAI compatibility.
       // Azure requires: id/call_id max 64 chars, only [a-zA-Z0-9_-].
-      // Additionally, Azure pairs fc_ IDs with rs_ reasoning items and rejects
-      // function_calls whose reasoning partner is missing. Stripping all fc_ IDs
-      // bypasses this validation entirely (same as cross-provider replay).
+      // Additionally, Azure pairs rs_ reasoning items with msg_ messages AND
+      // fc_ function_calls. Stripping reasoning items (to save tokens) makes
+      // any msg_/fc_ IDs orphans. Strip those IDs so the API cannot enforce
+      // the pairing validation (same approach as cross-provider replay).
       for (const item of messages) {
         if (item.id && typeof item.id === "string") {
           if ((item as any).type === "function_call" && (item.id as string).startsWith("fc_")) {
+            (item as any).id = undefined;
+          } else if ((item as any).type === "message" && (item.id as string).startsWith("msg_")) {
             (item as any).id = undefined;
           } else {
             const nextId = sanitizeOpenAIId(item.id);
@@ -987,7 +983,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("image", {
     description: "Generate an image with Azure OpenAI",
-    handler: async (input, ctx) => {
+    handler: async (input, _ctx) => {
       const parsed = parseArgs(input || "");
       if (!parsed) {
         pi.sendMessage({
@@ -1028,7 +1024,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerCommand("flux", {
     description: "Generate an image with Azure Foundry (FLUX.2-pro)",
-    handler: async (input, ctx) => {
+    handler: async (input, _ctx) => {
       const parsed = parseArgs(input || "");
       if (!parsed) {
         pi.sendMessage({
