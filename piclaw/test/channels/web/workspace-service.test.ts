@@ -93,6 +93,7 @@ test("workspace tree clamps depth and respects hidden files", async () => {
   expect(Array.isArray(root0.children)).toBe(true);
   expect(root0.children.length).toBeGreaterThan(0);
   expect(root0.children.every((c: any) => c.children === undefined)).toBe(true);
+  expect(root0.children.filter((c: any) => c.type === "dir").every((c: any) => Number.isInteger(c.child_count))).toBe(true);
 
   // includeHidden=false should not include hidden files
   const names0 = root0.children?.map((c: any) => c.name) || [];

@@ -21,6 +21,21 @@ export interface WorkspaceTreeState {
   truncated: boolean;
 }
 
+function listDirEntries(absPath: string, includeHidden: boolean) {
+  const entriesAll = readdirSync(absPath, { withFileTypes: true })
+    .filter((entry) => !entry.isDirectory() || !shouldExcludeDir(entry.name));
+
+  const sorter = (a: (typeof entriesAll)[number], b: (typeof entriesAll)[number]) => {
+    if (a.isDirectory() && !b.isDirectory()) return -1;
+    if (!a.isDirectory() && b.isDirectory()) return 1;
+    return a.name.localeCompare(b.name);
+  };
+
+  const visibleEntries = entriesAll.filter((entry) => !entry.name.startsWith(".")).sort(sorter);
+  const hiddenEntries = entriesAll.filter((entry) => entry.name.startsWith(".")).sort(sorter);
+  return includeHidden ? visibleEntries.concat(hiddenEntries) : visibleEntries;
+}
+
 /** Recursively build a directory tree starting from the given root. */
 export function buildTree(
   absPath: string,
@@ -35,6 +50,7 @@ export function buildTree(
     type: stats.isDirectory() ? "dir" : "file",
     size: stats.isDirectory() ? null : stats.size,
     mtime: formatMtime(stats),
+    child_count: undefined as number | undefined,
     children: [] as any[] | undefined,
   };
 
@@ -45,23 +61,26 @@ export function buildTree(
     return node;
   }
 
-  if (!stats.isDirectory() || depth <= 0) {
+  if (!stats.isDirectory()) {
     node.children = undefined;
     return node;
   }
 
-  const entriesAll = readdirSync(absPath, { withFileTypes: true })
-    .filter((entry) => !entry.isDirectory() || !shouldExcludeDir(entry.name));
+  let entries: ReturnType<typeof listDirEntries> = [];
+  try {
+    entries = listDirEntries(absPath, options.includeHidden);
+  } catch {
+    node.child_count = 0;
+    node.children = undefined;
+    return node;
+  }
 
-  const sorter = (a: (typeof entriesAll)[number], b: (typeof entriesAll)[number]) => {
-    if (a.isDirectory() && !b.isDirectory()) return -1;
-    if (!a.isDirectory() && b.isDirectory()) return 1;
-    return a.name.localeCompare(b.name);
-  };
+  node.child_count = entries.length;
 
-  const visibleEntries = entriesAll.filter((entry) => !entry.name.startsWith(".")).sort(sorter);
-  const hiddenEntries = entriesAll.filter((entry) => entry.name.startsWith(".")).sort(sorter);
-  const entries = options.includeHidden ? visibleEntries.concat(hiddenEntries) : visibleEntries;
+  if (depth <= 0) {
+    node.children = undefined;
+    return node;
+  }
 
   node.children = [];
   for (const entry of entries) {
