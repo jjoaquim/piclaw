@@ -31,7 +31,7 @@ GHCR_IMAGE := $(REGISTRY)/$(GHCR_OWNER)/$(IMAGE):$(TAG)
 
 GLOBAL_PKG := /usr/local/lib/bun/install/global/package.json
 GLOBAL_LOCK := /usr/local/lib/bun/install/global/bun.lock
-PI_AGENT_VERSION ?= ^0.57.0
+PI_AGENT_VERSION ?= 0.57.1
 
 .PHONY: help up down enter build build-piclaw build-web build-ts vendor pack \
         local-install restart lint test test-coverage \
