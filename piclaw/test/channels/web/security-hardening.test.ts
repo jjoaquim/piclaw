@@ -353,12 +353,12 @@ describe("CSRF origin checks", () => {
     expect(body.error).toContain("Origin not allowed");
   });
 
-  test("allows matching Origin/Host", async () => {
+  test("allows matching Origin/Host/Protocol", async () => {
     const router = new RequestRouterService(new StubChannel() as any);
     const req = new Request("http://example.com/post", {
       method: "POST",
       headers: {
-        Origin: "https://example.com",
+        Origin: "http://example.com",
         Host: "example.com",
         "Content-Type": "application/json",
       },
@@ -367,6 +367,22 @@ describe("CSRF origin checks", () => {
 
     const res = await router.handle(req);
     expect(res.status).toBe(200);
+  });
+
+  test("blocks mismatched Origin port", async () => {
+    const router = new RequestRouterService(new StubChannel() as any);
+    const req = new Request("https://example.com/post", {
+      method: "POST",
+      headers: {
+        Origin: "https://example.com:8443",
+        Host: "example.com",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content: "hello" }),
+    });
+
+    const res = await router.handle(req);
+    expect(res.status).toBe(403);
   });
 });
 

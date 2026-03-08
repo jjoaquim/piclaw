@@ -97,6 +97,7 @@ import { getAgentsResponse } from "./web/agents-service.js";
 import { buildAvatarResponse, ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import { broadcastAgentResponse, broadcastInteractionUpdated } from "./web/interaction-service.js";
 import { RemoteInteropService } from "../remote/service.js";
+import { getClientKey as getRequestClientKey, getRequestOriginParts } from "../utils/request-client.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -516,14 +517,7 @@ export class WebChannel {
   }
 
   private getClientKey(req: Request): string {
-    const forwarded = req.headers.get("x-forwarded-for");
-    if (forwarded) {
-      const first = forwarded.split(",")[0]?.trim();
-      if (first) return first;
-    }
-    const realIp = req.headers.get("x-real-ip");
-    if (realIp) return realIp.trim();
-    return "unknown";
+    return getRequestClientKey(req);
   }
 
   private pruneTotpFailures(now = Date.now()): void {
@@ -611,17 +605,7 @@ export class WebChannel {
       }
     }
 
-    const forwardedProto = req.headers.get("x-forwarded-proto");
-    const forwardedHost = req.headers.get("x-forwarded-host");
-    const forwardedPort = req.headers.get("x-forwarded-port");
-    const proto = (forwardedProto ? forwardedProto.split(",")[0].trim() : url.protocol.replace(":", "")) || "http";
-    let host = forwardedHost ? forwardedHost.split(",")[0].trim() : url.host;
-    if (forwardedPort && host && !host.includes(":")) {
-      const port = forwardedPort.split(",")[0].trim();
-      if (port && ((proto === "https" && port !== "443") || (proto === "http" && port !== "80"))) {
-        host = `${host}:${port}`;
-      }
-    }
+    const { proto, host } = getRequestOriginParts(req);
     const rpId = host ? host.split(":")[0] : url.hostname;
     const origin = `${proto}://${host || url.host}`;
     return { rpId, origin };

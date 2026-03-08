@@ -3,7 +3,9 @@
  */
 import { describe, expect, test } from "bun:test";
 import "../helpers.js";
+import { mkdirSync } from "fs";
 import { resolve } from "path";
+import { createTempWorkspace, setEnv } from "../helpers.js";
 import { WORKSPACE_DIR } from "../../src/core/config.js";
 import { validateShellCommand, validateShellCwd } from "../../src/utils/task-validation.js";
 
@@ -42,5 +44,18 @@ describe("validateShellCwd", () => {
   test("rejects outside workspace", () => {
     const res = validateShellCwd("/etc");
     expect(res.ok).toBe(false);
+  });
+
+  test("rejects absolute sibling path that shares workspace prefix", () => {
+    const ws = createTempWorkspace("task-cwd-");
+    const restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace });
+    const sibling = `${ws.workspace}-evil`;
+    mkdirSync(sibling, { recursive: true });
+
+    const res = validateShellCwd(sibling);
+    expect(res.ok).toBe(false);
+
+    restoreEnv();
+    ws.cleanup();
   });
 });

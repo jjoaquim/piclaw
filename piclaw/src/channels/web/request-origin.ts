@@ -5,20 +5,13 @@
  * hostname used by the current browser session, even when behind proxies.
  */
 
-const originByChatJid = new Map<string, string>();
+import { getRequestOriginParts } from "../../utils/request-client.js";
 
-const parseForwardedValue = (value: string | null): string | null => {
-  if (!value) return null;
-  return value.split(",")[0]?.trim() || null;
-};
+const originByChatJid = new Map<string, string>();
 
 export function rememberWebOrigin(chatJid: string, req: Request): void {
   try {
-    const url = new URL(req.url);
-    const forwardedHost = parseForwardedValue(req.headers.get("x-forwarded-host"));
-    const forwardedProto = parseForwardedValue(req.headers.get("x-forwarded-proto"));
-    const host = forwardedHost || req.headers.get("host") || url.host;
-    const proto = forwardedProto || url.protocol.replace(":", "") || "http";
+    const { proto, host } = getRequestOriginParts(req);
     if (!host) return;
     originByChatJid.set(chatJid, `${proto}://${host}`);
   } catch {

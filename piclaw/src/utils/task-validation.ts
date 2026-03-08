@@ -5,7 +5,7 @@
  * used by the scheduler, IPC layer, and internal scheduling tool.
  */
 import { existsSync } from "fs";
-import { resolve } from "path";
+import { isAbsolute, relative, resolve, sep } from "path";
 import { WORKSPACE_DIR } from "../core/config.js";
 
 function resolveWorkspaceDir(): string {
@@ -63,7 +63,8 @@ export function validateShellCwd(input: unknown): { ok: boolean; cwd: string; er
     return { ok: false, cwd: workspaceDir, error: "cwd must be a string." };
   }
   const resolved = resolve(workspaceDir, input);
-  if (!resolved.startsWith(workspaceDir)) {
+  const rel = relative(workspaceDir, resolved);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     return { ok: false, cwd: workspaceDir, error: "cwd must stay within the workspace." };
   }
   if (!existsSync(resolved)) {

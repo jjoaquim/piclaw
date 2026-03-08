@@ -7,10 +7,19 @@
   "bin": {
     "piclaw": "src/index.ts"
   },
+  "files": [
+    "src",
+    "extensions",
+    "skills",
+    "web/static",
+    "docs",
+    "scripts",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "build:vendor": "bun build web/src/vendor/codemirror-entry.ts --target=browser --format=esm --minify --outfile web/static/js/vendor/codemirror.js",

@@ -36,6 +36,7 @@ import {
   REVOKE_WINDOW_MS,
 } from "./limits.js";
 import type { AgentPool } from "../agent-pool.js";
+import { getClientKey } from "../utils/request-client.js";
 
 class SlidingWindowLimiter {
   private windowMs: number;
@@ -104,17 +105,6 @@ function checkContentLength(req: Request, maxBytes: number): { ok: true } | { ok
   return { ok: true };
 }
 
-function getClientKey(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "unknown";
-}
-
 function parseJsonBytes(buffer: Uint8Array, maxBytes: number): { data?: any; error?: string } {
   if (buffer.length > maxBytes) return { error: "Request too large." };
   if (buffer.length === 0) return { data: {} };
@@ -161,7 +151,7 @@ async function verifyCallbackProof(
     return { ok: false, error: "Missing nonce." };
   }
 
-  const callbackCheck = validateCallbackUrl(pending.callback_url);
+  const callbackCheck = await validateCallbackUrl(pending.callback_url);
   if (!callbackCheck.ok || !callbackCheck.url) {
     return { ok: false, error: callbackCheck.error || "Invalid callback_url." };
   }
@@ -318,7 +308,7 @@ export class RemoteInteropService {
       return jsonResponse({ error: "instance_id does not match public_key." }, 400);
     }
 
-    const callbackCheck = validateCallbackUrl(callbackUrl);
+    const callbackCheck = await validateCallbackUrl(callbackUrl);
     if (!callbackCheck.ok) {
       return jsonResponse({ error: callbackCheck.error }, 400);
     }

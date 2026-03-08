@@ -27,6 +27,7 @@
 import { extname, resolve } from "path";
 import type { WebChannel } from "../web.js";
 import { rememberWebOrigin } from "./request-origin.js";
+import { getClientKey, getRequestOriginParts } from "../../utils/request-client.js";
 
 const STATIC_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "web", "static");
 const STATIC_MIME_TYPES: Record<string, string> = {
@@ -89,21 +90,6 @@ function pruneRateBuckets(): void {
       rateBuckets.set(key, live);
     }
   }
-}
-
-/**
- * Extract the client IP from the request for rate limiting.
- * Trusts x-forwarded-for and x-real-ip from reverse proxies (Caddy/nginx).
- */
-function getClientKey(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return "unknown";
 }
 
 /**
@@ -210,13 +196,27 @@ function checkCsrfOrigin(req: Request): boolean {
   // "null" origin comes from sandboxed iframes — block
   if (origin === "null") return false;
 
-  const host = req.headers.get("host");
-  if (!host) return true; // No host header means non-proxy environment
+  const normalizePort = (proto: string, port: string): string => {
+    if (port) return port;
+    return proto === "https" ? "443" : proto === "http" ? "80" : "";
+  };
 
   try {
     const originUrl = new URL(origin);
-    // Compare hostname (ignoring port for flexibility behind proxies)
-    return originUrl.hostname === host.split(":")[0];
+    const expected = getRequestOriginParts(req);
+    const expectedProto = expected.proto.toLowerCase();
+    const expectedHost = expected.host;
+    if (!expectedHost) return false;
+
+    const expectedUrl = new URL(`${expectedProto}://${expectedHost}`);
+    const expectedHostname = expectedUrl.hostname.toLowerCase();
+    const expectedPort = normalizePort(expectedProto, expectedUrl.port);
+
+    const originProto = originUrl.protocol.replace(":", "").toLowerCase();
+    const originHostname = originUrl.hostname.toLowerCase();
+    const originPort = normalizePort(originProto, originUrl.port);
+
+    return originProto === expectedProto && originHostname === expectedHostname && originPort === expectedPort;
   } catch {
     return false;
   }
