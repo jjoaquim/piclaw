@@ -104,6 +104,14 @@ import {
   type WebRecoveryContext,
 } from "./web/recovery.js";
 import {
+  createAgentStatusContext,
+  createAgentsEndpointContext,
+  createAvatarEndpointContext,
+  createContentEndpointsContext,
+  createPostMutationsContext,
+  createUiEndpointsContext,
+} from "./web/endpoint-contexts.js";
+import {
   handleInternalPostRequest,
   handleUpdatePostRequest,
   type PostMutationsContext,
@@ -416,9 +424,9 @@ export class WebChannel {
   }
 
   private getPostMutationsContext(): PostMutationsContext {
-    return {
+    return createPostMutationsContext({
       defaultChatJid: DEFAULT_CHAT_JID,
-      lastCommandInteractionId: this.lastCommandInteractionId,
+      getLastCommandInteractionId: () => this.lastCommandInteractionId,
       json: (payload, status = 200) => this.json(payload, status),
       replaceMessageContent: (chatJid, id, content) => replaceMessageContent(chatJid, id, content, {}),
       setThreadId: (messageId, threadId) => {
@@ -432,30 +440,30 @@ export class WebChannel {
       broadcastAgentResponse: (interaction) => {
         this.interactionBroadcaster.broadcastAgentResponse(interaction);
       },
-    };
+    });
   }
 
   private getAgentStatusContext(): AgentStatusContext {
-    return {
+    return createAgentStatusContext({
       defaultChatJid: DEFAULT_CHAT_JID,
       json: (payload, status = 200) => this.json(payload, status),
       getAgentStatus: (chatJid) => this.getAgentStatus(chatJid),
       getBuffer: (turnId, panel) => this.getBuffer(turnId, panel),
       getContextUsageForChat: (chatJid) => this.agentPool.getContextUsageForChat(chatJid),
       getAvailableModels: (chatJid) => this.agentPool.getAvailableModels(chatJid),
-    };
+    });
   }
 
   private getContentEndpointsContext(): ContentEndpointsContext {
-    return {
+    return createContentEndpointsContext({
       defaultChatJid: DEFAULT_CHAT_JID,
       json: (payload, status = 200) => this.json(payload, status),
       getBuffer: (turnId, panel) => this.getBuffer(turnId, panel),
-    };
+    });
   }
 
   private getUiEndpointsContext(): UiEndpointsContext {
-    return {
+    return createUiEndpointsContext({
       json: (payload, status = 200) => this.json(payload, status),
       getWorkspaceVisible: () => this.workspaceVisible,
       setWorkspaceVisible: (value) => {
@@ -469,11 +477,11 @@ export class WebChannel {
         this.setPanelExpanded(turnId, panel, expanded);
       },
       handleUiResponse: (requestId, outcome) => this.uiBridge.handleUiResponse(requestId, outcome),
-    };
+    });
   }
 
   private getAgentsEndpointsContext(): AgentsEndpointContext {
-    return {
+    return createAgentsEndpointContext({
       agentPool: this.agentPool,
       defaultChatJid: DEFAULT_CHAT_JID,
       defaultAgentId: DEFAULT_AGENT_ID,
@@ -483,15 +491,15 @@ export class WebChannel {
       userAvatar: resolveAvatarUrl("user", USER_AVATAR),
       userAvatarBackground: USER_AVATAR_BACKGROUND || null,
       json: (payload, status = 200) => this.json(payload, status),
-    };
+    });
   }
 
   private getAvatarEndpointsContext(): AvatarEndpointContext {
-    return {
+    return createAvatarEndpointContext({
       assistantAvatar: ASSISTANT_AVATAR || null,
       userAvatar: USER_AVATAR || null,
       json: (payload, status = 200) => this.json(payload, status),
-    };
+    });
   }
 
   async handleAuthVerify(req: Request): Promise<Response> {
