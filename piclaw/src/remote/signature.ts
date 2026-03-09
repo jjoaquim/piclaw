@@ -1,6 +1,14 @@
+/**
+ * remote/signature.ts – Canonical request signing and verification helpers.
+ *
+ * Builds deterministic canonical request strings used for remote interop
+ * signatures and exposes lightweight wrappers around payload signing helpers.
+ */
+
 import { createHash } from "crypto";
 import { signPayload, verifyPayload, type InteropIdentity } from "./identity.js";
 
+/** Inputs required to build a canonical signed-request string. */
 export interface CanonicalRequestParams {
   method: string;
   pathWithQuery: string;
@@ -13,10 +21,12 @@ export interface CanonicalRequestParams {
   trustEpoch?: string;
 }
 
+/** Hash request body bytes using SHA-256 (hex). */
 export function hashBody(body: Uint8Array): string {
   return createHash("sha256").update(body).digest("hex");
 }
 
+/** Build the canonical newline-delimited request representation for signing. */
 export function buildCanonicalRequest(params: CanonicalRequestParams): string {
   const lines = [
     params.method.toUpperCase(),
@@ -34,14 +44,17 @@ export function buildCanonicalRequest(params: CanonicalRequestParams): string {
   return lines.join("\n");
 }
 
+/** Sign a canonical request string with the local interop identity. */
 export function signRequest(identity: InteropIdentity, canonical: string): string {
   return signPayload(identity, canonical);
 }
 
+/** Verify a canonical request signature using a remote peer public key. */
 export function verifyRequestSignature(publicKey: string, canonical: string, signature: string): boolean {
   return verifyPayload(publicKey, canonical, signature);
 }
 
+/** Parse epoch-seconds/epoch-ms/ISO timestamp values into epoch milliseconds. */
 export function parseTimestamp(value: string | null): number | null {
   if (!value) return null;
   const trimmed = value.trim();

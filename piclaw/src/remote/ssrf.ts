@@ -1,3 +1,11 @@
+/**
+ * remote/ssrf.ts – Callback URL validation with SSRF protections.
+ *
+ * Validates callback URL scheme/host and rejects localhost, loopback, private,
+ * and link-local IP targets (including DNS-resolved hostnames) before remote
+ * interop callbacks are attempted.
+ */
+
 import { lookup } from "dns/promises";
 import { isIP } from "net";
 import { REMOTE_INTEROP_ALLOW_HTTP } from "../core/config.js";
@@ -76,6 +84,7 @@ function isPrivateOrLoopbackAddress(address: string): boolean {
   return false;
 }
 
+/** Validate callback URL input and ensure it resolves to public-routable hosts only. */
 export async function validateCallbackUrl(
   raw: string | undefined,
   resolveHost: ResolveHost = defaultResolveHost
