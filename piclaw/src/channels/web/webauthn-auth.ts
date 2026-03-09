@@ -32,6 +32,7 @@ import {
   type WebauthnChallengeTracker,
 } from "./webauthn-challenges.js";
 
+/** Context contract consumed by WebAuthn login/register endpoint handlers. */
 export interface WebauthnAuthContext {
   isPasskeyEnabled(): boolean;
   json(payload: unknown, status?: number): Response;
@@ -48,6 +49,7 @@ function getTtlSeconds(): number {
   return Math.max(60, rawTtl || 0);
 }
 
+/** Start a passkey login ceremony and store a pending challenge token. */
 export async function handleWebauthnLoginStart(req: Request, ctx: WebauthnAuthContext): Promise<Response> {
   if (!ctx.isPasskeyEnabled()) return ctx.json({ error: "Passkeys disabled" }, 404);
 
@@ -74,15 +76,20 @@ export async function handleWebauthnLoginStart(req: Request, ctx: WebauthnAuthCo
 
   const now = (ctx.now ?? Date.now)();
   const challengeToken = (ctx.randomToken ?? randomSessionToken)();
-  ctx.challenges.trackLogin(challengeToken, {
-    challenge: options.challenge,
-    rpId,
-    userId: DEFAULT_WEB_USER_ID,
-  }, now);
+  ctx.challenges.trackLogin(
+    challengeToken,
+    {
+      challenge: options.challenge,
+      rpId,
+      userId: DEFAULT_WEB_USER_ID,
+    },
+    now
+  );
 
   return ctx.json({ token: challengeToken, options });
 }
 
+/** Finish a passkey login ceremony and issue a web session cookie on success. */
 export async function handleWebauthnLoginFinish(req: Request, ctx: WebauthnAuthContext): Promise<Response> {
   if (!ctx.isPasskeyEnabled()) return ctx.json({ error: "Passkeys disabled" }, 404);
 
@@ -155,6 +162,7 @@ export async function handleWebauthnLoginFinish(req: Request, ctx: WebauthnAuthC
   });
 }
 
+/** Start a passkey registration ceremony from a valid enrollment token. */
 export async function handleWebauthnRegisterStart(req: Request, ctx: WebauthnAuthContext): Promise<Response> {
   if (!ctx.isPasskeyEnabled()) return ctx.json({ error: "Passkeys disabled" }, 404);
 
@@ -191,15 +199,20 @@ export async function handleWebauthnRegisterStart(req: Request, ctx: WebauthnAut
     excludeCredentials,
   });
 
-  ctx.challenges.trackRegistration(token, {
-    challenge: options.challenge,
-    rpId,
-    userId: enrollment.user_id,
-  }, (ctx.now ?? Date.now)());
+  ctx.challenges.trackRegistration(
+    token,
+    {
+      challenge: options.challenge,
+      rpId,
+      userId: enrollment.user_id,
+    },
+    (ctx.now ?? Date.now)()
+  );
 
   return ctx.json({ token, options });
 }
 
+/** Finish passkey registration and persist the verified credential. */
 export async function handleWebauthnRegisterFinish(req: Request, ctx: WebauthnAuthContext): Promise<Response> {
   if (!ctx.isPasskeyEnabled()) return ctx.json({ error: "Passkeys disabled" }, 404);
 
