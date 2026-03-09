@@ -5,9 +5,9 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 ## Review snapshot (updated)
 
-- Backend size: **143 TS files / 21,428 LOC** (`src/`)
+- Backend size: **144 TS files / 21,491 LOC** (`src/`)
 - Frontend size: **7,095 LOC** (`web/src/`)
-- Tests: **527 passing, 0 failing**
+- Tests: **530 passing, 0 failing**
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 
@@ -35,6 +35,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
     - `client.ts`, `security.ts`, `rate-limit.ts`, `rate-limit-rules.ts`, `route-flags.ts`, `request-guards.ts`
   - extracted route dispatchers:
     - `dispatch-auth.ts`, `dispatch-shell.ts`, `dispatch-content.ts`, `dispatch-workspace.ts`, `dispatch-agent.ts`, `dispatch-media.ts`
+  - extracted auth lockout bookkeeping from `web.ts` into `web/totp-failure-tracker.ts`
 
 ### Recent commit sequence (latest first)
 
@@ -106,6 +107,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Behavior preserved (non-destructive).
 
 - [ ] **Refactor `src/channels/web.ts` into narrower services**
+  - In progress: extracted route dispatching and TOTP lockout bookkeeping helper.
   - Pending: split auth/session/status/passkey and orchestration responsibilities further.
 
 - [ ] **Refactor `src/runtime.ts` into composition root + startup/shutdown managers**

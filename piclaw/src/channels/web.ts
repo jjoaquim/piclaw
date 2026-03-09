@@ -26,6 +26,7 @@ import {
   type WebAuthnCredential,
 } from "@simplewebauthn/server";
 import { randomSessionToken, safeEqual, verifyTotp } from "./web/auth.js";
+import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import {
   ASSISTANT_AVATAR,
   ASSISTANT_NAME,
@@ -102,11 +103,6 @@ import { getClientKey as getRequestClientKey, getRequestOriginParts } from "./we
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
 const STATE_KEY = "last_agent_timestamp_web";
-const TOTP_FAILURE_WINDOW_MS = 5 * 60 * 1000;
-const TOTP_FAILURE_LIMIT = 5;
-const TOTP_LOCKOUT_MS = 5 * 60 * 1000;
-const TOTP_PRUNE_INTERVAL_MS = 10 * 60 * 1000;
-
 /** Construction options for WebChannel: queue and agentPool references. */
 export interface WebChannelOpts {
   queue: AgentQueue;
@@ -138,8 +134,7 @@ export class WebChannel {
     string,
     { challenge: string; rpId: string; userId: string; createdAt: number }
   >();
-  totpFailures = new Map<string, { failures: number[]; lockedUntil: number }>();
-  lastTotpPrune = Date.now();
+  totpFailureTracker = new TotpFailureTracker();
   thoughtBuffers = new Map<string, { text: string; totalLines: number; updatedAt: number }>();
   draftBuffers = new Map<string, { text: string; totalLines: number; updatedAt: number }>();
   expandedPanels = new Map<string, { thought: boolean; draft: boolean }>();
@@ -520,21 +515,6 @@ export class WebChannel {
     return getRequestClientKey(req);
   }
 
-  private pruneTotpFailures(now = Date.now()): void {
-    if (now - this.lastTotpPrune < TOTP_PRUNE_INTERVAL_MS) return;
-    this.lastTotpPrune = now;
-    const cutoff = now - Math.max(TOTP_FAILURE_WINDOW_MS, TOTP_LOCKOUT_MS);
-    for (const [key, entry] of this.totpFailures.entries()) {
-      const failures = entry.failures.filter((ts) => ts > cutoff);
-      const lockedUntil = entry.lockedUntil;
-      if (failures.length === 0 && lockedUntil <= now) {
-        this.totpFailures.delete(key);
-      } else {
-        this.totpFailures.set(key, { failures, lockedUntil });
-      }
-    }
-  }
-
   private logAuthEvent(req: Request, event: string): void {
     const ip = this.getClientKey(req);
     console.warn(`[auth] ${event} (ip=${ip})`);
@@ -632,30 +612,23 @@ export class WebChannel {
     if (!code) return this.json({ error: "Missing code" }, 400);
 
     const now = Date.now();
-    this.pruneTotpFailures(now);
     const clientKey = this.getClientKey(req);
-    const entry = this.totpFailures.get(clientKey);
-    if (entry && entry.lockedUntil > now) {
+    if (this.totpFailureTracker.isLocked(clientKey, now)) {
       this.logAuthEvent(req, "TOTP lockout active");
       return this.json({ error: "Too many failed attempts. Try again later." }, 429);
     }
 
     if (!verifyTotp(WEB_TOTP_SECRET, code, windowSteps)) {
-      const cutoff = now - TOTP_FAILURE_WINDOW_MS;
-      const failures = (entry?.failures || []).filter((ts) => ts > cutoff);
-      failures.push(now);
-      if (failures.length >= TOTP_FAILURE_LIMIT) {
-        const lockedUntil = now + TOTP_LOCKOUT_MS;
-        this.totpFailures.set(clientKey, { failures, lockedUntil });
-        this.logAuthEvent(req, `TOTP lockout triggered (${failures.length} failures)`);
+      const failure = this.totpFailureTracker.recordFailure(clientKey, now);
+      if (failure.locked) {
+        this.logAuthEvent(req, `TOTP lockout triggered (${failure.failures} failures)`);
         return this.json({ error: "Too many failed attempts. Try again later." }, 429);
       }
-      this.totpFailures.set(clientKey, { failures, lockedUntil: entry?.lockedUntil || 0 });
-      this.logAuthEvent(req, `TOTP failed (${failures.length}/${TOTP_FAILURE_LIMIT})`);
+      this.logAuthEvent(req, `TOTP failed (${failure.failures}/${this.totpFailureTracker.getFailureLimit()})`);
       return this.json({ error: "Invalid code" }, 401);
     }
 
-    this.totpFailures.delete(clientKey);
+    this.totpFailureTracker.clear(clientKey);
 
     const rawTtl = Number.isFinite(WEB_SESSION_TTL) ? WEB_SESSION_TTL : 0;
     const ttlSeconds = Math.max(60, rawTtl || 0);
