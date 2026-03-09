@@ -86,8 +86,7 @@ import type { InteractionRow } from "../db.js";
 import { WebChannelState } from "./web/channel-state.js";
 import { storeWebMessage } from "./web/message-store.js";
 import { deletePostResponse } from "./web/timeline-service.js";
-import { getAgentsResponse } from "./web/agents-service.js";
-import { buildAvatarResponse, ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
+import { ensureAvatarCache, resolveAvatarUrl } from "./web/avatar-service.js";
 import {
   handleAgentContextRequest,
   handleAgentModelsRequest,
@@ -103,6 +102,12 @@ import {
   handleTimelineRequest,
   type ContentEndpointsContext,
 } from "./web/content-endpoints.js";
+import {
+  handleAgentsRequest,
+  handleAvatarRequest,
+  type AgentsEndpointContext,
+  type AvatarEndpointContext,
+} from "./web/identity-endpoints.js";
 import { handleManifestRequest } from "./web/manifest.js";
 import {
   handleInternalPostRequest,
@@ -624,6 +629,28 @@ export class WebChannel {
     };
   }
 
+  private getAgentsEndpointsContext(): AgentsEndpointContext {
+    return {
+      agentPool: this.agentPool,
+      defaultChatJid: DEFAULT_CHAT_JID,
+      defaultAgentId: DEFAULT_AGENT_ID,
+      agentName: ASSISTANT_NAME,
+      agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
+      userName: USER_NAME || null,
+      userAvatar: resolveAvatarUrl("user", USER_AVATAR),
+      userAvatarBackground: USER_AVATAR_BACKGROUND || null,
+      json: (payload, status = 200) => this.json(payload, status),
+    };
+  }
+
+  private getAvatarEndpointsContext(): AvatarEndpointContext {
+    return {
+      assistantAvatar: ASSISTANT_AVATAR || null,
+      userAvatar: USER_AVATAR || null,
+      json: (payload, status = 200) => this.json(payload, status),
+    };
+  }
+
   async handleAuthVerify(req: Request): Promise<Response> {
     return await handleAuthVerifyRequest(req, this.getTotpAuthContext());
   }
@@ -668,16 +695,7 @@ export class WebChannel {
   }
 
   async handleAgents(): Promise<Response> {
-    const result = await getAgentsResponse(this.agentPool, {
-      chatJid: DEFAULT_CHAT_JID,
-      agentId: DEFAULT_AGENT_ID,
-      agentName: ASSISTANT_NAME,
-      agentAvatar: resolveAvatarUrl("agent", ASSISTANT_AVATAR),
-      userName: USER_NAME || null,
-      userAvatar: resolveAvatarUrl("user", USER_AVATAR),
-      userAvatarBackground: USER_AVATAR_BACKGROUND || null,
-    });
-    return this.json(result.body, result.status);
+    return await handleAgentsRequest(this.getAgentsEndpointsContext());
   }
 
   async handleManifest(req: Request): Promise<Response> {
@@ -689,11 +707,7 @@ export class WebChannel {
   }
 
   async handleAvatar(kind: "agent" | "user", req: Request): Promise<Response> {
-    const source = kind === "agent" ? ASSISTANT_AVATAR : USER_AVATAR;
-    if (!source) return this.json({ error: "Avatar not found" }, 404);
-    const response = await buildAvatarResponse(kind, source, req);
-    if (response) return response;
-    return this.json({ error: "Avatar not found" }, 404);
+    return await handleAvatarRequest(kind, req, this.getAvatarEndpointsContext());
   }
 
   async handleWorkspaceVisibility(req: Request): Promise<Response> {
