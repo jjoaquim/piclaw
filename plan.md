@@ -27,6 +27,8 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - package hygiene + stale-dist quality scripts
 - Runtime lifecycle hardening
   - stoppable IPC and scheduler loops with explicit shutdown hooks
+- Test quality hygiene (P1, inventory phase)
+  - added redundancy inventory for web/runtime suites (`docs/testing/test-redundancy-inventory.md`) with concrete dedupe candidates and non-goals to preserve security/behavior regression signal
 - Runtime decomposition (ongoing, non-destructive)
   - extracted provider bootstrap and shutdown orchestration from `runtime.ts`
   - extracted startup/wiring helpers (`runtime/startup.ts`, `runtime/wiring.ts`)
@@ -70,6 +72,8 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 
 ### Recent commit sequence (latest first)
 
+- `8491d98` Add web/runtime test redundancy inventory
+- `e198134` Document runtime seam contracts with JSDoc
 - `0aad6d5` Extract runtime bootstrap orchestration module
 - `54192c7` Extract runtime core composition helpers
 - `e843215` Extract web endpoint context builders
@@ -126,7 +130,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 | Type safety / best practices | `any` usage still elevated in selected core modules | Medium | P1 | Add typed DTO/schemas for IPC/runtime/events and reduce high-density `any` hotspots |
 | Security (local/web/remote) | P0 hardening implemented and covered by tests | Low | P0 (done) | Maintain + regressions + audit for new surfaces |
 | Dead code / stale artifacts | Stale-dist detection in place (allowlist-based); destructive cleanup deferred due in-progress feature constraint | Medium | P1 | Non-destructive inventory -> confirm ownership -> gradual allowlist burn-down |
-| Quality gates | Lint/tests/package guard checks in use; coverage bar still below target and redundancy analysis not yet formalized | Medium | P1 | Add CI coverage floor + architecture/static analysis guardrails + test redundancy audit |
+| Quality gates | Lint/tests/package guard checks in use; coverage bar still below target and redundancy analysis is now inventoried but not yet consolidated | Medium | P1 | Add CI coverage floor + architecture/static analysis guardrails + execute redundancy consolidation |
 | Documentation/commenting standards | Partial consistency; recently extracted seams are documented but standards were not explicit in plan goals | Medium | P1 | Track and enforce module headers + exported API JSDoc for new/refactored seams |
 
 ---
@@ -189,7 +193,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Pending: apply same standards to remaining large hotspots touched in upcoming tranches and enforce in review checklist.
 
 - [ ] **Test redundancy analysis (suite signal-to-noise)**
-  - Pending: inventory overlapping tests/assertions and near-duplicate fixture setups across hot suites (`test/channels/web/*`, runtime wiring/bootstrap/coordinator suites, and script guard suites).
+  - In progress: initial inventory captured in `docs/testing/test-redundancy-inventory.md` covering web/runtime hotspots and concrete dedupe candidates (JSON response/request fixtures, route-flag fixture builders, env/workspace setup helpers).
   - Pending: consolidate redundant cases while preserving behavior-critical/security regression coverage.
 
 - [ ] **Dead code review and removal**
