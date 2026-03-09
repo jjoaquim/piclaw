@@ -88,6 +88,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - expanded exported JSDoc coverage for remote persistence contracts in `src/db/remote-interop.ts` (types/interfaces + exported CRUD/audit helpers)
   - expanded remote interop module documentation coverage in `src/remote/auth.ts`, `src/remote/identity.ts`, `src/remote/signature.ts`, and `src/remote/ssrf.ts` with module-purpose headers plus exported contract/function JSDoc
   - added module header + exported JSDoc coverage for replay/limit primitives in `src/remote/nonce-cache.ts` and `src/remote/limits.ts`
+  - added module header and exported JSDoc coverage for `src/utils/totp-qr.ts` (QR/TOTP options/results and generator APIs)
 
 ### Recent commit sequence (latest first)
 
@@ -214,7 +215,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - Pending: continue reducing `any` density in remaining hotspots (especially residual `src/agent-pool/*` internals and remote/tooling payload boundaries).
 
 - [ ] **Commenting/documentation standards consistency**
-  - In progress: extracted seam modules include module-level purpose headers and JSDoc on exported contracts/helpers (recently reaffirmed for `runtime/composition.ts`, `runtime/bootstrap.ts`, `remote/service.ts`, `utils/azure-tool-call-limit.ts`, `db/remote-interop.ts`, `remote/auth.ts`, `remote/identity.ts`, `remote/signature.ts`, `remote/ssrf.ts`, `remote/nonce-cache.ts`, and `remote/limits.ts`).
+  - In progress: extracted seam modules include module-level purpose headers and JSDoc on exported contracts/helpers (recently reaffirmed for `runtime/composition.ts`, `runtime/bootstrap.ts`, `remote/service.ts`, `utils/azure-tool-call-limit.ts`, `db/remote-interop.ts`, `remote/auth.ts`, `remote/identity.ts`, `remote/signature.ts`, `remote/ssrf.ts`, `remote/nonce-cache.ts`, `remote/limits.ts`, and `utils/totp-qr.ts`).
   - Pending: apply same standards to remaining large hotspots touched in upcoming tranches and enforce in review checklist.
 
 - [ ] **Test redundancy analysis (suite signal-to-noise)**

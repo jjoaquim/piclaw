@@ -1,5 +1,13 @@
+/**
+ * utils/totp-qr.ts – TOTP secret + QR SVG generation helpers.
+ *
+ * Provides utility APIs for generating otpauth URIs and rendering QR code SVGs
+ * used by passkey/TOTP setup flows.
+ */
+
 import { randomBytes } from "node:crypto";
 
+/** Options for generating a TOTP secret and corresponding QR artifact. */
 export interface TotpQrOptions {
   secret?: string;
   label?: string;
@@ -12,6 +20,7 @@ export interface TotpQrOptions {
   margin?: number;
 }
 
+/** Result payload returned by generateTotpQr(). */
 export interface TotpQrResult {
   secret: string;
   label: string;
@@ -20,6 +29,7 @@ export interface TotpQrResult {
   svg: string;
 }
 
+/** Rendering options used by generateQrSvg(). */
 export interface QrSvgOptions {
   level?: "L" | "M" | "Q" | "H";
   cellSize?: number;
@@ -28,6 +38,7 @@ export interface QrSvgOptions {
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+/** Base32-encode binary input without padding (RFC 4648 alphabet). */
 export const base32Encode = (buffer: Buffer) => {
   let bits = 0;
   let value = 0;
@@ -714,6 +725,7 @@ class QRCode {
   }
 }
 
+/** Render QR code SVG for arbitrary input text (e.g., otpauth URI). */
 export function generateQrSvg(data: string, options: QrSvgOptions = {}): { svg: string } {
   const level = (options.level || "M").toUpperCase() as keyof typeof QRErrorCorrectLevel;
   const cellSize = Number.isFinite(options.cellSize) ? Number(options.cellSize) : 6;
@@ -744,6 +756,7 @@ export function generateQrSvg(data: string, options: QrSvgOptions = {}): { svg: 
   return { svg };
 }
 
+/** Generate a TOTP secret, otpauth URI, and matching QR SVG payload. */
 export function generateTotpQr(options: TotpQrOptions = {}): TotpQrResult {
   const secret = options.secret || base32Encode(randomBytes(20));
   const label = options.label || "Piclaw:ISD Claw";
