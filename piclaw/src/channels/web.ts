@@ -16,32 +16,14 @@
 import { AgentQueue } from "../queue.js";
 import type { AgentPool } from "../agent-pool.js";
 import { initTheme } from "@mariozechner/pi-coding-agent";
-import { handleAuthVerifyRequest, type TotpAuthContext } from "./web/totp-auth.js";
-import {
-  createTotpAuthContext,
-  createWebauthnAuthContext,
-  createWebauthnEnrolPageContext,
-  isAuthEnabled as isWebAuthEnabled,
-  isAuthenticated as isWebRequestAuthenticated,
-  isInternalSecretEnabled as isWebInternalSecretEnabled,
-  isPasskeyEnabled as isWebPasskeyEnabled,
-  isPasskeyOnly as isWebPasskeyOnly,
-  isTotpEnabled as isWebTotpEnabled,
-  isTotpSession as isWebTotpSession,
-  verifyInternalSecret as verifyWebInternalSecret,
-  type WebAuthRuntimeConfig,
-} from "./web/auth-runtime.js";
+import { handleAuthVerifyRequest } from "./web/totp-auth.js";
 import {
   handleWebauthnLoginFinish as handleWebauthnLoginFinishRequest,
   handleWebauthnLoginStart as handleWebauthnLoginStartRequest,
   handleWebauthnRegisterFinish as handleWebauthnRegisterFinishRequest,
   handleWebauthnRegisterStart as handleWebauthnRegisterStartRequest,
-  type WebauthnAuthContext,
 } from "./web/webauthn-auth.js";
-import {
-  handleWebauthnEnrollPageRequest,
-  type WebauthnEnrolPageContext,
-} from "./web/webauthn-enrol-page.js";
+import { handleWebauthnEnrollPageRequest } from "./web/webauthn-enrol-page.js";
 import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
 import {
@@ -133,8 +115,8 @@ import {
   type UiEndpointsContext,
 } from "./web/ui-endpoints.js";
 import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
+import { WebAuthGateway } from "./web/auth-gateway.js";
 import { RemoteInteropService } from "../remote/service.js";
-import { getClientKey as getRequestClientKey } from "./web/http/client.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -167,6 +149,7 @@ export class WebChannel {
   webauthnChallenges = new WebauthnChallengeTracker();
   totpFailureTracker = new TotpFailureTracker();
   agentBuffers = new AgentBuffers();
+  authGateway: WebAuthGateway;
 
   constructor(opts: WebChannelOpts) {
     this.queue = opts.queue;
@@ -181,6 +164,20 @@ export class WebChannel {
       userAvatar: resolveAvatarUrl("user", USER_AVATAR),
       userAvatarBackground: USER_AVATAR_BACKGROUND || null,
     });
+    this.authGateway = new WebAuthGateway(
+      {
+        passkeyMode: WEB_PASSKEY_MODE || "",
+        totpSecret: WEB_TOTP_SECRET || "",
+        internalSecret: WEB_INTERNAL_SECRET || "",
+        sessionTtlSeconds: WEB_SESSION_TTL,
+        hasTls: Boolean(WEB_TLS_CERT && WEB_TLS_KEY),
+      },
+      {
+        json: (payload, status = 200) => this.json(payload, status),
+        challenges: this.webauthnChallenges,
+        failureTracker: this.totpFailureTracker,
+      }
+    );
     bindWebUiSessionBinder(this.agentPool, (session, chatJid) =>
       this.uiBridge.bindSession(session, chatJid)
     );
@@ -386,79 +383,36 @@ export class WebChannel {
     }
   }
 
-  private getAuthRuntimeConfig(): WebAuthRuntimeConfig {
-    return {
-      passkeyMode: WEB_PASSKEY_MODE || "",
-      totpSecret: WEB_TOTP_SECRET || "",
-      internalSecret: WEB_INTERNAL_SECRET || "",
-      sessionTtlSeconds: WEB_SESSION_TTL,
-      hasTls: Boolean(WEB_TLS_CERT && WEB_TLS_KEY),
-    };
-  }
-
   isAuthEnabled(): boolean {
-    return isWebAuthEnabled(this.getAuthRuntimeConfig());
+    return this.authGateway.isAuthEnabled();
   }
 
   isInternalSecretEnabled(): boolean {
-    return isWebInternalSecretEnabled(this.getAuthRuntimeConfig());
+    return this.authGateway.isInternalSecretEnabled();
   }
 
   isPasskeyEnabled(): boolean {
-    return isWebPasskeyEnabled(this.getAuthRuntimeConfig());
+    return this.authGateway.isPasskeyEnabled();
   }
 
   isPasskeyOnly(): boolean {
-    return isWebPasskeyOnly(this.getAuthRuntimeConfig());
+    return this.authGateway.isPasskeyOnly();
   }
 
   isTotpEnabled(): boolean {
-    return isWebTotpEnabled(this.getAuthRuntimeConfig());
+    return this.authGateway.isTotpEnabled();
   }
 
   isTotpSession(req: Request): boolean {
-    return isWebTotpSession(req, this.getAuthRuntimeConfig());
-  }
-
-  private getClientKey(req: Request): string {
-    return getRequestClientKey(req);
-  }
-
-  private logAuthEvent(req: Request, event: string): void {
-    const ip = this.getClientKey(req);
-    console.warn(`[auth] ${event} (ip=${ip})`);
+    return this.authGateway.isTotpSession(req);
   }
 
   verifyInternalSecret(req: Request): boolean {
-    return verifyWebInternalSecret(req, this.getAuthRuntimeConfig());
+    return this.authGateway.verifyInternalSecret(req);
   }
 
   isAuthenticated(req: Request): boolean {
-    return isWebRequestAuthenticated(req, this.getAuthRuntimeConfig());
-  }
-
-  private getWebauthnAuthContext(): WebauthnAuthContext {
-    return createWebauthnAuthContext(this.getAuthRuntimeConfig(), {
-      json: (payload, status = 200) => this.json(payload, status),
-      logAuthEvent: (req, event) => this.logAuthEvent(req, event),
-      getClientKey: (req) => this.getClientKey(req),
-      challenges: this.webauthnChallenges,
-    });
-  }
-
-  private getWebauthnEnrolPageContext(): WebauthnEnrolPageContext {
-    return createWebauthnEnrolPageContext(this.getAuthRuntimeConfig(), {
-      json: (payload, status = 200) => this.json(payload, status),
-    });
-  }
-
-  private getTotpAuthContext(): TotpAuthContext {
-    return createTotpAuthContext(this.getAuthRuntimeConfig(), {
-      json: (payload, status = 200) => this.json(payload, status),
-      getClientKey: (req) => this.getClientKey(req),
-      logAuthEvent: (req, event) => this.logAuthEvent(req, event),
-      failureTracker: this.totpFailureTracker,
-    });
+    return this.authGateway.isAuthenticated(req);
   }
 
   private getPostMutationsContext(): PostMutationsContext {
@@ -541,27 +495,27 @@ export class WebChannel {
   }
 
   async handleAuthVerify(req: Request): Promise<Response> {
-    return await handleAuthVerifyRequest(req, this.getTotpAuthContext());
+    return await handleAuthVerifyRequest(req, this.authGateway.createTotpContext());
   }
 
   async handleWebauthnLoginStart(req: Request): Promise<Response> {
-    return await handleWebauthnLoginStartRequest(req, this.getWebauthnAuthContext());
+    return await handleWebauthnLoginStartRequest(req, this.authGateway.createWebauthnContext());
   }
 
   async handleWebauthnLoginFinish(req: Request): Promise<Response> {
-    return await handleWebauthnLoginFinishRequest(req, this.getWebauthnAuthContext());
+    return await handleWebauthnLoginFinishRequest(req, this.authGateway.createWebauthnContext());
   }
 
   async handleWebauthnRegisterStart(req: Request): Promise<Response> {
-    return await handleWebauthnRegisterStartRequest(req, this.getWebauthnAuthContext());
+    return await handleWebauthnRegisterStartRequest(req, this.authGateway.createWebauthnContext());
   }
 
   async handleWebauthnRegisterFinish(req: Request): Promise<Response> {
-    return await handleWebauthnRegisterFinishRequest(req, this.getWebauthnAuthContext());
+    return await handleWebauthnRegisterFinishRequest(req, this.authGateway.createWebauthnContext());
   }
 
   async handleWebauthnEnrollPage(_req: Request): Promise<Response> {
-    return handleWebauthnEnrollPageRequest(this.getWebauthnEnrolPageContext());
+    return handleWebauthnEnrollPageRequest(this.authGateway.createWebauthnEnrolPageContext());
   }
 
   async serveLoginPage(): Promise<Response> {
