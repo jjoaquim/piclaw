@@ -69,17 +69,11 @@ import { UiBridge } from "./web/ui-bridge.js";
 import { ResponseService } from "./web/http/response-service.js";
 import {
   getMessageRowIdById,
-  getMessagesSince,
   replaceMessageContent,
-  getAllChatCursors,
   getChatCursor,
   setChatCursor,
   getFailedRun,
   clearFailedRun,
-  getInflightRuns,
-  rollbackInflightRun,
-  clearInflightMarker,
-  hasAgentRepliesAfter,
   getDb,
 } from "../db.js";
 import type { InteractionRow } from "../db.js";
@@ -110,6 +104,11 @@ import {
   type AvatarEndpointContext,
 } from "./web/identity-endpoints.js";
 import { handleManifestRequest } from "./web/manifest.js";
+import {
+  recoverInflightRuns as recoverWebInflightRuns,
+  resumePendingChats as resumeWebPendingChats,
+  type WebRecoveryContext,
+} from "./web/recovery.js";
 import {
   handleInternalPostRequest,
   handleUpdatePostRequest,
@@ -334,6 +333,15 @@ export class WebChannel {
     clearFailedRun(chatJid);
   }
 
+  private getRecoveryContext(): WebRecoveryContext {
+    return {
+      assistantName: ASSISTANT_NAME,
+      defaultAgentId: DEFAULT_AGENT_ID,
+      enqueue: (task, key) => this.queue.enqueue(task, key),
+      processChat: (chatJid, agentId, threadRootId) => this.processChat(chatJid, agentId, threadRootId),
+    };
+  }
+
   /**
    * Check for inflight run markers left by a previous process that was killed
    * mid-turn. Rolls back all cursors in a single transaction (all-or-nothing),
@@ -344,42 +352,7 @@ export class WebChannel {
    * Called once at startup before the queue starts processing.
    */
   recoverInflightRuns(): void {
-    const inflights = getInflightRuns();
-    if (inflights.length === 0) return;
-
-    try {
-      getDb().transaction(() => {
-        for (const inflight of inflights) {
-          // Check if agent already stored replies after the inflight message.
-          // If so, the run completed successfully but endChatRun() wasn't
-          // reached before the process was killed. In that case, just clear
-          // the inflight marker — do NOT roll back the cursor, as that would
-          // cause the same user message to be re-processed (duplicate reply).
-          if (hasAgentRepliesAfter(inflight.chatJid, inflight.prevTs)) {
-            console.log(
-              `[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
-              `already has agent replies — clearing marker without rollback`
-            );
-            clearInflightMarker(inflight.chatJid);
-          } else {
-            rollbackInflightRun(inflight.chatJid, inflight.prevTs);
-          }
-        }
-      })();
-    } catch (err) {
-      console.error("[web] Failed to roll back inflight runs; will retry on next startup:", err);
-      return;
-    }
-
-    for (const inflight of inflights) {
-      // Only re-enqueue if the cursor was actually rolled back (no agent replies existed)
-      if (!hasAgentRepliesAfter(inflight.chatJid, inflight.prevTs)) {
-        console.log(`[web] Recovering interrupted run for ${inflight.chatJid} (started ${inflight.startedAt})`);
-        this.queue.enqueue(async () => {
-          await this.processChat(inflight.chatJid, DEFAULT_AGENT_ID);
-        }, `inflight-recovery:${inflight.chatJid}`);
-      }
-    }
+    recoverWebInflightRuns(this.getRecoveryContext());
   }
 
   /**
@@ -388,20 +361,7 @@ export class WebChannel {
    * Called after a restart via the resume_pending IPC.
    */
   resumePendingChats(chatJid?: string): void {
-    const cursors = getAllChatCursors();
-    const jids = chatJid && chatJid !== "all"
-      ? [chatJid]
-      : Object.keys(cursors);
-
-    for (const jid of jids) {
-      const since = cursors[jid];
-      if (since === undefined) continue; // No cursor → never processed, skip
-      const messages = getMessagesSince(jid, since, ASSISTANT_NAME);
-      if (messages.length === 0) continue;
-      this.queue.enqueue(async () => {
-        await this.processChat(jid, DEFAULT_AGENT_ID);
-      }, `resume:${jid}:${Date.now()}`);
-    }
+    resumeWebPendingChats(this.getRecoveryContext(), chatJid);
   }
 
   loadState(): void {
