@@ -7,6 +7,7 @@
  * Consumers: All web/workspace/*.ts modules.
  */
 
+/** Directory names excluded from workspace tree/file views. */
 export const EXCLUDE_DIRS = new Set([
   "node_modules",
   ".git",

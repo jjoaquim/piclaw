@@ -11,6 +11,7 @@
  *   - agent-pool.ts, runtime/message-loop.ts, channels/web.ts use both types.
  */
 
+/** Parsed control command variants accepted by the agent-control subsystem. */
 export type AgentControlCommand =
   | {
       type: "model";

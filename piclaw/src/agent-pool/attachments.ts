@@ -5,6 +5,7 @@
  * reads them via take() after a prompt completes.
  */
 
+/** Supported attachment categories stored for agent runs. */
 export type AttachmentKind = "image" | "file";
 
 /** Metadata for a file attachment: id, filename, content type, size. */

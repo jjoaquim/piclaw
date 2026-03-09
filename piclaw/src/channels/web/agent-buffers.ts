@@ -2,8 +2,10 @@
  * channels/web/agent-buffers.ts – in-memory thought/draft buffers and panel expansion state.
  */
 
+/** Web UI panel keys that can store streamed model buffers. */
 export type WebAgentPanel = "thought" | "draft";
 
+/** In-memory buffer payload tracked per model turn and panel. */
 export interface WebAgentBufferEntry {
   text: string;
   totalLines: number;
@@ -12,6 +14,7 @@ export interface WebAgentBufferEntry {
 
 const DEFAULT_BUFFER_LIMIT = 50;
 
+/** Stores bounded thought/draft buffers plus per-turn panel expansion state. */
 export class AgentBuffers {
   private thoughtBuffers = new Map<string, WebAgentBufferEntry>();
   private draftBuffers = new Map<string, WebAgentBufferEntry>();

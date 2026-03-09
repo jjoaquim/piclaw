@@ -9,6 +9,7 @@ interface AgentStatusStateStore {
   getAgentStatuses(): Record<string, Record<string, unknown>>;
 }
 
+/** In-memory + persisted lifecycle store for active web agent statuses. */
 export class AgentStatusStore {
   private activeAgentStatuses = new Map<string, Record<string, unknown>>();
 

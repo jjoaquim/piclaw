@@ -6,6 +6,7 @@ import type { AgentPool } from "../../agent-pool.js";
 import { getAgentsResponse } from "./agents-service.js";
 import { buildAvatarResponse } from "./avatar-service.js";
 
+/** Context contract for serving the agent/user identity payload endpoint. */
 export interface AgentsEndpointContext {
   agentPool: AgentPool;
   defaultChatJid: string;
@@ -18,12 +19,14 @@ export interface AgentsEndpointContext {
   json(payload: unknown, status?: number): Response;
 }
 
+/** Context contract for serving agent/user avatar image endpoints. */
 export interface AvatarEndpointContext {
   assistantAvatar: string | null;
   userAvatar: string | null;
   json(payload: unknown, status?: number): Response;
 }
 
+/** Return serialized agent/user identity metadata for the web UI. */
 export async function handleAgentsRequest(ctx: AgentsEndpointContext): Promise<Response> {
   const result = await getAgentsResponse(ctx.agentPool, {
     chatJid: ctx.defaultChatJid,
@@ -37,6 +40,7 @@ export async function handleAgentsRequest(ctx: AgentsEndpointContext): Promise<R
   return ctx.json(result.body, result.status);
 }
 
+/** Return a rendered avatar response for agent/user avatars when configured. */
 export async function handleAvatarRequest(
   kind: "agent" | "user",
   req: Request,

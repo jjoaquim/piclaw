@@ -2,17 +2,20 @@
  * channels/web/manifest.ts – Web manifest response helper.
  */
 
+/** Optional metadata returned by avatar cache preparation. */
 export interface ManifestIconMeta {
   updatedAt?: string;
   contentType?: string;
 }
 
+/** Dependencies required for building the dynamic web app manifest response. */
 export interface ManifestRequestContext {
   assistantName?: string | null;
   assistantAvatar?: string | null;
   ensureAvatarCache(kind: "agent", source: string): Promise<ManifestIconMeta | null>;
 }
 
+/** Build and return the web app manifest JSON (or HEAD headers only). */
 export async function handleManifestRequest(req: Request, ctx: ManifestRequestContext): Promise<Response> {
   const encoder = new TextEncoder();
   const baseName = ctx.assistantName || "PiClaw";

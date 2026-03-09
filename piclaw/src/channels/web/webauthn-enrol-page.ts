@@ -2,6 +2,7 @@
  * channels/web/webauthn-enrol-page.ts – Passkey enrolment HTML page response.
  */
 
+/** Runtime dependencies required to serve the passkey enrolment page. */
 export interface WebauthnEnrolPageContext {
   isPasskeyEnabled(): boolean;
   json(payload: unknown, status?: number): Response;
@@ -172,6 +173,7 @@ const WEBAUTHN_ENROL_PAGE_HTML = `<!doctype html>
   </body>
 </html>`;
 
+/** Return passkey enrolment HTML when passkeys are enabled. */
 export function handleWebauthnEnrollPageRequest(ctx: WebauthnEnrolPageContext): Response {
   if (!ctx.isPasskeyEnabled()) return ctx.json({ error: "Passkeys disabled" }, 404);
   return new Response(WEBAUTHN_ENROL_PAGE_HTML, {

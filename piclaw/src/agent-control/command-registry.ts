@@ -10,6 +10,7 @@
  *   - handlers/info.ts uses CONTROL_COMMAND_DEFINITIONS for /commands output.
  */
 
+/** Registry entry describing parser/apply handlers for a control command. */
 export interface ControlCommandDefinition {
   name: string;
   description: string;

@@ -11,7 +11,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 - Lint: passing (for current backend tranche)
 - Coverage (line): **57.97%** (`coverage/lcov.info`)
 - Review comment coverage: Added focused regression/unit tests for each recent extraction seam (`web/recovery.ts`, `web/agent-buffers.ts`, `web/auth-runtime.ts`, `web/auth-gateway.ts`, `web/auth-endpoints.ts`, `web/channel-endpoint-context-factory.ts`, `web/endpoint-contexts.ts`, `web/agent-status-store.ts`, `web/pending-steering.ts`, `web/interaction-broadcaster.ts`, `web/followup-placeholders.ts`, `web/chat-run-control.ts`, `web/message-write-flows.ts`, `web/handlers/workspace.ts`, `web/http/dispatch-workspace.ts`, `web/http/dispatch-media.ts`, `web/http/dispatch-auth.ts`, `web/http/request-guards.ts`, `runtime/composition.ts`, `runtime/bootstrap.ts`, runtime wiring/provider bootstrap) so refactors remain behavior-preserving.
-- Commenting standards coverage: New extraction seams include module headers plus exported type/function JSDoc, and this remains an explicit tracked goal (see checklist + quality bars below). Re-audit (2026-03-09, refreshed): module headers are present across `src/**/*.ts` (shebang-aware check); exported-JSDoc heuristic now reports **73** uncovered exports across **45** files after documenting `src/db/webauthn.ts`, `src/db/web-sessions.ts`, `src/channels/web/auth-runtime.ts`, `src/channels/web/endpoint-contexts.ts`, `src/channels/web/content-endpoints.ts`, `src/channels/web/webauthn-challenges.ts`, and `src/channels/web/webauthn-auth.ts` (largest remaining hotspots: `src/channels/web/message-write-flows.ts`, `src/channels/web/chat-run-control.ts`, `src/channels/web/identity-endpoints.ts`, `src/channels/web/agent-status.ts`).
+- Commenting standards coverage: New extraction seams include module headers plus exported type/function JSDoc, and this remains an explicit tracked goal (see checklist + quality bars below). Re-audit (2026-03-09, completion sweep): module headers are present across `src/**/*.ts` (shebang-aware check) and exported-JSDoc heuristic reports **0** uncovered exports across **0** files after completing the remaining hotspot/doc sweeps in web/auth/runtime/agent-control support modules.
 
 ---
 
@@ -97,9 +97,11 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - added exported JSDoc coverage for timeline/search/thread/thought helper contracts in `src/channels/web/content-endpoints.ts`
   - added exported JSDoc coverage for challenge tracking and RP/base64 helper contracts in `src/channels/web/webauthn-challenges.ts`
   - added exported JSDoc coverage for WebAuthn login/register endpoint context/handler contracts in `src/channels/web/webauthn-auth.ts`
+  - completed remaining exported-JSDoc burn-down across residual `src/` seams (message-write flows, chat-run-control, identity/status helpers, auth/http dispatch contracts, workspace constants/tree contracts, runtime/provider/task scheduler seams, IPC/task validation, and agent-control helper contracts), bringing heuristic misses to zero.
 
 ### Recent commit sequence (latest first)
 
+- `1ea15c5` Document webauthn auth endpoint exports
 - `7f14e8d` Document webauthn challenge helper exports
 - `74172cc` Document web content endpoint helper exports
 - `a01094d` Document web endpoint context builder exports
@@ -239,10 +241,10 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
   - In progress: removed high-risk `any` usage from `src/ipc.ts` payload/update paths, from runtime provider bootstrap + `AgentPool` provider-registration boundary, unified web thought/draft buffer typing via shared `web/agent-buffers.ts` contracts, introduced typed recovery/resume context boundaries in `web/recovery.ts`, introduced typed auth-runtime config/context builders in `web/auth-runtime.ts`, added typed auth/session/passkey gateway boundaries in `web/auth-gateway.ts`, added typed auth endpoint delegation boundaries in `web/auth-endpoints.ts`, introduced typed endpoint context builder boundaries in `web/endpoint-contexts.ts`, introduced typed channel endpoint-context assembly boundaries in `web/channel-endpoint-context-factory.ts`, added typed runtime core factory/signal registrar boundaries in `runtime/composition.ts`, added typed runtime bootstrap dependency boundaries in `runtime/bootstrap.ts`, centralized agent-status lifecycle typing in `web/agent-status-store.ts`, typed pending-steering queue semantics in `web/pending-steering.ts`, generalized interaction broadcast channel typing in `web/interaction-service.ts`/`web/interaction-broadcaster.ts`, isolated follow-up placeholder queue typing in `web/followup-placeholders.ts`, added typed chat run control boundaries in `web/chat-run-control.ts`, extracted typed message-write flow boundaries in `web/message-write-flows.ts`, narrowed workspace/media handler contracts to explicit minimal interfaces, narrowed auth dispatch/request-guard contracts to `authGateway` + `AuthEndpointsContext`, narrowed message-store/link-preview channel contract boundaries via `LinkPreviewChannel`, removed an agent-handler fallback cast on model-label lookup, removed `any` hotspots in `src/agent-pool.ts` session/message extraction plus `src/agent-pool/usage.ts` token usage parsing, replaced `any`-typed slash-command event/content handling with guarded `AgentSessionEvent` parsing in `src/agent-pool/slash-command.ts`, hardened remote interop JSON/body parsing contracts in `src/remote/service.ts` with typed payload guards/helpers, removed `any`-typed message/reasoning parsing in `src/utils/azure-tool-call-limit.ts` through guarded record access helpers, eliminated residual SQL spread casts (`as [any, ...any[]]`) in `src/db/tasks.ts` plus `src/db/remote-interop.ts`, and tightened `src/agent-control/agent-control-helpers.ts` event/content/model typing to remove `any` from control helper seams.
   - Pending: continue reducing `any` density in remaining hotspots (especially residual `src/agent-pool/*` internals and remote/tooling payload boundaries).
 
-- [ ] **Commenting/documentation standards consistency**
-  - In progress: extracted seam modules include module-level purpose headers and JSDoc on exported contracts/helpers (recently reaffirmed for `runtime/composition.ts`, `runtime/bootstrap.ts`, `runtime/wiring.ts`, `runtime/shutdown.ts`, `remote/service.ts`, `utils/azure-tool-call-limit.ts`, `db/remote-interop.ts`, `remote/auth.ts`, `remote/identity.ts`, `remote/signature.ts`, `remote/ssrf.ts`, `remote/nonce-cache.ts`, `remote/limits.ts`, `utils/totp-qr.ts`, `channels/web/request-origin.ts`, and `channels/web/http/rate-limit-rules.ts`).
-  - Re-audit snapshot (2026-03-09, refreshed): module headers are complete across `src/**/*.ts`; exported-JSDoc heuristic flags 73 missing export docblocks across 45 files.
-  - Pending: burn down remaining hotspots in focused batches (starting with `src/channels/web/message-write-flows.ts`, `src/channels/web/chat-run-control.ts`, `src/channels/web/identity-endpoints.ts`, `src/channels/web/agent-status.ts`) and enforce in review checklist.
+- [x] **Commenting/documentation standards consistency**
+  - Completed: extracted seam modules include module-level purpose headers and JSDoc on exported contracts/helpers (including runtime, remote, db, web/http, and web/auth service seams).
+  - Re-audit snapshot (2026-03-09, completion sweep): module headers are complete across `src/**/*.ts`; exported-JSDoc heuristic flags **0** missing export docblocks across **0** files.
+  - Ongoing policy: keep module headers + exported JSDoc as required review criteria for newly added/refactored `src/` seams.
 
 - [ ] **Test redundancy analysis (suite signal-to-noise)**
   - In progress: initial inventory captured in `docs/testing/test-redundancy-inventory.md` covering web/runtime hotspots and concrete dedupe candidates (JSON response/request fixtures, route-flag fixture builders, env/workspace setup helpers).
@@ -292,7 +294,7 @@ Scope reviewed: `piclaw/piclaw/src`, `piclaw/piclaw/extensions`, `piclaw/piclaw/
 - [ ] `any` usage reduced to target threshold.
 - [x] Shared web request helpers and routing logic centralized.
 - [ ] Optional extensions depend only on stable exported APIs.
-- [ ] New/refactored seam modules include module headers + JSDoc on exported contracts/functions.
+- [x] New/refactored seam modules include module headers + JSDoc on exported contracts/functions.
 
 ## Testing/quality bars
 - [ ] Line coverage >= 75% overall and >= 85% for security-critical modules.

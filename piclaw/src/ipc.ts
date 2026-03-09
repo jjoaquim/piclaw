@@ -162,6 +162,7 @@ export function startIpcWatcher(deps: IpcDeps): () => void {
   return stopIpcWatcher;
 }
 
+/** Stop the active IPC watcher and clear associated runtime state. */
 export function stopIpcWatcher(): void {
   running = false;
   if (pollTimer) {

@@ -28,6 +28,7 @@ const FORBIDDEN_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /\bdd\s+if=\/(dev|proc|sys)/i, reason: "raw device access" },
 ];
 
+/** Validate and normalize a scheduled shell command string. */
 export function validateShellCommand(input: unknown): { ok: boolean; command?: string; error?: string } {
   if (typeof input !== "string") {
     return { ok: false, error: "Command must be a string." };
@@ -54,6 +55,7 @@ export function validateShellCommand(input: unknown): { ok: boolean; command?: s
   return { ok: true, command };
 }
 
+/** Validate and normalize a scheduled shell working directory path. */
 export function validateShellCwd(input: unknown): { ok: boolean; cwd: string; error?: string } {
   const workspaceDir = resolveWorkspaceDir();
   if (input === undefined || input === null || input === "") {

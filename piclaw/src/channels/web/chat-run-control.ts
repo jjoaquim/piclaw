@@ -14,6 +14,7 @@ interface FailedRunLike {
   failedTs: string;
 }
 
+/** Persistence contract used by chat run control helpers. */
 export interface ChatRunControlStore {
   getThreadRootId(chatJid: string, messageId: string): number | null;
   getFailedRun(chatJid: string): FailedRunLike | undefined;
@@ -22,6 +23,7 @@ export interface ChatRunControlStore {
   clearFailedRun(chatJid: string): void;
 }
 
+/** Runtime callbacks required to resume a queued chat run. */
 export interface ResumeChatContext {
   defaultAgentId: string;
   enqueue(task: () => Promise<void>, key: string): void;
@@ -37,6 +39,7 @@ const defaultStore: ChatRunControlStore = {
   clearFailedRun,
 };
 
+/** Resolve a persisted thread root id for a chat/message pair. */
 export function getThreadRootId(
   chatJid: string,
   messageId: string,
@@ -45,6 +48,7 @@ export function getThreadRootId(
   return store.getThreadRootId(chatJid, messageId);
 }
 
+/** Enqueue chat reprocessing for interrupted/pending web chats. */
 export function resumeChat(
   chatJid: string,
   threadRootId: number | null | undefined,
@@ -56,6 +60,7 @@ export function resumeChat(
   }, `resume:${chatJid}:${now()}`);
 }
 
+/** Skip the failed cursor marker after a model switch to avoid replay loops. */
 export function skipFailedOnModelSwitch(
   chatJid: string,
   store: ChatRunControlStore = defaultStore

@@ -2,6 +2,7 @@
  * channels/web/ui-endpoints.ts – workspace/thought/ui-response endpoint helpers.
  */
 
+/** Context contract consumed by web UI endpoint handlers. */
 export interface UiEndpointsContext {
   json(payload: unknown, status?: number): Response;
   getWorkspaceVisible(): boolean;

@@ -4,6 +4,7 @@
 
 import type { WebAgentBufferEntry } from "./agent-buffers.js";
 
+/** Context contract used by web agent status/context/model endpoint handlers. */
 export interface AgentStatusContext {
   defaultChatJid: string;
   json(payload: unknown, status?: number): Response;
@@ -20,6 +21,7 @@ function resolveChatJid(req: Request, defaultChatJid: string): string {
   return (url.searchParams.get("chat_jid") || defaultChatJid).trim() || defaultChatJid;
 }
 
+/** Return active/idle agent status plus streamed thought/draft buffers when available. */
 export function handleAgentStatusRequest(req: Request, ctx: AgentStatusContext): Response {
   const chatJid = resolveChatJid(req, ctx.defaultChatJid);
   const status = ctx.getAgentStatus(chatJid);
@@ -40,6 +42,7 @@ export function handleAgentStatusRequest(req: Request, ctx: AgentStatusContext):
   return ctx.json({ status: "active", data: status, thought, draft });
 }
 
+/** Return context window usage metrics for the requested/default chat. */
 export async function handleAgentContextRequest(req: Request, ctx: AgentStatusContext): Promise<Response> {
   const chatJid = resolveChatJid(req, ctx.defaultChatJid);
   const usage = await ctx.getContextUsageForChat(chatJid);
@@ -54,6 +57,7 @@ export async function handleAgentContextRequest(req: Request, ctx: AgentStatusCo
   });
 }
 
+/** Return available model options for the requested/default chat. */
 export async function handleAgentModelsRequest(req: Request, ctx: AgentStatusContext): Promise<Response> {
   const chatJid = resolveChatJid(req, ctx.defaultChatJid);
   const payload = await ctx.getAvailableModels(chatJid);

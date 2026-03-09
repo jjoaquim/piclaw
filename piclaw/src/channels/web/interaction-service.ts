@@ -9,6 +9,7 @@
 
 import type { InteractionRow } from "../../db.js";
 
+/** Minimal channel contract for broadcasting interaction updates to clients. */
 export interface InteractionBroadcastChannel {
   broadcastEvent(eventType: string, data: unknown): void;
 }

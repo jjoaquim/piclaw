@@ -4,6 +4,7 @@
 
 import type { InteractionRow } from "../../db.js";
 
+/** Context contract consumed by post update/internal-post mutation handlers. */
 export interface PostMutationsContext {
   defaultChatJid: string;
   lastCommandInteractionId: number | null;

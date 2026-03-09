@@ -48,6 +48,7 @@ function normalizeThemePayload(input: unknown): WebThemePayload | null {
   return null;
 }
 
+/** Channel contract required by the web UI bridge request/response helpers. */
 export interface UiBridgeChannel {
   broadcastEvent(eventType: string, data: unknown): void;
 }

@@ -6,6 +6,7 @@ import { WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_TOTP_WINDOW } from "../../core/co
 import { createWebSession, DEFAULT_WEB_USER_ID } from "../../db.js";
 import { randomSessionToken, verifyTotp } from "./auth.js";
 
+/** Minimal lockout-tracker contract consumed by TOTP auth handler logic. */
 export interface TotpFailureTrackerLike {
   isLocked(clientKey: string, now: number): boolean;
   recordFailure(clientKey: string, now: number): { locked: boolean; failures: number };
@@ -13,6 +14,7 @@ export interface TotpFailureTrackerLike {
   getFailureLimit(): number;
 }
 
+/** Runtime dependencies required by the TOTP verification endpoint. */
 export interface TotpAuthContext {
   isAuthEnabled(): boolean;
   isTotpEnabled(): boolean;
@@ -32,6 +34,7 @@ function getSessionTtlSeconds(): number {
   return Math.max(60, rawTtl || 0);
 }
 
+/** Verify a submitted TOTP code, enforce lockout policy, and issue a web session. */
 export async function handleAuthVerifyRequest(req: Request, ctx: TotpAuthContext): Promise<Response> {
   if (!ctx.isAuthEnabled() || !ctx.isTotpEnabled()) return ctx.json({ error: "Auth disabled" }, 404);
 

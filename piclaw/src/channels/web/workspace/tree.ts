@@ -36,6 +36,7 @@ function listDirEntries(absPath: string, includeHidden: boolean) {
   return includeHidden ? visibleEntries.concat(hiddenEntries) : visibleEntries;
 }
 
+/** Workspace tree node payload returned by workspace tree endpoints. */
 export interface WorkspaceTreeNode {
   name: string;
   path: string;

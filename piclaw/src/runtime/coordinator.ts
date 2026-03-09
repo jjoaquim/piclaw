@@ -9,6 +9,7 @@ import {
   type MessageProcessingDeps,
 } from "./message-loop.js";
 
+/** Dependencies required to start the runtime message-processing loop. */
 export type StartRuntimeLoopDeps = {
   queue: MessageLoopDeps["queue"];
   state: MessageLoopDeps["state"];

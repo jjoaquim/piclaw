@@ -16,6 +16,7 @@ function hasSessionBinder(agentPool: AgentPool): agentPool is AgentPool & Sessio
   return typeof candidate.setSessionBinder === "function";
 }
 
+/** Attach the web UI context binder when agent-pool supports session binding. */
 export function bindWebUiSessionBinder(agentPool: AgentPool, binder: SessionBinder): void {
   if (!hasSessionBinder(agentPool)) return;
   agentPool.setSessionBinder(binder);

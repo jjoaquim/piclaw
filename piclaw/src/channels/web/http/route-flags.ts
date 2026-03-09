@@ -10,6 +10,7 @@ const APPLE_ICON_PATHS = new Set([
   "/apple-touch-icon-152x152.png",
 ]);
 
+/** Precomputed route classification flags used by web HTTP dispatch. */
 export type RouteFlags = {
   isGetOrHead: boolean;
   isLoginPage: boolean;

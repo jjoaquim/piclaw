@@ -274,6 +274,7 @@ export function startSchedulerLoop(deps: SchedulerDeps): () => void {
   return stopSchedulerLoop;
 }
 
+/** Stop the global scheduler timer loop if currently running. */
 export function stopSchedulerLoop(): void {
   started = false;
   if (schedulerTimer) {

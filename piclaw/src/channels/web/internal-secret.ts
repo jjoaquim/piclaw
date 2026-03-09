@@ -4,6 +4,7 @@
 
 import { safeEqual } from "./auth.js";
 
+/** Validate internal-secret header/bearer auth for trusted internal routes. */
 export function isInternalSecretRequestAuthorized(req: Request, secret: string): boolean {
   const trimmedSecret = secret.trim();
   if (!trimmedSecret) return false;

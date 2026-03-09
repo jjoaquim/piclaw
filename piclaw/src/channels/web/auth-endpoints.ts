@@ -15,6 +15,7 @@ import {
   type WebauthnEnrolPageContext,
 } from "./webauthn-enrol-page.js";
 
+/** Aggregated auth endpoint handlers/dependencies used by HTTP dispatch. */
 export interface AuthEndpointsContext {
   createTotpContext(): TotpAuthContext;
   createWebauthnContext(): WebauthnAuthContext;

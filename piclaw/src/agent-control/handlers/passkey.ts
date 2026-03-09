@@ -32,6 +32,7 @@ const maskCredential = (id: string): string => {
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
 };
 
+/** Handle `/passkey` subcommands (list/delete/enrol) for agent-control flows. */
 export async function handlePasskey(_session: AgentSession, command: PasskeyCommand): Promise<AgentControlResult> {
   if (!isPasskeysEnabled()) {
     return { status: "error", message: "Passkeys are disabled (WEB_PASSKEY_MODE=totp-only)." };

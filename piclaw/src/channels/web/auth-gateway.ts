@@ -22,6 +22,7 @@ import type { WebauthnEnrolPageContext } from "./webauthn-enrol-page.js";
 import type { WebauthnChallengeTracker } from "./webauthn-challenges.js";
 import { getClientKey as getRequestClientKey } from "./http/client.js";
 
+/** External dependencies required to construct a WebAuthGateway instance. */
 export interface WebAuthGatewayDeps {
   json(payload: unknown, status?: number): Response;
   challenges: WebauthnChallengeTracker;
@@ -29,6 +30,7 @@ export interface WebAuthGatewayDeps {
   logAuthWarning?(message: string): void;
 }
 
+/** Central auth capability gateway for web request guards and endpoint contexts. */
 export class WebAuthGateway {
   constructor(
     private readonly config: WebAuthRuntimeConfig,

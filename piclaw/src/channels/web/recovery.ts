@@ -13,6 +13,7 @@ import {
   type InflightRun,
 } from "../../db.js";
 
+/** Runtime callbacks required for inflight recovery/pending resume orchestration. */
 export interface WebRecoveryContext {
   assistantName: string;
   defaultAgentId: string;
@@ -21,6 +22,7 @@ export interface WebRecoveryContext {
   now?: () => number;
 }
 
+/** Persistence contract used by web recovery helpers. */
 export interface WebRecoveryStore {
   getInflightRuns(): InflightRun[];
   transaction(run: () => void): void;
@@ -62,7 +64,7 @@ export function recoverInflightRuns(
         if (store.hasAgentRepliesAfter(inflight.chatJid, inflight.prevTs)) {
           console.log(
             `[web] Inflight run for ${inflight.chatJid} (started ${inflight.startedAt}) ` +
-            "already has agent replies — clearing marker without rollback"
+              "already has agent replies — clearing marker without rollback"
           );
           store.clearInflightMarker(inflight.chatJid);
         } else {
@@ -93,9 +95,7 @@ export function resumePendingChats(
   store: WebRecoveryStore = defaultStore
 ): void {
   const cursors = store.getAllChatCursors();
-  const jids = chatJid && chatJid !== "all"
-    ? [chatJid]
-    : Object.keys(cursors);
+  const jids = chatJid && chatJid !== "all" ? [chatJid] : Object.keys(cursors);
 
   const now = ctx.now ?? Date.now;
 

@@ -13,6 +13,7 @@
  *   - command-parsers.ts (all other helpers).
  */
 
+/** Parse textual on/off toggle values used in slash-control commands. */
 export function parseToggle(value?: string): boolean | undefined {
   if (!value) return undefined;
   const normalized = value.trim().toLowerCase();

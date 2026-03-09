@@ -9,6 +9,7 @@ import {
   type InteractionBroadcastChannel,
 } from "./interaction-service.js";
 
+/** Display profile metadata applied to broadcasted interaction payloads. */
 export interface InteractionBroadcasterProfile {
   agentName: string;
   agentAvatar?: string | null;
@@ -17,11 +18,13 @@ export interface InteractionBroadcasterProfile {
   userAvatarBackground?: string | null;
 }
 
+/** Broadcast helper contract consumed by web interaction write flows. */
 export interface InteractionBroadcaster {
   broadcastAgentResponse(interaction: InteractionRow): void;
   broadcastInteractionUpdated(interaction: InteractionRow): void;
 }
 
+/** Create an interaction broadcaster bound to a channel and profile metadata. */
 export function createInteractionBroadcaster(
   channel: InteractionBroadcastChannel,
   profile: InteractionBroadcasterProfile

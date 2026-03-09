@@ -13,6 +13,7 @@ import {
   handleWorkspaceUpload,
 } from "../handlers/workspace.js";
 
+/** Channel contract required by workspace-route HTTP dispatcher. */
 export interface WorkspaceDispatchChannel {
   handleWorkspaceVisibility(req: Request): Promise<Response>;
   handleWorkspaceTree?(req: Request): Response;

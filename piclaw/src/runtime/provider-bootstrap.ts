@@ -9,6 +9,7 @@ import {
   streamSimpleOpenAICompletions,
 } from "@mariozechner/pi-ai";
 
+/** Minimal AgentPool contract needed to register optional model providers. */
 export interface ProviderBootstrapAgentPool {
   hasProviderModels(provider: string): boolean;
   registerModelProvider(

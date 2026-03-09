@@ -5,6 +5,7 @@
 import type { WebChannel } from "../web.js";
 import type { RouteFlags } from "./route-flags.js";
 
+/** Static asset serving function signature used by shell-route dispatcher. */
 export type ServeStaticAsset = (req: Request, relPath: string) => Promise<Response>;
 
 /**

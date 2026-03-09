@@ -21,6 +21,7 @@ import {
 import { type RouteFlags, shouldSkipAuthCheck } from "./route-flags.js";
 import { checkCsrfOrigin, rateLimitResponse } from "./security.js";
 
+/** Channel contract required by HTTP request guard helpers. */
 export interface RequestGuardsChannel {
   authGateway: {
     isAuthEnabled(): boolean;

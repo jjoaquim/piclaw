@@ -9,6 +9,7 @@ import {
   type MediaResponseContext,
 } from "../handlers/media.js";
 
+/** Channel contract required by media-route HTTP dispatcher. */
 export interface MediaDispatchChannel extends MediaResponseContext {
   parseOptionalInt(value: string | null): number | null;
   handleMediaUpload?(req: Request): Promise<Response>;

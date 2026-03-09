@@ -13,6 +13,7 @@ import {
 } from "../auth-endpoints.js";
 import type { RouteFlags } from "./route-flags.js";
 
+/** Channel contract required by auth-route HTTP dispatcher. */
 export interface AuthDispatchChannel {
   authGateway: {
     isTotpSession(req: Request): boolean;

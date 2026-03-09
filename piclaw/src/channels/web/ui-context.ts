@@ -12,6 +12,7 @@ import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-a
 import type { WebChannel } from "../web.js";
 import { UiBridge, type UiBridgeChannel } from "./ui-bridge.js";
 
+/** Channel shape required to bind web session UI context helpers safely. */
 export type UiContextChannel = UiBridgeChannel & { uiBridge?: UiBridge };
 
 function getBridge(channel: UiContextChannel): UiBridge {

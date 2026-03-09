@@ -2,6 +2,7 @@
  * channels/web/followup-placeholders.ts – queued follow-up placeholder row ids.
  */
 
+/** FIFO in-memory row-id queue for deferred follow-up placeholder replacement. */
 export class FollowupPlaceholderStore {
   private queuedFollowupPlaceholders = new Map<string, number[]>();
 

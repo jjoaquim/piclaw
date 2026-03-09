@@ -2,6 +2,7 @@
  * channels/web/totp-failure-tracker.ts – TOTP failure/lockout bookkeeping.
  */
 
+/** Optional tuning knobs for TOTP failure windows, limits, and lockout timing. */
 export type TotpFailureConfig = {
   failureWindowMs?: number;
   failureLimit?: number;
@@ -9,6 +10,7 @@ export type TotpFailureConfig = {
   pruneIntervalMs?: number;
 };
 
+/** Snapshot returned after recording a TOTP failure attempt. */
 export type TotpFailureSnapshot = {
   failures: number;
   locked: boolean;
@@ -25,6 +27,7 @@ type TotpFailureEntry = {
   lockedUntil: number;
 };
 
+/** In-memory tracker that enforces TOTP lockouts by client key. */
 export class TotpFailureTracker {
   private entries = new Map<string, TotpFailureEntry>();
   private lastPrune = Date.now();

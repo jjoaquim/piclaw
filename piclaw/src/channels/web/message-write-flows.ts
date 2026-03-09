@@ -4,6 +4,7 @@
 
 import type { InteractionRow } from "../../db.js";
 
+/** Supported message-send option forms for compatibility with legacy call sites. */
 export type SendMessageOptions =
   | number
   | null
@@ -13,6 +14,7 @@ export type SendMessageOptions =
       source?: string;
     };
 
+/** Persistence contract required by web message write flows. */
 export interface MessageWriteStore {
   storeMessage(
     chatJid: string,
@@ -31,15 +33,18 @@ export interface MessageWriteStore {
   setMessageThreadToSelf(messageId: number): void;
 }
 
+/** Broadcast contract required by web message write flows. */
 export interface MessageWriteBroadcaster {
   broadcastAgentResponse(interaction: InteractionRow): void;
   broadcastInteractionUpdated(interaction: InteractionRow): void;
 }
 
+/** Follow-up placeholder queue contract required by write flows. */
 export interface MessageWriteFollowupQueue {
   enqueue(chatJid: string, rowId: number): void;
 }
 
+/** Aggregated context consumed by web message write helper functions. */
 export interface MessageWriteContext {
   defaultAgentId: string;
   store: MessageWriteStore;
@@ -53,9 +58,10 @@ interface NormalizedSendMessageOptions {
 }
 
 function normalizeSendMessageOptions(options?: SendMessageOptions): NormalizedSendMessageOptions {
-  const normalized = typeof options === "number" || options === null
-    ? { threadId: options ?? null }
-    : (options ?? {});
+  const normalized =
+    typeof options === "number" || options === null
+      ? { threadId: options ?? null }
+      : (options ?? {});
 
   return {
     threadId: normalized.threadId ?? null,

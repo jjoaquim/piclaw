@@ -2,6 +2,7 @@
  * channels/web/pending-steering.ts – in-memory queue for pending steering timestamps.
  */
 
+/** Per-chat pending steering timestamp queue used by run-control sequencing. */
 export class PendingSteeringStore {
   private pendingSteering = new Map<string, string[]>();
 

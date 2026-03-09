@@ -15,6 +15,7 @@ type TotpCommand = Extract<AgentControlCommand, { type: "totp" }>;
 
 const base64Encode = (value: string): string => Buffer.from(value, "utf8").toString("base64");
 
+/** Handle `/totp` control commands for setup/status operations. */
 export async function handleTotp(_session: AgentSession, command: TotpCommand): Promise<AgentControlResult> {
   const action = (command.action || "").toLowerCase();
   if (action && action !== "enrol" && action !== "enroll") {

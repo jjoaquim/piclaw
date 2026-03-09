@@ -82,6 +82,7 @@ function sendThemeMessage(pi: ExtensionAPI, content: string) {
   });
 }
 
+/** Extension factory that exposes `/theme` command and UI theme controls. */
 export const uiThemeExtension: ExtensionFactory = (pi: ExtensionAPI) => {
   pi.registerCommand("theme", {
     description: "Set UI theme (usage: /theme <name> or /theme list)",
