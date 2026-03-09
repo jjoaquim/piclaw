@@ -419,6 +419,10 @@ export class SSEClient {
         this.eventSource.addEventListener('model_changed', (e) => {
             this.onEvent('model_changed', JSON.parse(e.data));
         });
+
+        this.eventSource.addEventListener('ui_theme', (e) => {
+            this.onEvent('ui_theme', JSON.parse(e.data));
+        });
     }
     
     scheduleReconnect() {

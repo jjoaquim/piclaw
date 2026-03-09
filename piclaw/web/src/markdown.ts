@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { getThemeMode } from './ui/theme.js';
 
 /** Regex matching HTTP/HTTPS URLs in message text. */
 export const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
@@ -555,7 +556,7 @@ export async function renderMermaidDiagrams(container) {
     if (!window.beautifulMermaid) return;
 
     const { renderMermaid, THEMES } = window.beautifulMermaid;
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = getThemeMode() === 'dark';
     const theme = isDark ? THEMES['tokyo-night'] : THEMES['github-light'];
 
     const pending = container.querySelectorAll('.mermaid-container[data-mermaid]');

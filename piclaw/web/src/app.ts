@@ -28,6 +28,7 @@ import { useTimeline } from './ui/use-timeline.js';
 import { dedupePosts } from './ui/timeline-utils.js';
 import { useAgentState } from './ui/use-agent-state.js';
 import { useSplitters } from './ui/use-splitters.js';
+import { initTheme, applyThemeFromEvent } from './ui/theme.js';
 
 function missingApi(name, fallback) {
     if (typeof window !== 'undefined') {
@@ -107,22 +108,6 @@ function useTimestampRefresh(intervalMs = 30000) {
         return () => clearInterval(timer);
     }, [intervalMs]);
 }
-
-/**
- * Update browser theme color (affects mobile chrome and PWA title bar)
- */
-function updateThemeColor(dark) {
-    const color = dark ? '#000000' : '#ffffff';
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-        meta.setAttribute('content', color);
-    }
-    const statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (statusMeta) {
-        statusMeta.setAttribute('content', dark ? 'black' : 'default');
-    }
-}
-
 
 const estimatePreviewLines = (text, maxCharsPerLine = 160) => {
     const value = String(text || '').replace(/\r\n/g, '\n');
@@ -206,23 +191,7 @@ function App() {
     useTimestampRefresh(30000);
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyTheme = () => updateThemeColor(media.matches);
-        applyTheme();
-        if (media.addEventListener) {
-            media.addEventListener('change', applyTheme);
-        } else if (media.addListener) {
-            media.addListener(applyTheme);
-        }
-        return () => {
-            if (media.removeEventListener) {
-                media.removeEventListener('change', applyTheme);
-            } else if (media.removeListener) {
-                media.removeListener(applyTheme);
-            }
-        };
+        return initTheme();
     }, []);
 
     useEffect(() => {
@@ -913,6 +882,11 @@ function App() {
 
         updateAgentProfile(data);
         updateUserProfile(data);
+
+        if (eventType === 'ui_theme') {
+            applyThemeFromEvent(data);
+            return;
+        }
 
         if (eventType?.startsWith('agent_')) {
             clearLastActivityFlag();

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
 import { getLocalStorageBoolean, setLocalStorageItem } from '../utils/storage.js';
+import { getThemeMode } from '../ui/theme.js';
 import {
     EditorState,
     EditorView,
@@ -148,25 +149,13 @@ export function WorkspaceEditor({
         return stored;
     });
 
-    const [isDark, setIsDark] = useState(() => {
-        try {
-            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        } catch {
-            return false;
-        }
-    });
+    const [isDark, setIsDark] = useState(() => getThemeMode() === 'dark');
 
     useEffect(() => {
-        if (!window.matchMedia) return;
-        const media = window.matchMedia('(prefers-color-scheme: dark)');
-        const onChange = () => setIsDark(media.matches);
-        onChange();
-        if (media.addEventListener) {
-            media.addEventListener('change', onChange);
-            return () => media.removeEventListener('change', onChange);
-        }
-        media.addListener(onChange);
-        return () => media.removeListener(onChange);
+        const handleTheme = () => setIsDark(getThemeMode() === 'dark');
+        handleTheme();
+        window.addEventListener('piclaw-theme-change', handleTheme);
+        return () => window.removeEventListener('piclaw-theme-change', handleTheme);
     }, []);
 
     useEffect(() => {

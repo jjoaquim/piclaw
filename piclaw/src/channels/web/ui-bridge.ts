@@ -13,6 +13,41 @@ import type { AgentSession, ExtensionUIContext } from "@mariozechner/pi-coding-a
 
 import { createFallbackTheme } from "./theme.js";
 
+const WEB_THEME_NAMES = [
+  "default",
+  "tango",
+  "xterm",
+  "monokai",
+  "monokai-pro",
+  "ristretto",
+  "dracula",
+  "catppuccin",
+  "nord",
+  "gruvbox",
+  "solarized",
+  "tokyo",
+  "miasma",
+  "github",
+  "gotham",
+] as const;
+
+type WebThemePayload = { theme: string; tint?: string | null };
+
+function normalizeThemePayload(input: unknown): WebThemePayload | null {
+  if (!input) return null;
+  if (typeof input === "string") {
+    return { theme: input };
+  }
+  if (typeof input === "object") {
+    const obj = input as { theme?: unknown; name?: unknown; tint?: unknown };
+    const name = typeof obj.theme === "string" ? obj.theme : typeof obj.name === "string" ? obj.name : "";
+    if (!name) return null;
+    const tint = typeof obj.tint === "string" ? obj.tint : obj.tint === null ? null : undefined;
+    return { theme: name, tint };
+  }
+  return null;
+}
+
 export interface UiBridgeChannel {
   broadcastEvent(eventType: string, data: unknown): void;
 }
@@ -29,6 +64,7 @@ export class UiBridge {
   pendingUiRequests = new Map<string, PendingUiRequest>();
   uiRequestCounter = 0;
   editorTextByChat = new Map<string, string>();
+  themeByChat = new Map<string, WebThemePayload>();
   fallbackTheme = createFallbackTheme();
 
   constructor(private channel: UiBridgeChannel) {}
@@ -163,9 +199,20 @@ export class UiBridge {
       get theme() {
         return fallbackTheme;
       },
-      getAllThemes: () => [],
-      getTheme: (_name) => undefined,
-      setTheme: (_nextTheme) => ({ success: false, error: "UI theme switching not available" }),
+      getAllThemes: () => WEB_THEME_NAMES.map((name) => ({ name, path: undefined })),
+      getTheme: (name) => {
+        if (typeof name !== "string") return undefined;
+        const normalized = name.trim().toLowerCase();
+        if (!WEB_THEME_NAMES.includes(normalized as (typeof WEB_THEME_NAMES)[number])) return undefined;
+        return undefined;
+      },
+      setTheme: (nextTheme) => {
+        const payload = normalizeThemePayload(nextTheme);
+        if (!payload) return { success: false, error: "Invalid theme payload" };
+        this.themeByChat.set(chatJid, payload);
+        this.channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...payload });
+        return { success: true };
+      },
       getToolsExpanded: () => false,
       setToolsExpanded: () => {},
     };
