@@ -475,12 +475,30 @@ function clearCssVariables() {
     THEME_VAR_KEYS.forEach((key) => root.style.removeProperty(key));
 }
 
+function ensureMetaTag(name) {
+    if (typeof document === 'undefined') return null;
+    let tag = document.querySelector(`meta[name="${name}"]`);
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', name);
+        document.head.appendChild(tag);
+    }
+    return tag;
+}
+
 function updateMetaColor(color, mode) {
     if (typeof document === 'undefined') return;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta && color) meta.setAttribute('content', color);
-    const statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (statusMeta) statusMeta.setAttribute('content', mode === 'dark' ? 'black' : 'default');
+    const themeMeta = ensureMetaTag('theme-color');
+    if (themeMeta && color) themeMeta.setAttribute('content', color);
+
+    const tileMeta = ensureMetaTag('msapplication-TileColor');
+    if (tileMeta && color) tileMeta.setAttribute('content', color);
+
+    const navMeta = ensureMetaTag('msapplication-navbutton-color');
+    if (navMeta && color) navMeta.setAttribute('content', color);
+
+    const statusMeta = ensureMetaTag('apple-mobile-web-app-status-bar-style');
+    if (statusMeta) statusMeta.setAttribute('content', mode === 'dark' ? 'black-translucent' : 'default');
 }
 
 function emitThemeChange() {
