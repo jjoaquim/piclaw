@@ -4,10 +4,13 @@
 
 import {
   handleWorkspaceAttach,
+  handleWorkspaceCreate,
   handleWorkspaceDelete,
   handleWorkspaceDownload,
   handleWorkspaceFile,
   handleWorkspaceRaw,
+  handleWorkspaceMove,
+  handleWorkspaceRename,
   handleWorkspaceTree,
   handleWorkspaceUpdate,
   handleWorkspaceUpload,
@@ -24,6 +27,9 @@ export interface WorkspaceDispatchChannel {
   handleWorkspaceDownload?(req: Request): Promise<Response>;
   handleWorkspaceAttach?(req: Request): Promise<Response>;
   handleWorkspaceUpload?(req: Request): Promise<Response>;
+  handleWorkspaceCreate?(req: Request): Promise<Response>;
+  handleWorkspaceRename?(req: Request): Promise<Response>;
+  handleWorkspaceMove?(req: Request): Promise<Response>;
 }
 
 /**
@@ -64,6 +70,18 @@ export async function handleWorkspaceRoutes(
 
   if (req.method === "POST" && pathname === "/workspace/upload") {
     return await (channel.handleWorkspaceUpload?.(req) ?? handleWorkspaceUpload(req));
+  }
+
+  if (req.method === "POST" && pathname === "/workspace/file") {
+    return await (channel.handleWorkspaceCreate?.(req) ?? handleWorkspaceCreate(req));
+  }
+
+  if (req.method === "POST" && pathname === "/workspace/rename") {
+    return await (channel.handleWorkspaceRename?.(req) ?? handleWorkspaceRename(req));
+  }
+
+  if (req.method === "POST" && pathname === "/workspace/move") {
+    return await (channel.handleWorkspaceMove?.(req) ?? handleWorkspaceMove(req));
   }
 
   if (req.method === "POST" && pathname === "/workspace/visibility") {

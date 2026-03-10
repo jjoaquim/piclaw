@@ -44,7 +44,9 @@ export function getDataRateLimitRule(method, pathname) {
     if (method === "DELETE" && pathname.startsWith("/post/")) {
         return { bucket: "data/delete_post", limit: DATA_DELETE_LIMIT, message: "Too many deletions. Slow down." };
     }
-    if ((method === "PUT" || method === "DELETE") && pathname === "/workspace/file") {
+    if (((method === "PUT" || method === "DELETE" || method === "POST") && pathname === "/workspace/file") ||
+        (method === "POST" && pathname === "/workspace/rename") ||
+        (method === "POST" && pathname === "/workspace/move")) {
         return { bucket: "data/write", limit: DATA_WRITE_LIMIT, message: "Too many file writes. Slow down." };
     }
     return null;

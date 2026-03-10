@@ -7,7 +7,7 @@
  * Consumers: web/handlers/workspace.ts delegates file operations here.
  */
 
-import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { readdir } from "fs/promises";
 import path from "path";
 
@@ -17,6 +17,15 @@ import { createMedia } from "../../../db.js";
 import { MAX_ATTACH_BYTES, MAX_EDIT_BYTES, MAX_PREVIEW_BYTES, MAX_UPLOAD_BYTES } from "./constants.js";
 import { contentTypeForPath, detectBinary, formatMtime, isImageFile, isTextFile } from "./file-utils.js";
 import { isHiddenPath, resolveWorkspacePath, shouldIgnorePath, toRelativePath } from "./paths.js";
+
+function normalizeEntryName(raw: string | null | undefined): string | null {
+  const name = (raw || "").trim();
+  if (!name || name === "." || name === "..") return null;
+  if (name.includes("/") || name.includes("\\")) return null;
+  const base = path.basename(name);
+  if (base !== name) return null;
+  return name;
+}
 
 /** File read/write service for the workspace explorer API. */
 export class WorkspaceFileService {
@@ -220,6 +229,177 @@ export class WorkspaceFileService {
       };
     } catch {
       return { status: 500, body: { error: "Failed to upload file" } };
+    }
+  }
+
+  createFile(
+    pathParam: string | null,
+    nameParam: string | null,
+    content: string
+  ): { status: number; body: unknown } {
+    const targetDir = resolveWorkspacePath(pathParam);
+    if (!targetDir) return { status: 400, body: { error: "Invalid path" } };
+
+    const filename = normalizeEntryName(nameParam);
+    if (!filename) return { status: 400, body: { error: "Invalid filename" } };
+
+    if (typeof content !== "string") {
+      return { status: 400, body: { error: "Missing file content" } };
+    }
+
+    try {
+      const stats = statSync(targetDir);
+      if (!stats.isDirectory()) {
+        return { status: 400, body: { error: "Path is not a directory" } };
+      }
+    } catch {
+      return { status: 404, body: { error: "Directory not found" } };
+    }
+
+    const size = Buffer.byteLength(content, "utf-8");
+    if (size > MAX_EDIT_BYTES) {
+      return { status: 400, body: { error: "File too large to edit" } };
+    }
+
+    const destPath = path.join(targetDir, filename);
+    if (existsSync(destPath)) {
+      return { status: 409, body: { error: "File already exists", code: "file_exists" } };
+    }
+
+    try {
+      writeFileSync(destPath, content, "utf-8");
+      const updated = statSync(destPath);
+      const relPath = toRelativePath(destPath);
+      return {
+        status: 200,
+        body: {
+          path: relPath,
+          name: filename,
+          size: updated.size,
+          mtime: formatMtime(updated),
+        },
+      };
+    } catch {
+      return { status: 500, body: { error: "Failed to create file" } };
+    }
+  }
+
+  renameFile(pathParam: string | null, nameParam: string | null): { status: number; body: unknown } {
+    const targetPath = resolveWorkspacePath(pathParam);
+    if (!targetPath) return { status: 400, body: { error: "Invalid path" } };
+
+    const relPath = toRelativePath(targetPath);
+    if (relPath === ".") {
+      return { status: 400, body: { error: "Cannot rename workspace root" } };
+    }
+
+    const filename = normalizeEntryName(nameParam);
+    if (!filename) return { status: 400, body: { error: "Invalid filename" } };
+
+    try {
+      statSync(targetPath);
+    } catch {
+      return { status: 404, body: { error: "File not found" } };
+    }
+
+    const parentDir = path.dirname(targetPath);
+    const nextPath = path.join(parentDir, filename);
+    if (nextPath === targetPath) {
+      return {
+        status: 200,
+        body: {
+          path: relPath,
+          name: filename,
+        },
+      };
+    }
+
+    if (existsSync(nextPath)) {
+      return { status: 409, body: { error: "File already exists", code: "file_exists" } };
+    }
+
+    try {
+      renameSync(targetPath, nextPath);
+      const nextRel = toRelativePath(nextPath);
+      return {
+        status: 200,
+        body: {
+          path: nextRel,
+          name: filename,
+          old_path: relPath,
+        },
+      };
+    } catch {
+      return { status: 500, body: { error: "Failed to rename file" } };
+    }
+  }
+
+  moveEntry(pathParam: string | null, targetParam: string | null): { status: number; body: unknown } {
+    const sourcePath = resolveWorkspacePath(pathParam);
+    if (!sourcePath) return { status: 400, body: { error: "Invalid path" } };
+
+    const relSource = toRelativePath(sourcePath);
+    if (relSource === ".") {
+      return { status: 400, body: { error: "Cannot move workspace root" } };
+    }
+
+    const targetDir = resolveWorkspacePath(targetParam);
+    if (!targetDir) return { status: 400, body: { error: "Invalid target" } };
+
+    try {
+      const stats = statSync(targetDir);
+      if (!stats.isDirectory()) {
+        return { status: 400, body: { error: "Target is not a directory" } };
+      }
+    } catch {
+      return { status: 404, body: { error: "Target directory not found" } };
+    }
+
+    let sourceStats;
+    try {
+      sourceStats = statSync(sourcePath);
+    } catch {
+      return { status: 404, body: { error: "File not found" } };
+    }
+
+    const filename = path.basename(sourcePath);
+    const nextPath = path.join(targetDir, filename);
+
+    if (nextPath === sourcePath) {
+      return {
+        status: 200,
+        body: {
+          path: relSource,
+          name: filename,
+        },
+      };
+    }
+
+    if (sourceStats.isDirectory()) {
+      const relTarget = toRelativePath(targetDir);
+      if (relTarget === relSource || relTarget.startsWith(`${relSource}/`)) {
+        return { status: 400, body: { error: "Cannot move a folder into itself" } };
+      }
+    }
+
+    if (existsSync(nextPath)) {
+      return { status: 409, body: { error: "Target already exists", code: "file_exists" } };
+    }
+
+    try {
+      renameSync(sourcePath, nextPath);
+      const nextRel = toRelativePath(nextPath);
+      return {
+        status: 200,
+        body: {
+          path: nextRel,
+          name: filename,
+          old_path: relSource,
+          target: toRelativePath(targetDir),
+        },
+      };
+    } catch {
+      return { status: 500, body: { error: "Failed to move entry" } };
     }
   }
 

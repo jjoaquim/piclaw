@@ -282,6 +282,63 @@ export async function uploadWorkspaceFile(file, targetPath = '', options = {}) {
     return response.json();
 }
 
+/** Create a new workspace file. */
+export async function createWorkspaceFile(path, name, content = '') {
+    const response = await fetch(API_BASE + '/workspace/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, name, content }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Create failed' }));
+        const err = new Error(error.error || `HTTP ${response.status}`);
+        err.status = response.status;
+        err.code = error.code;
+        throw err;
+    }
+
+    return response.json();
+}
+
+/** Rename a workspace file or folder. */
+export async function renameWorkspaceFile(path, name) {
+    const response = await fetch(API_BASE + '/workspace/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, name }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Rename failed' }));
+        const err = new Error(error.error || `HTTP ${response.status}`);
+        err.status = response.status;
+        err.code = error.code;
+        throw err;
+    }
+
+    return response.json();
+}
+
+/** Move a workspace file or folder into another directory. */
+export async function moveWorkspaceEntry(path, target) {
+    const response = await fetch(API_BASE + '/workspace/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, target }),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Move failed' }));
+        const err = new Error(error.error || `HTTP ${response.status}`);
+        err.status = response.status;
+        err.code = error.code;
+        throw err;
+    }
+
+    return response.json();
+}
+
 /** Delete a file from the workspace. */
 export async function deleteWorkspaceFile(path) {
     const url = `/workspace/file?path=${encodeURIComponent(path || '')}`;

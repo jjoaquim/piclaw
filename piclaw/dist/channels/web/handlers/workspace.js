@@ -89,6 +89,57 @@ export async function handleWorkspaceUpload(req) {
     const result = await workspaceService.uploadFile(url.searchParams.get("path"), file, overwrite);
     return jsonResponse(result.body, result.status);
 }
+/** Handle POST /workspace/file: create a new workspace file. */
+export async function handleWorkspaceCreate(req) {
+    let data;
+    try {
+        data = await req.json();
+    }
+    catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+    if (!data?.name) {
+        return jsonResponse({ error: "Missing filename" }, 400);
+    }
+    const result = workspaceService.createFile(data.path ?? null, data.name ?? null, data.content ?? "");
+    return jsonResponse(result.body, result.status);
+}
+/** Handle POST /workspace/rename: rename a file or folder. */
+export async function handleWorkspaceRename(req) {
+    let data;
+    try {
+        data = await req.json();
+    }
+    catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+    if (!data?.path) {
+        return jsonResponse({ error: "Missing path" }, 400);
+    }
+    if (!data?.name) {
+        return jsonResponse({ error: "Missing filename" }, 400);
+    }
+    const result = workspaceService.renameFile(data.path ?? null, data.name ?? null);
+    return jsonResponse(result.body, result.status);
+}
+/** Handle POST /workspace/move: move a file or folder to a new directory. */
+export async function handleWorkspaceMove(req) {
+    let data;
+    try {
+        data = await req.json();
+    }
+    catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+    }
+    if (!data?.path) {
+        return jsonResponse({ error: "Missing path" }, 400);
+    }
+    if (!data?.target) {
+        return jsonResponse({ error: "Missing target" }, 400);
+    }
+    const result = workspaceService.moveEntry(data.path ?? null, data.target ?? null);
+    return jsonResponse(result.body, result.status);
+}
 /** Handle GET /workspace/download: serve a file as a download attachment. */
 export async function handleWorkspaceDownload(req) {
     const url = new URL(req.url);

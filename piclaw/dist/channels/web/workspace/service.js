@@ -29,6 +29,15 @@ export class WorkspaceService {
     uploadFile(pathParam, file, overwrite = false) {
         return this.fileService.uploadFile(pathParam, file, overwrite);
     }
+    createFile(pathParam, nameParam, content) {
+        return this.fileService.createFile(pathParam, nameParam, content);
+    }
+    renameFile(pathParam, nameParam) {
+        return this.fileService.renameFile(pathParam, nameParam);
+    }
+    moveEntry(pathParam, targetParam) {
+        return this.fileService.moveEntry(pathParam, targetParam);
+    }
     updateFile(pathParam, content) {
         return this.fileService.updateFile(pathParam, content);
     }
