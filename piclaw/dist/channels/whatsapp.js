@@ -33,6 +33,15 @@ const silentLogger = {
     error: () => { },
     fatal: () => { },
 };
+function readStatusCode(value) {
+    if (!value || typeof value !== "object")
+        return undefined;
+    const output = value.output;
+    if (!output || typeof output !== "object")
+        return undefined;
+    const statusCode = output.statusCode;
+    return typeof statusCode === "number" ? statusCode : undefined;
+}
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY_MS = 2_000; // 2s, 4s, 8s, 16s, 32s
 /** WhatsApp Web channel adapter using the Baileys library. */
@@ -79,7 +88,7 @@ export class WhatsAppChannel {
             if (connection === "close") {
                 this.connected = false;
                 this.pairingRequested = false;
-                const reason = lastDisconnect?.error?.output?.statusCode;
+                const reason = readStatusCode(lastDisconnect?.error);
                 const shouldReconnect = reason !== DisconnectReason.loggedOut;
                 if (shouldReconnect) {
                     this.reconnectAttempts++;

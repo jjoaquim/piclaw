@@ -8,6 +8,7 @@ import { ASSISTANT_NAME, USER_NAME, WEB_TOTP_SECRET } from "../../core/config.js
 import { getChatChannel } from "../../core/chat-context.js";
 import { generateTotpQr } from "../../utils/totp-qr.js";
 const base64Encode = (value) => Buffer.from(value, "utf8").toString("base64");
+/** Handle `/totp` control commands for setup/status operations. */
 export async function handleTotp(_session, command) {
     const action = (command.action || "").toLowerCase();
     if (action && action !== "enrol" && action !== "enroll") {

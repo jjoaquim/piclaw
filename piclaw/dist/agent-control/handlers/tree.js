@@ -7,6 +7,59 @@
  * Consumers: agent-control-handlers.ts dispatches to this handler.
  */
 import { extractTextFromContent, formatCompactNumber, truncateText } from "../agent-control-helpers.js";
+function getToolCallName(content) {
+    if (!Array.isArray(content))
+        return null;
+    for (const block of content) {
+        if (!block || typeof block !== "object")
+            continue;
+        const candidate = block;
+        if (candidate.type === "toolCall" && typeof candidate.name === "string") {
+            return candidate.name;
+        }
+    }
+    return null;
+}
+function describeEntry(entry) {
+    switch (entry.type) {
+        case "message": {
+            const msg = (entry.message && typeof entry.message === "object")
+                ? entry.message
+                : {};
+            const role = typeof msg.role === "string" ? msg.role : "message";
+            if (role === "toolResult") {
+                const toolName = typeof msg.toolName === "string" ? msg.toolName : "tool";
+                return `toolResult: ${toolName}`;
+            }
+            const content = msg.content;
+            const text = extractTextFromContent(content);
+            if (text) {
+                return `${role}: "${truncateText(text, 80)}"`;
+            }
+            const toolCallName = getToolCallName(content);
+            if (toolCallName)
+                return `${role}: [tool ${toolCallName}]`;
+            return role;
+        }
+        case "compaction":
+            return `[compaction: ${formatCompactNumber(entry.tokensBefore)} tokens]`;
+        case "branch_summary":
+            return `[branch summary from ${entry.fromId}]`;
+        case "thinking_level_change":
+            return `[thinking ${entry.thinkingLevel}]`;
+        case "model_change":
+            return `[model ${entry.provider}/${entry.modelId}]`;
+        case "custom":
+            return `[custom ${entry.customType}]`;
+        case "custom_message":
+            return `[custom message ${entry.customType}]`;
+        case "label":
+            return `[label ${entry.label || "clear"}]`;
+        case "session_info":
+            return `[session name ${entry.name || "none"}]`;
+    }
+    return "[entry]";
+}
 /** Handle /tree: render the session message tree in text format. */
 export async function handleTree(session, command) {
     const sessionManager = session.sessionManager;
@@ -16,45 +69,6 @@ export async function handleTree(session, command) {
         if (roots.length === 0) {
             return { status: "success", message: "Tree is empty." };
         }
-        const describeEntry = (entry) => {
-            switch (entry.type) {
-                case "message": {
-                    const msg = entry.message;
-                    const role = msg?.role || "message";
-                    if (role === "toolResult") {
-                        return `toolResult: ${msg.toolName || "tool"}`;
-                    }
-                    const text = extractTextFromContent(msg?.content);
-                    if (text) {
-                        return `${role}: \"${truncateText(text, 80)}\"`;
-                    }
-                    if (Array.isArray(msg?.content)) {
-                        const toolCall = msg.content.find((c) => c?.type === "toolCall");
-                        if (toolCall)
-                            return `${role}: [tool ${toolCall.name}]`;
-                    }
-                    return role;
-                }
-                case "compaction":
-                    return `[compaction: ${formatCompactNumber(entry.tokensBefore)} tokens]`;
-                case "branch_summary":
-                    return `[branch summary from ${entry.fromId}]`;
-                case "thinking_level_change":
-                    return `[thinking ${entry.thinkingLevel}]`;
-                case "model_change":
-                    return `[model ${entry.provider}/${entry.modelId}]`;
-                case "custom":
-                    return `[custom ${entry.customType}]`;
-                case "custom_message":
-                    return `[custom message ${entry.customType}]`;
-                case "label":
-                    return `[label ${entry.label || "clear"}]`;
-                case "session_info":
-                    return `[session name ${entry.name || "none"}]`;
-                default:
-                    return `[${entry.type}]`;
-            }
-        };
         const lines = ["Session tree:"];
         const flatLines = [];
         const walk = (node, depth) => {
@@ -134,23 +148,26 @@ export async function handleLabel(session, command) {
         message: label ? `Label set on ${command.targetId}: ${label}` : `Label cleared on ${command.targetId}.`,
     };
 }
-/** Handle /label: set or clear a label on a specific entry. */
+/** Handle /labels: list all currently labeled entries. */
 export async function handleLabels(session, _command) {
     const roots = session.sessionManager.getTree();
     const labels = [];
-    const describeEntry = (entry) => {
+    const describeLabelEntry = (entry) => {
         if (entry.type === "message") {
-            const role = entry.message?.role || "message";
-            const text = extractTextFromContent(entry.message?.content);
+            const msg = (entry.message && typeof entry.message === "object")
+                ? entry.message
+                : {};
+            const role = typeof msg.role === "string" ? msg.role : "message";
+            const text = extractTextFromContent(msg.content);
             if (text)
-                return `${role}: \"${truncateText(text, 60)}\"`;
+                return `${role}: "${truncateText(text, 60)}"`;
             return role;
         }
         return `[${entry.type}]`;
     };
     const walk = (node) => {
         if (node.label) {
-            labels.push({ id: node.entry.id, label: node.label, summary: describeEntry(node.entry) });
+            labels.push({ id: node.entry.id, label: node.label, summary: describeLabelEntry(node.entry) });
         }
         for (const child of node.children || []) {
             walk(child);

@@ -32,7 +32,7 @@ const KDF_ITERATIONS = 150_000;
 const SALT_BYTES = 16;
 const NONCE_BYTES = 12;
 const toArrayBuffer = (value) => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
-function loadKeyMaterial() {
+function readKeyMaterialFromEnv() {
     let rawKey = process.env.PICLAW_KEYCHAIN_KEY || "";
     const keyFile = process.env.PICLAW_KEYCHAIN_KEY_FILE;
     if (!rawKey && keyFile) {
@@ -42,6 +42,16 @@ function loadKeyMaterial() {
         throw new Error("Keychain is disabled. Set PICLAW_KEYCHAIN_KEY or PICLAW_KEYCHAIN_KEY_FILE.");
     }
     return encoder.encode(rawKey);
+}
+let keyMaterialProvider = {
+    getKeyMaterial: readKeyMaterialFromEnv,
+};
+function loadKeyMaterial() {
+    return keyMaterialProvider.getKeyMaterial();
+}
+/** Override/reset key material provider for tests and advanced runtime composition. */
+export function setKeyMaterialProviderForTests(provider) {
+    keyMaterialProvider = provider ?? { getKeyMaterial: readKeyMaterialFromEnv };
 }
 async function deriveAesKey(salt, iterations) {
     const keyMaterial = loadKeyMaterial();

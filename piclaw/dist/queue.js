@@ -24,6 +24,14 @@ export class AgentQueue {
     current = null;
     shuttingDown = false;
     runningPromise = null;
+    metrics = {
+        enqueued: 0,
+        deduplicated: 0,
+        started: 0,
+        succeeded: 0,
+        failed: 0,
+        retriesScheduled: 0,
+    };
     /**
      * Add a work item to the queue. If the queue is idle, execution starts
      * immediately; otherwise the item is appended to the pending list.
@@ -34,12 +42,17 @@ export class AgentQueue {
             return;
         // Deduplicate by id if provided
         if (id) {
-            if (this.current?.id === id)
+            if (this.current?.id === id) {
+                this.metrics.deduplicated += 1;
                 return;
-            if (this.pending.some((p) => p.id === id))
+            }
+            if (this.pending.some((p) => p.id === id)) {
+                this.metrics.deduplicated += 1;
                 return;
+            }
         }
         const item = { id, fn, retries: 0 };
+        this.metrics.enqueued += 1;
         if (this.running) {
             this.pending.push(item);
             return;
@@ -54,14 +67,17 @@ export class AgentQueue {
     runItem(item) {
         this.running = true;
         this.current = item;
+        this.metrics.started += 1;
         this.runningPromise = this.executeItem(item);
     }
     /** Run the item's function, handle errors with retry, and advance to the next item. */
     async executeItem(item) {
         try {
             await item.fn();
+            this.metrics.succeeded += 1;
         }
         catch (err) {
+            this.metrics.failed += 1;
             console.error("[queue] Error:", err);
             this.scheduleRetry(item);
         }
@@ -81,6 +97,7 @@ export class AgentQueue {
         if (!shouldRetry(item.retries, DEFAULT_MAX_RETRIES, this.shuttingDown))
             return;
         item.retries++;
+        this.metrics.retriesScheduled += 1;
         const delay = getRetryDelay(item.retries, DEFAULT_BASE_RETRY_MS);
         console.log(`[queue] Retry ${item.retries}/${DEFAULT_MAX_RETRIES} in ${delay}ms${item.id ? ` (${item.id})` : ""}`);
         setTimeout(() => {
@@ -98,11 +115,15 @@ export class AgentQueue {
      * Gracefully shut down the queue: clear pending items and wait up to `ms`
      * milliseconds for the currently running item to finish.
      */
-    async shutdown(ms) {
+    async shutdown(ms = 5000) {
         this.shuttingDown = true;
         this.pending = [];
         if (this.runningPromise) {
             await Promise.race([this.runningPromise, Bun.sleep(ms)]);
         }
+    }
+    /** Snapshot queue counters for diagnostics and tests. */
+    getMetrics() {
+        return { ...this.metrics };
     }
 }

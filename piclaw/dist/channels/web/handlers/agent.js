@@ -10,6 +10,7 @@
 import { ASSISTANT_AVATAR, ASSISTANT_NAME, BACKGROUND_AGENT_TIMEOUT, TRIGGER_PATTERN, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, } from "../../../core/config.js";
 import { parseControlCommand } from "../../../agent-control/index.js";
 import { normalizeAgentMessagePayload, parseAgentMessageRequest, storeAgentUserMessage, } from "../agent-message-service.js";
+import { handleUiThemeCommand } from "../ui-theme-commands.js";
 import { beginChatRun, endChatRun, endChatRunWithError, getChatCursor, getInflightMessageId, getMessageRowIdById, getMessagesSince, getDb, rollbackInflightRun, setChatCursor, } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
 import { createAgentProfileBuilder } from "../agent-utils.js";
@@ -48,8 +49,22 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             setChatCursor(chatJid, interaction.timestamp);
         }
     };
+    const withAgentProfile = createAgentProfileBuilder(ASSISTANT_NAME, resolveAvatarUrl("agent", ASSISTANT_AVATAR), USER_NAME || null, resolveAvatarUrl("user", USER_AVATAR), USER_AVATAR_BACKGROUND || null);
+    const emitCommandStatus = (payload) => {
+        channel.updateAgentStatus(chatJid, payload);
+        channel.broadcastEvent("agent_status", withAgentProfile(payload));
+    };
     const command = parseControlCommand(content, TRIGGER_PATTERN);
     if (command) {
+        const commandTurnId = createUuid("turn");
+        const commandTitle = content.trim().split(/\s+/, 1)[0] || "command";
+        emitCommandStatus({
+            thread_id: interaction.timestamp,
+            agent_id: agentId,
+            turn_id: commandTurnId,
+            type: "intent",
+            title: `Running ${commandTitle}...`,
+        });
         const result = await channel.agentPool.applyControlCommand(chatJid, command);
         const formatted = formatOutbound(result.message, "web");
         const isQueueCommand = command.type === "queue" || command.type === "queue_all";
@@ -76,10 +91,8 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
                 supportsThinking = modelState.supports_thinking;
             }
             catch {
-                const getModel = channel.agentPool
-                    .getCurrentModelLabel;
-                if (typeof getModel === "function") {
-                    nextModel = await getModel(chatJid).catch(() => null);
+                if (typeof channel.agentPool.getCurrentModelLabel === "function") {
+                    nextModel = await channel.agentPool.getCurrentModelLabel(chatJid).catch(() => null);
                 }
             }
             channel.broadcastEvent("model_changed", {
@@ -92,12 +105,40 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         if (result.status === "success" && (command.type === "model" || command.type === "cycle_model")) {
             channel.skipFailedOnModelSwitch(chatJid);
         }
+        emitCommandStatus({
+            thread_id: interaction.timestamp,
+            agent_id: agentId,
+            turn_id: commandTurnId,
+            type: result.status === "success" ? "done" : "error",
+            title: result.status === "success" ? `Completed ${commandTitle}` : (result.message || "Command failed"),
+        });
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: result }, 201);
     }
-    // If message looks like an extension slash command (starts with '/'), execute it directly
     const trimmed = content.trim();
+    const themeCommand = handleUiThemeCommand(trimmed);
+    if (themeCommand) {
+        if (themeCommand.payload) {
+            channel.broadcastEvent("ui_theme", { chat_jid: chatJid, ...themeCommand.payload });
+        }
+        const formatted = formatOutbound(themeCommand.message, "web");
+        if (formatted) {
+            await channel.sendMessage(chatJid, formatted, interaction.id);
+        }
+        markCommandHandled();
+        return channel.json({ user_message: interaction, thread_id: threadId, command: themeCommand }, 201);
+    }
+    // If message looks like an extension slash command (starts with '/'), execute it directly
     if (trimmed.startsWith("/")) {
+        const commandTurnId = createUuid("turn");
+        const slashName = trimmed.split(/\s+/, 1)[0] || "/command";
+        emitCommandStatus({
+            thread_id: interaction.timestamp,
+            agent_id: agentId,
+            turn_id: commandTurnId,
+            type: "intent",
+            title: `Running ${slashName}...`,
+        });
         channel.lastCommandInteractionId = interaction.id;
         let cmdResult;
         try {
@@ -113,6 +154,25 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         }
         catch (e) {
             console.error('[web] Failed to send slash command response:', e);
+        }
+        if (slashName === "/reload" && cmdResult.status === "success") {
+            emitCommandStatus({
+                thread_id: interaction.timestamp,
+                agent_id: agentId,
+                turn_id: commandTurnId,
+                type: "intent",
+                title: "Reload scheduled — waiting for restart",
+                detail: cmdResult.message || undefined,
+            });
+        }
+        else {
+            emitCommandStatus({
+                thread_id: interaction.timestamp,
+                agent_id: agentId,
+                turn_id: commandTurnId,
+                type: cmdResult.status === "success" ? "done" : "error",
+                title: cmdResult.status === "success" ? `Completed ${slashName}` : (cmdResult.message || "Command failed"),
+            });
         }
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: cmdResult }, 201);
@@ -227,6 +287,20 @@ export async function processChat(channel, chatJid, agentId, threadRootId) {
                 agent_id: agentId,
                 type: "intent",
                 title: "Queued — waiting for current response",
+                turn_id: turnId,
+            });
+            throw new Error(output.error);
+        }
+        if (output.error && output.error.includes("No API provider registered for api:")) {
+            // Extension/provider registration races can happen right after restart.
+            // Keep the message pending and let the queue retry automatically.
+            rollbackInflightRun(chatJid, prevCursor);
+            trackedEmitter.status({
+                thread_id: threadId,
+                agent_id: agentId,
+                type: "intent",
+                title: "Model provider is initializing — retrying shortly",
+                detail: output.error,
                 turn_id: turnId,
             });
             throw new Error(output.error);

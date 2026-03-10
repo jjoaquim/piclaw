@@ -5,8 +5,15 @@
  * used by the scheduler, IPC layer, and internal scheduling tool.
  */
 import { existsSync } from "fs";
-import { resolve } from "path";
+import { isAbsolute, relative, resolve, sep } from "path";
 import { WORKSPACE_DIR } from "../core/config.js";
+function resolveWorkspaceDir() {
+    const envDir = process.env.PICLAW_WORKSPACE;
+    if (envDir && envDir.trim()) {
+        return resolve(envDir.trim());
+    }
+    return WORKSPACE_DIR;
+}
 const MAX_COMMAND_LENGTH = 2000;
 const FORBIDDEN_PATTERNS = [
     { pattern: /\brm\s+-rf\s+\//i, reason: "destructive rm -rf /" },
@@ -17,6 +24,7 @@ const FORBIDDEN_PATTERNS = [
     { pattern: /\bhalt\b/i, reason: "halt" },
     { pattern: /\bdd\s+if=\/(dev|proc|sys)/i, reason: "raw device access" },
 ];
+/** Validate and normalize a scheduled shell command string. */
 export function validateShellCommand(input) {
     if (typeof input !== "string") {
         return { ok: false, error: "Command must be a string." };
@@ -42,19 +50,22 @@ export function validateShellCommand(input) {
     }
     return { ok: true, command };
 }
+/** Validate and normalize a scheduled shell working directory path. */
 export function validateShellCwd(input) {
+    const workspaceDir = resolveWorkspaceDir();
     if (input === undefined || input === null || input === "") {
-        return { ok: true, cwd: WORKSPACE_DIR };
+        return { ok: true, cwd: workspaceDir };
     }
     if (typeof input !== "string") {
-        return { ok: false, cwd: WORKSPACE_DIR, error: "cwd must be a string." };
+        return { ok: false, cwd: workspaceDir, error: "cwd must be a string." };
     }
-    const resolved = resolve(WORKSPACE_DIR, input);
-    if (!resolved.startsWith(WORKSPACE_DIR)) {
-        return { ok: false, cwd: WORKSPACE_DIR, error: "cwd must stay within the workspace." };
+    const resolved = resolve(workspaceDir, input);
+    const rel = relative(workspaceDir, resolved);
+    if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+        return { ok: false, cwd: workspaceDir, error: "cwd must stay within the workspace." };
     }
     if (!existsSync(resolved)) {
-        return { ok: false, cwd: WORKSPACE_DIR, error: "cwd does not exist." };
+        return { ok: false, cwd: workspaceDir, error: "cwd does not exist." };
     }
     return { ok: true, cwd: resolved };
 }

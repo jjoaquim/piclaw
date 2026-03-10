@@ -24,6 +24,27 @@ import { getDueTasks, getTaskById, logTaskRun, updateTaskAfterRun } from "./db.j
 import { detectChannel, formatOutbound } from "./router.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
+const schedulerMetrics = {
+    polls: 0,
+    tasksEnqueued: 0,
+    taskRunsStarted: 0,
+    taskRunsSucceeded: 0,
+    taskRunsFailed: 0,
+    lastPollAt: null,
+};
+/** Return an immutable snapshot of scheduler metrics counters. */
+export function getSchedulerMetrics() {
+    return { ...schedulerMetrics };
+}
+/** Reset scheduler metrics (used by tests to isolate assertions). */
+export function resetSchedulerMetricsForTests() {
+    schedulerMetrics.polls = 0;
+    schedulerMetrics.tasksEnqueued = 0;
+    schedulerMetrics.taskRunsStarted = 0;
+    schedulerMetrics.taskRunsSucceeded = 0;
+    schedulerMetrics.taskRunsFailed = 0;
+    schedulerMetrics.lastPollAt = null;
+}
 /**
  * Compute the next execution time for a task based on its schedule type:
  *   - cron: parse the expression and return the next occurrence.
@@ -145,6 +166,7 @@ export async function runScheduledTask(task, deps) {
     if (!fresh || fresh.status !== "active")
         return;
     const start = Date.now();
+    schedulerMetrics.taskRunsStarted += 1;
     let result = null;
     let error = null;
     const kind = task.task_kind === "shell" || task.command ? "shell" : "agent";
@@ -201,6 +223,10 @@ export async function runScheduledTask(task, deps) {
             await restoreOriginalModel(task, deps, savedModel);
         }
     }
+    if (error)
+        schedulerMetrics.taskRunsFailed += 1;
+    else
+        schedulerMetrics.taskRunsSucceeded += 1;
     // Record the run in the task_run_logs table.
     logTaskRun({
         task_id: task.id,
@@ -216,6 +242,7 @@ export async function runScheduledTask(task, deps) {
 }
 /** Guard to prevent starting the loop more than once. */
 let started = false;
+let schedulerTimer = null;
 /**
  * Start the scheduler polling loop. Checks for due tasks every
  * SCHEDULER_POLL_INTERVAL ms and enqueues them on the shared AgentQueue.
@@ -224,22 +251,36 @@ let started = false;
  */
 export function startSchedulerLoop(deps) {
     if (started)
-        return;
+        return stopSchedulerLoop;
     started = true;
     console.log("[scheduler] Started");
     const loop = async () => {
         try {
+            schedulerMetrics.polls += 1;
+            schedulerMetrics.lastPollAt = new Date().toISOString();
             for (const task of getDueTasks()) {
                 const cur = getTaskById(task.id);
                 if (!cur || cur.status !== "active")
                     continue;
                 deps.queue.enqueueTask(cur.id, () => runScheduledTask(cur, deps));
+                schedulerMetrics.tasksEnqueued += 1;
             }
         }
         catch (e) {
             console.error("[scheduler]", e);
         }
-        setTimeout(loop, SCHEDULER_POLL_INTERVAL);
+        if (!started)
+            return;
+        schedulerTimer = setTimeout(loop, SCHEDULER_POLL_INTERVAL);
     };
     loop();
+    return stopSchedulerLoop;
+}
+/** Stop the global scheduler timer loop if currently running. */
+export function stopSchedulerLoop() {
+    started = false;
+    if (schedulerTimer) {
+        clearTimeout(schedulerTimer);
+        schedulerTimer = null;
+    }
 }

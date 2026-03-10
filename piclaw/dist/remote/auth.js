@@ -1,5 +1,13 @@
+/**
+ * remote/auth.ts – Signed-request verification for remote interop endpoints.
+ *
+ * Validates required signature headers, timestamp skew, trust epoch, nonce
+ * replay protection, and Ed25519 signature correctness against the stored peer
+ * public key.
+ */
 import { buildCanonicalRequest, hashBody, parseTimestamp, verifyRequestSignature } from "./signature.js";
 import { DEFAULT_TIMESTAMP_SKEW_MS } from "./limits.js";
+/** Validate and verify all signature inputs for a remote interop request. */
 export function verifySignedRequest(req, bodyBytes, peer, nonceCache) {
     const instanceId = req.headers.get("x-instance-id") || "";
     if (!instanceId || instanceId !== peer.instance_id) {

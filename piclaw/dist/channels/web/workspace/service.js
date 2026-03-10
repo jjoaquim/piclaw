@@ -32,6 +32,9 @@ export class WorkspaceService {
     updateFile(pathParam, content) {
         return this.fileService.updateFile(pathParam, content);
     }
+    deleteFile(pathParam) {
+        return this.fileService.deleteFile(pathParam);
+    }
     downloadZip(pathParam, includeHidden = false) {
         return this.fileService.downloadZip(pathParam, includeHidden);
     }

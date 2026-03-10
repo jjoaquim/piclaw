@@ -33,9 +33,24 @@ function formatBytes(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 function extractTextContent(content) {
-    if (!content)
+    if (!Array.isArray(content))
         return "";
-    return content.map((item) => (item.type === "text" ? item.text || "" : "")).join("");
+    return content
+        .map((item) => {
+        if (!item || typeof item !== "object")
+            return "";
+        const block = item;
+        if (block.type !== "text")
+            return "";
+        return typeof block.text === "string" ? block.text : "";
+    })
+        .join("");
+}
+function readDetailsStringField(details, key) {
+    if (!details || typeof details !== "object")
+        return undefined;
+    const value = details[key];
+    return typeof value === "string" ? value : undefined;
 }
 function shouldStoreOutput(text, lineCount) {
     const bytes = Buffer.byteLength(text || "", "utf8");
@@ -51,10 +66,10 @@ export function createContextBashTool(cwd) {
         execute: async (toolCallId, params, signal, onUpdate) => {
             const result = await base.execute(toolCallId, params, signal, onUpdate);
             const text = extractTextContent(result.content);
-            const details = result.details ?? {};
             let fullOutput = text;
-            if (details.fullOutputPath && existsSync(details.fullOutputPath)) {
-                const fileText = readToolOutputFile(details.fullOutputPath);
+            const fullOutputPath = readDetailsStringField(result.details, "fullOutputPath");
+            if (fullOutputPath && existsSync(fullOutputPath)) {
+                const fileText = readToolOutputFile(fullOutputPath);
                 if (fileText !== null)
                     fullOutput = fileText;
             }

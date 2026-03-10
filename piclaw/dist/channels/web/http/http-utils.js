@@ -6,6 +6,7 @@
  *
  * Consumers: All web/handlers/*.ts modules and web/http/response-service.ts.
  */
+/** Build a JSON HTTP response with consistent content-type headers. */
 export function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,

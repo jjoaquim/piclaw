@@ -21,6 +21,8 @@ import path from "path";
 import { STORE_DIR } from "../core/config.js";
 /** Singleton database handle; set by initDatabase(), accessed via getDb(). */
 let db = null;
+let dbMode = null;
+let dbPathCache = null;
 /**
  * Create all tables, indexes, FTS virtual tables, and triggers if they do
  * not already exist. Called once during initDatabase().
@@ -492,24 +494,41 @@ export function initDatabase() {
     const useMemory = process.env.PICLAW_DB_IN_MEMORY === "1" ||
         process.env.PICLAW_DB_IN_MEMORY === "true" ||
         process.env.PICLAW_STORE === ":memory:";
-    if (db) {
+    const nextMode = useMemory ? "memory" : "file";
+    const nextPath = useMemory ? ":memory:" : path.join(STORE_DIR, "messages.db");
+    let reuse = false;
+    if (db && dbMode === nextMode && (nextMode === "memory" || dbPathCache === nextPath)) {
         try {
-            db.close();
+            db.prepare("SELECT 1;").get();
+            reuse = true;
         }
         catch {
-            // ignore close errors
+            reuse = false;
         }
     }
-    if (useMemory) {
-        db = new Database(":memory:");
-        db.exec("PRAGMA journal_mode = MEMORY;");
+    if (!reuse) {
+        if (db) {
+            try {
+                db.close();
+            }
+            catch {
+                // ignore close errors
+            }
+        }
+        if (useMemory) {
+            db = new Database(":memory:");
+        }
+        else {
+            fs.mkdirSync(path.dirname(nextPath), { recursive: true });
+            db = new Database(nextPath);
+        }
+        dbMode = nextMode;
+        dbPathCache = nextPath;
     }
-    else {
-        const dbPath = path.join(STORE_DIR, "messages.db");
-        fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-        db = new Database(dbPath);
-        db.exec("PRAGMA journal_mode = WAL;");
+    if (!db) {
+        throw new Error("Database initialization failed");
     }
+    db.exec(useMemory ? "PRAGMA journal_mode = MEMORY;" : "PRAGMA journal_mode = WAL;");
     db.exec("PRAGMA busy_timeout = 5000;");
     db.exec("PRAGMA secure_delete = ON;");
     createSchema(db);

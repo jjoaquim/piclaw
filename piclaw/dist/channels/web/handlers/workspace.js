@@ -1,10 +1,10 @@
 /**
  * web/handlers/workspace.ts – HTTP handlers for the workspace explorer API.
  *
- * Handles GET /workspace/tree, GET /workspace/file, PUT /workspace/file,
- * and POST /workspace/folder for the web UI's sidebar file explorer.
+ * Handles GET /workspace/tree, GET /workspace/file, PUT/DELETE /workspace/file,
+ * and upload/download/attach workspace endpoints for the web UI sidebar.
  *
- * Consumers: web/request-router.ts routes workspace paths here.
+ * Consumers: web/http/dispatch-workspace.ts routes workspace paths here.
  */
 import { WorkspaceService } from "../workspace/service.js";
 const workspaceService = new WorkspaceService();
@@ -15,20 +15,20 @@ function jsonResponse(body, status = 200) {
     });
 }
 /** Handle GET /workspace/tree: return the directory tree. */
-export function handleWorkspaceTree(_channel, req) {
+export function handleWorkspaceTree(req) {
     const url = new URL(req.url);
     const showHidden = url.searchParams.get("show_hidden") === "1" || url.searchParams.get("show_hidden") === "true";
     const result = workspaceService.getTree(url.searchParams.get("path"), url.searchParams.get("depth"), showHidden);
     return jsonResponse(result.body, result.status);
 }
 /** Handle GET /workspace/file: return file content. */
-export function handleWorkspaceFile(_channel, req) {
+export function handleWorkspaceFile(req) {
     const url = new URL(req.url);
     const result = workspaceService.getFile(url.searchParams.get("path"), url.searchParams.get("max"), url.searchParams.get("mode"));
     return jsonResponse(result.body, result.status);
 }
 /** Handle PUT /workspace/file: update file contents. */
-export async function handleWorkspaceUpdate(_channel, req) {
+export async function handleWorkspaceUpdate(req) {
     let data;
     try {
         data = await req.json();
@@ -42,8 +42,14 @@ export async function handleWorkspaceUpdate(_channel, req) {
     const result = workspaceService.updateFile(data.path, data.content ?? "");
     return jsonResponse(result.body, result.status);
 }
+/** Handle DELETE /workspace/file: delete a workspace file. */
+export function handleWorkspaceDelete(req) {
+    const url = new URL(req.url);
+    const result = workspaceService.deleteFile(url.searchParams.get("path"));
+    return jsonResponse(result.body, result.status);
+}
 /** Handle GET /workspace/raw: serve raw file content for download. */
-export function handleWorkspaceRaw(_channel, req) {
+export function handleWorkspaceRaw(req) {
     const url = new URL(req.url);
     const result = workspaceService.getRaw(url.searchParams.get("path"));
     if (result.status !== 200) {
@@ -54,7 +60,7 @@ export function handleWorkspaceRaw(_channel, req) {
     });
 }
 /** Handle POST /workspace/attach: attach a workspace file to agent context. */
-export async function handleWorkspaceAttach(_channel, req) {
+export async function handleWorkspaceAttach(req) {
     let data;
     try {
         data = await req.json();
@@ -66,7 +72,7 @@ export async function handleWorkspaceAttach(_channel, req) {
     return jsonResponse(result.body, result.status);
 }
 /** Handle POST /workspace/upload: upload a file. */
-export async function handleWorkspaceUpload(_channel, req) {
+export async function handleWorkspaceUpload(req) {
     const url = new URL(req.url);
     let formData;
     try {
@@ -84,7 +90,7 @@ export async function handleWorkspaceUpload(_channel, req) {
     return jsonResponse(result.body, result.status);
 }
 /** Handle GET /workspace/download: serve a file as a download attachment. */
-export async function handleWorkspaceDownload(_channel, req) {
+export async function handleWorkspaceDownload(req) {
     const url = new URL(req.url);
     const showHidden = url.searchParams.get("show_hidden") === "1" || url.searchParams.get("show_hidden") === "true";
     const result = await workspaceService.downloadZip(url.searchParams.get("path"), showHidden);

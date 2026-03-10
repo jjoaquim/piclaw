@@ -12,6 +12,24 @@ import { parseQueueMode, parseToggle, parseTreeArgs, splitArgs } from "./parser-
 const simple = (type) => {
     return (_args, raw) => ({ type, raw });
 };
+function parsePasskeyAction(action) {
+    if (!action)
+        return undefined;
+    return ["enrol", "enroll", "list", "delete", "remove"].includes(action) ? action : undefined;
+}
+function parseTotpAction(action) {
+    if (!action)
+        return undefined;
+    return action === "enrol" || action === "enroll" ? action : undefined;
+}
+function parseSearchScope(value) {
+    if (!value)
+        return undefined;
+    const normalized = value.toLowerCase();
+    return normalized === "notes" || normalized === "skills" || normalized === "all"
+        ? normalized
+        : undefined;
+}
 /** Parse /model arguments: provider/modelId or bare model name. */
 export function parseModel(args, raw) {
     const tokens = args.split(/\s+/).filter(Boolean);
@@ -171,11 +189,11 @@ export function parseExportHtml(args, raw) {
 /** Parse /passkey arguments: action + optional target. */
 export function parsePasskey(args, raw) {
     const tokens = splitArgs(args);
-    const action = tokens[0] ? tokens[0].toLowerCase() : undefined;
+    const action = parsePasskeyAction(tokens[0]?.toLowerCase());
     const target = tokens.slice(1).join(" ").trim() || undefined;
     return {
         type: "passkey",
-        action: action,
+        action,
         target,
         raw,
     };
@@ -183,10 +201,10 @@ export function parsePasskey(args, raw) {
 /** Parse /totp arguments: action. */
 export function parseTotp(args, raw) {
     const tokens = splitArgs(args);
-    const action = tokens[0] ? tokens[0].toLowerCase() : undefined;
+    const action = parseTotpAction(tokens[0]?.toLowerCase());
     return {
         type: "totp",
-        action: action,
+        action,
         raw,
     };
 }
@@ -297,7 +315,7 @@ export function parseSearch(args, raw) {
         if (token === "--scope") {
             const next = tokens[i + 1];
             if (next && !next.startsWith("--")) {
-                scope = next;
+                scope = parseSearchScope(next);
                 i += 2;
                 continue;
             }
@@ -305,7 +323,7 @@ export function parseSearch(args, raw) {
             continue;
         }
         if (token.startsWith("--scope=")) {
-            scope = token.slice("--scope=".length);
+            scope = parseSearchScope(token.slice("--scope=".length));
             i += 1;
             continue;
         }

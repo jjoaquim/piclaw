@@ -6,7 +6,7 @@
  *
  * Consumers: web/handlers/workspace.ts delegates file operations here.
  */
-import { existsSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { readdir } from "fs/promises";
 import path from "path";
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
@@ -181,18 +181,22 @@ export class WorkspaceFileService {
             }
         }
         try {
-            const buffer = Buffer.from(await file.arrayBuffer());
-            if (buffer.length > MAX_UPLOAD_BYTES) {
+            await Bun.write(destPath, file);
+            const updated = statSync(destPath);
+            if (updated.size > MAX_UPLOAD_BYTES) {
+                try {
+                    unlinkSync(destPath);
+                }
+                catch { }
                 return { status: 400, body: { error: "File too large to upload" } };
             }
-            writeFileSync(destPath, buffer);
             const relPath = toRelativePath(destPath);
             return {
                 status: 200,
                 body: {
                     path: relPath,
                     name: filename,
-                    size: buffer.length,
+                    size: updated.size,
                     overwritten: existed,
                 },
             };
@@ -237,6 +241,35 @@ export class WorkspaceFileService {
         }
         catch {
             return { status: 500, body: { error: "Failed to write file" } };
+        }
+    }
+    deleteFile(pathParam) {
+        const targetPath = resolveWorkspacePath(pathParam);
+        if (!targetPath)
+            return { status: 400, body: { error: "Invalid path" } };
+        try {
+            const stats = statSync(targetPath);
+            if (stats.isDirectory()) {
+                return { status: 400, body: { error: "Path is a directory" } };
+            }
+        }
+        catch {
+            return { status: 404, body: { error: "File not found" } };
+        }
+        try {
+            unlinkSync(targetPath);
+            const relPath = toRelativePath(targetPath);
+            return {
+                status: 200,
+                body: {
+                    path: relPath,
+                    name: path.basename(targetPath),
+                    deleted: true,
+                },
+            };
+        }
+        catch {
+            return { status: 500, body: { error: "Failed to delete file" } };
         }
     }
     async downloadZip(pathParam, includeHidden = false) {

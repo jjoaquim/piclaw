@@ -9,31 +9,46 @@
  *     each assistant message completion during an agent run.
  */
 import { storeTokenUsage } from "../db.js";
+function asRecord(value) {
+    if (!value || typeof value !== "object")
+        return null;
+    return value;
+}
+function asNumber(record, key) {
+    const value = record[key];
+    return typeof value === "number" ? value : 0;
+}
+function asStringOrNull(value) {
+    return typeof value === "string" ? value : null;
+}
 /**
  * Extract token usage from an assistant message and store it in the database.
  * Called on each `message_end` event during agent execution.
  */
 export function recordMessageUsage(chatJid, message) {
-    if (!message || message.role !== "assistant" || !message.usage)
+    const msg = asRecord(message);
+    if (!msg || msg.role !== "assistant")
         return;
-    const usage = message.usage || {};
-    const input = typeof usage.input === "number" ? usage.input : 0;
-    const output = typeof usage.output === "number" ? usage.output : 0;
-    const cacheRead = typeof usage.cacheRead === "number" ? usage.cacheRead : 0;
-    const cacheWrite = typeof usage.cacheWrite === "number" ? usage.cacheWrite : 0;
-    const totalTokens = (typeof usage.totalTokens === "number" && usage.totalTokens) ||
-        (typeof usage.total === "number" && usage.total) ||
+    const usage = asRecord(msg.usage);
+    if (!usage)
+        return;
+    const input = asNumber(usage, "input");
+    const output = asNumber(usage, "output");
+    const cacheRead = asNumber(usage, "cacheRead");
+    const cacheWrite = asNumber(usage, "cacheWrite");
+    const totalTokens = asNumber(usage, "totalTokens") ||
+        asNumber(usage, "total") ||
         input + output + cacheRead + cacheWrite;
-    const cost = usage.cost || {};
-    const costInput = typeof cost.input === "number" ? cost.input : 0;
-    const costOutput = typeof cost.output === "number" ? cost.output : 0;
-    const costCacheRead = typeof cost.cacheRead === "number" ? cost.cacheRead : 0;
-    const costCacheWrite = typeof cost.cacheWrite === "number" ? cost.cacheWrite : 0;
-    const costTotal = (typeof cost.total === "number" && cost.total) ||
+    const cost = asRecord(usage.cost) ?? {};
+    const costInput = asNumber(cost, "input");
+    const costOutput = asNumber(cost, "output");
+    const costCacheRead = asNumber(cost, "cacheRead");
+    const costCacheWrite = asNumber(cost, "cacheWrite");
+    const costTotal = asNumber(cost, "total") ||
         costInput + costOutput + costCacheRead + costCacheWrite;
-    const runAt = message.timestamp
+    const runAt = typeof msg.timestamp === "string"
         ? (() => {
-            const ts = new Date(message.timestamp);
+            const ts = new Date(msg.timestamp);
             return Number.isNaN(ts.getTime()) ? new Date().toISOString() : ts.toISOString();
         })()
         : new Date().toISOString();
@@ -50,9 +65,9 @@ export function recordMessageUsage(chatJid, message) {
         cost_cache_read: costCacheRead,
         cost_cache_write: costCacheWrite,
         cost_total: costTotal,
-        model: message.model ?? null,
-        provider: message.provider ?? null,
-        api: message.api ?? null,
+        model: asStringOrNull(msg.model),
+        provider: asStringOrNull(msg.provider),
+        api: asStringOrNull(msg.api),
         turns: 1,
     });
 }

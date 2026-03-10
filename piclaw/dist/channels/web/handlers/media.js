@@ -6,7 +6,7 @@
  * Downloads use Content-Disposition: attachment for non-image types to
  * prevent stored XSS via HTML/SVG file uploads.
  *
- * Consumers: request-router-service.ts routes media paths here.
+ * Consumers: web/http/dispatch-media.ts routes media paths here.
  */
 import { MediaService } from "../media-service.js";
 const mediaService = new MediaService();

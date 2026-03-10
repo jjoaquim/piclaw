@@ -4,19 +4,12 @@
  * Used to build absolute URLs (e.g. passkey enrol links) that match the
  * hostname used by the current browser session, even when behind proxies.
  */
+import { getRequestOriginParts } from "./http/client.js";
 const originByChatJid = new Map();
-const parseForwardedValue = (value) => {
-    if (!value)
-        return null;
-    return value.split(",")[0]?.trim() || null;
-};
+/** Persist the latest request origin for a web chat thread. */
 export function rememberWebOrigin(chatJid, req) {
     try {
-        const url = new URL(req.url);
-        const forwardedHost = parseForwardedValue(req.headers.get("x-forwarded-host"));
-        const forwardedProto = parseForwardedValue(req.headers.get("x-forwarded-proto"));
-        const host = forwardedHost || req.headers.get("host") || url.host;
-        const proto = forwardedProto || url.protocol.replace(":", "") || "http";
+        const { proto, host } = getRequestOriginParts(req);
         if (!host)
             return;
         originByChatJid.set(chatJid, `${proto}://${host}`);
@@ -25,6 +18,7 @@ export function rememberWebOrigin(chatJid, req) {
         // ignore parse failures
     }
 }
+/** Return the remembered browser origin for a web chat, if available. */
 export function getWebOrigin(chatJid) {
     return originByChatJid.get(chatJid) || null;
 }

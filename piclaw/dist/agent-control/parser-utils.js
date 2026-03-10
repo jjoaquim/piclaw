@@ -12,6 +12,7 @@
  *   - agent-control-parser.ts (stripTrigger).
  *   - command-parsers.ts (all other helpers).
  */
+/** Parse textual on/off toggle values used in slash-control commands. */
 export function parseToggle(value) {
     if (!value)
         return undefined;

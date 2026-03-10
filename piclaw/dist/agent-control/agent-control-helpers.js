@@ -81,8 +81,14 @@ export function extractTextFromContent(content) {
         return content;
     if (Array.isArray(content)) {
         return content
-            .filter((b) => b && b.type === "text")
-            .map((b) => b.text)
+            .map((block) => {
+            if (!block || typeof block !== "object")
+                return "";
+            const textBlock = block;
+            if (textBlock.type !== "text")
+                return "";
+            return typeof textBlock.text === "string" ? textBlock.text : "";
+        })
             .join("");
     }
     return "";
@@ -192,20 +198,21 @@ export async function runPromptAndCapture(session, text) {
     const customBuffers = [];
     const onEvent = (event) => {
         if (event.type === "message_update") {
-            const me = event.assistantMessageEvent;
-            if (me && me.type === "text_delta") {
-                assistantBuffer += me.delta || "";
+            const messageUpdate = event.assistantMessageEvent;
+            if (messageUpdate?.type === "text_delta") {
+                assistantBuffer += messageUpdate.delta || "";
             }
+            return;
         }
-        if (event.type === "message_end") {
-            const msg = event.message;
-            const text = extractTextFromContent(msg.content);
-            if (msg.role === "assistant") {
-                assistantBuffer = text || assistantBuffer;
-            }
-            else if (text) {
-                customBuffers.push(text);
-            }
+        if (event.type !== "message_end")
+            return;
+        const message = event.message;
+        const text = extractTextFromContent(message.content);
+        if (message.role === "assistant") {
+            assistantBuffer = text || assistantBuffer;
+        }
+        else if (text) {
+            customBuffers.push(text);
         }
     };
     const unsub = session.subscribe(onEvent);

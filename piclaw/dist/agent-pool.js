@@ -29,6 +29,7 @@ import { detectChannel } from "./router.js";
 import { createTrackedBashOperations } from "./tools/tracked-bash.js";
 import { getAttachmentRegistry } from "./agent-pool/attachments.js";
 import { writeAgentLog } from "./agent-pool/logging.js";
+import { pruneOrphanToolResults } from "./agent-pool/orphan-tool-results.js";
 import { createDefaultSession, ensureSessionDir } from "./agent-pool/session.js";
 import { executeSlashCommand } from "./agent-pool/slash-command.js";
 import { recordMessageUsage } from "./agent-pool/usage.js";
@@ -83,7 +84,7 @@ export class AgentPool {
         this.attachments.clear(chatJid);
         try {
             const session = await this.getOrCreate(chatJid);
-            this.pruneOrphanToolResults(session, chatJid);
+            pruneOrphanToolResults(session, chatJid);
             console.log(`[agent-pool] Prompting session ${chatJid} (${prompt.length} chars)`);
             const tracker = this.createTurnTracker(chatJid, options.onTurnComplete);
             const unsub = this.subscribeToSession(session, chatJid, tracker, options.onEvent);
@@ -100,7 +101,19 @@ export class AgentPool {
                     // callers where this is harmless. In our queue-based context it causes the
                     // next processChat to call session.prompt() while isStreaming is still true,
                     // producing "already processing" errors. Poll until truly idle.
-                    while (session.isStreaming) {
+                    // Wait until the session is truly idle. Auto-compaction can start
+                    // after the main response finishes and may kick off a follow-up
+                    // continue() call (e.g., overflow recovery). Keep listening until
+                    // streaming + compaction fully settle.
+                    const idleSettleTicks = 10;
+                    let idleTicks = 0;
+                    while (idleTicks < idleSettleTicks) {
+                        if (!session.isStreaming && !session.isCompacting && !session.isRetrying) {
+                            idleTicks += 1;
+                        }
+                        else {
+                            idleTicks = 0;
+                        }
                         await Bun.sleep(50);
                     }
                 }
@@ -197,6 +210,12 @@ export class AgentPool {
         catch (err) {
             console.error(`[agent-pool] Failed to restore session position for ${chatJid}:`, err);
         }
+    }
+    hasProviderModels(provider) {
+        return this.modelRegistry.getAll().some((model) => model.provider === provider);
+    }
+    registerModelProvider(providerName, config) {
+        this.modelRegistry.registerProvider(providerName, config);
     }
     resolveModelInput(input) {
         return resolveModelLabel(this.modelRegistry, input);
@@ -306,39 +325,6 @@ export class AgentPool {
             return;
         this.settingsManager.setDefaultModelAndProvider(model.provider, model.id);
     }
-    pruneOrphanToolResults(session, chatJid) {
-        const messages = session.agent?.state?.messages;
-        if (!Array.isArray(messages) || messages.length === 0)
-            return;
-        const toolCallIds = new Set();
-        for (const msg of messages) {
-            if (msg?.role !== "assistant" || !Array.isArray(msg.content))
-                continue;
-            for (const block of msg.content) {
-                if (block && block.type === "toolCall" && typeof block.id === "string") {
-                    toolCallIds.add(block.id);
-                }
-            }
-        }
-        const shouldKeepToolResult = (msg) => {
-            if (msg?.role !== "toolResult")
-                return true;
-            if (toolCallIds.size === 0)
-                return false;
-            const id = msg.toolCallId;
-            return typeof id === "string" && toolCallIds.has(id);
-        };
-        const pruned = messages.filter(shouldKeepToolResult);
-        if (pruned.length !== messages.length) {
-            try {
-                session.agent?.replaceMessages(pruned);
-                console.warn(`[agent-pool] Pruned ${messages.length - pruned.length} orphan tool result(s) for ${chatJid}`);
-            }
-            catch (err) {
-                console.warn(`[agent-pool] Failed to prune orphan tool results for ${chatJid}:`, err);
-            }
-        }
-    }
     createTurnTracker(chatJid, onTurnComplete) {
         let currentTurnText = "";
         let turnCount = 0;
@@ -350,8 +336,12 @@ export class AgentPool {
                 return content;
             if (Array.isArray(content)) {
                 return content
-                    .filter((block) => block && block.type === "text")
-                    .map((block) => (typeof block.text === "string" ? block.text : ""))
+                    .map((block) => {
+                    const contentBlock = block;
+                    if (contentBlock?.type !== "text")
+                        return "";
+                    return typeof contentBlock.text === "string" ? contentBlock.text : "";
+                })
                     .join("");
             }
             return "";

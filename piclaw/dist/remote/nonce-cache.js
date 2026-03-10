@@ -1,3 +1,10 @@
+/**
+ * remote/nonce-cache.ts – In-memory nonce replay cache for signed requests.
+ *
+ * Stores per-peer nonce values for a bounded TTL window and rejects nonce reuse
+ * to prevent replay attacks against remote interop endpoints.
+ */
+/** Tracks recently seen nonces per remote peer instance. */
 export class RemoteNonceCache {
     ttlMs;
     maxEntries;
@@ -6,6 +13,7 @@ export class RemoteNonceCache {
         this.ttlMs = ttlMs;
         this.maxEntries = maxEntries;
     }
+    /** Return false if the nonce was already seen for the peer within the TTL window. */
     checkAndStore(peerId, nonce, now = Date.now()) {
         const peerMap = this.entries.get(peerId) ?? new Map();
         // prune expired

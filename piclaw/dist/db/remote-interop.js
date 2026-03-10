@@ -2,6 +2,7 @@
  * db/remote-interop.ts – Persistence for cross-instance interop peers and requests.
  */
 import { getDb } from "./connection.js";
+/** Insert or update a remote peer by `instance_id`. */
 export function upsertRemotePeer(peer) {
     const db = getDb();
     db.prepare(`INSERT INTO remote_peers (
@@ -19,6 +20,7 @@ export function upsertRemotePeer(peer) {
       last_seen_at = excluded.last_seen_at,
       blocked_reason = excluded.blocked_reason`).run(peer.instance_id, peer.public_key, peer.display_name, peer.status, peer.mode, peer.profile, peer.trust_epoch, peer.created_at, peer.updated_at, peer.last_seen_at, peer.blocked_reason);
 }
+/** Fetch a remote peer by `instance_id`. */
 export function getRemotePeer(instanceId) {
     const db = getDb();
     const row = db
@@ -28,6 +30,7 @@ export function getRemotePeer(instanceId) {
         .get(instanceId);
     return row ?? null;
 }
+/** Apply a partial update to a remote peer record. */
 export function updateRemotePeer(instanceId, updates) {
     const fields = [];
     const values = [];
@@ -52,6 +55,7 @@ export function updateRemotePeer(instanceId, updates) {
     const db = getDb();
     db.prepare(`UPDATE remote_peers SET ${fields.join(", ")} WHERE instance_id = ?`).run(...values);
 }
+/** Insert a new inbound pair request. */
 export function createPairRequest(request) {
     const db = getDb();
     db.prepare(`INSERT INTO remote_pair_requests (
@@ -59,6 +63,7 @@ export function createPairRequest(request) {
       nonce, expires_at, status, created_at, source_ip
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(request.id, request.instance_id, request.public_key, request.display_name, request.callback_url, request.protocol_version, request.nonce, request.expires_at, request.status, request.created_at, request.source_ip);
 }
+/** Fetch a pair request by request ID. */
 export function getPairRequestById(id) {
     const db = getDb();
     const row = db
@@ -68,6 +73,7 @@ export function getPairRequestById(id) {
         .get(id);
     return row ?? null;
 }
+/** Return the newest pending pair request for a remote instance, if any. */
 export function getPendingPairRequest(instanceId) {
     const db = getDb();
     const row = db
@@ -80,16 +86,19 @@ export function getPendingPairRequest(instanceId) {
         .get(instanceId);
     return row ?? null;
 }
+/** Update only the status field on a pair request row. */
 export function updatePairRequestStatus(id, status) {
     const db = getDb();
     db.prepare("UPDATE remote_pair_requests SET status = ? WHERE id = ?").run(status, id);
 }
+/** Insert a new remote interop proposal/execute request record. */
 export function storeRemoteRequest(request) {
     const db = getDb();
     db.prepare(`INSERT INTO remote_requests (
       id, peer_instance_id, request_type, status, prompt, created_at, decision, remote_mode, error
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(request.id, request.peer_instance_id, request.request_type, request.status, request.prompt, request.created_at, request.decision, request.remote_mode, request.error);
 }
+/** Fetch a remote request record by ID. */
 export function getRemoteRequestById(id) {
     const db = getDb();
     const row = db
@@ -98,6 +107,7 @@ export function getRemoteRequestById(id) {
         .get(id);
     return row ?? null;
 }
+/** Apply a partial update to a remote request record. */
 export function updateRemoteRequest(id, updates) {
     const fields = [];
     const values = [];
@@ -117,6 +127,7 @@ export function updateRemoteRequest(id, updates) {
     const db = getDb();
     db.prepare(`UPDATE remote_requests SET ${fields.join(", ")} WHERE id = ?`).run(...values);
 }
+/** Append an audit event for remote interop endpoint activity. */
 export function logRemoteAudit(entry) {
     const db = getDb();
     db.prepare(`INSERT INTO remote_audit_logs (peer_instance_id, endpoint, decision, status, error, created_at)

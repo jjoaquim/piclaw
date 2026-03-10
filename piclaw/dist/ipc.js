@@ -26,6 +26,67 @@ import { createUuid } from "./utils/ids.js";
 import { validateShellCommand, validateShellCwd } from "./utils/task-validation.js";
 /** Guard to prevent starting the watcher more than once. */
 let running = false;
+let pollTimer = null;
+function isJsonRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function getStringField(data, key) {
+    const value = data[key];
+    return typeof value === "string" ? value : undefined;
+}
+function getFiniteNumberField(data, key) {
+    const value = data[key];
+    return Number.isFinite(value) ? Number(value) : undefined;
+}
+function isScheduleType(value) {
+    return value === "cron" || value === "interval" || value === "once";
+}
+async function processIpcDir(dirPath, ipcDir, kind, handler) {
+    if (!existsSync(dirPath))
+        return;
+    for (const file of readdirSync(dirPath).filter((f) => f.endsWith(".json"))) {
+        const fp = join(dirPath, file);
+        try {
+            const parsed = JSON.parse(readFileSync(fp, "utf-8"));
+            if (!isJsonRecord(parsed)) {
+                throw new Error("IPC payload must be a JSON object.");
+            }
+            await handler(parsed);
+            unlinkSync(fp);
+        }
+        catch (e) {
+            console.error(`[ipc] Error processing ${kind} ${file}:`, e);
+            try {
+                renameSync(fp, join(ipcDir, `error-${file}`));
+            }
+            catch {
+                // ignore rename errors
+            }
+        }
+    }
+}
+function computeScheduledNextRun(scheduleType, scheduleValue) {
+    if (scheduleType === "cron") {
+        try {
+            const timezone = typeof TIMEZONE === "string" ? TIMEZONE : undefined;
+            const next = CronExpressionParser.parse(scheduleValue, { tz: timezone }).next().toISOString();
+            return next ?? undefined;
+        }
+        catch {
+            return undefined;
+        }
+    }
+    if (scheduleType === "interval") {
+        const ms = parseInt(scheduleValue, 10);
+        if (isNaN(ms) || ms <= 0)
+            return undefined;
+        return new Date(Date.now() + ms).toISOString();
+    }
+    const d = new Date(scheduleValue);
+    if (isNaN(d.getTime()))
+        return undefined;
+    return d.toISOString();
+}
 /**
  * Start the IPC directory watcher. Polls for new JSON files in the messages
  * and tasks directories on a recurring timer.
@@ -34,7 +95,7 @@ let running = false;
  */
 export function startIpcWatcher(deps) {
     if (running)
-        return;
+        return stopIpcWatcher;
     running = true;
     const ipcDir = join(DATA_DIR, "ipc");
     const tasksDir = join(ipcDir, "tasks");
@@ -44,63 +105,45 @@ export function startIpcWatcher(deps) {
     const poll = async () => {
         // --- Process outbound message files ---
         try {
-            if (existsSync(messagesDir)) {
-                for (const file of readdirSync(messagesDir).filter((f) => f.endsWith(".json"))) {
-                    const fp = join(messagesDir, file);
-                    try {
-                        const data = JSON.parse(readFileSync(fp, "utf-8"));
-                        await processMessageCommand(data, deps);
-                        unlinkSync(fp);
-                    }
-                    catch (e) {
-                        console.error(`[ipc] Error processing message ${file}:`, e);
-                        try {
-                            renameSync(fp, join(ipcDir, `error-${file}`));
-                        }
-                        catch { }
-                    }
-                }
-            }
+            await processIpcDir(messagesDir, ipcDir, "message", (data) => processMessageCommand(data, deps));
         }
         catch (e) {
             console.error("[ipc] Error reading messages dir:", e);
         }
         // --- Process task command files ---
         try {
-            if (existsSync(tasksDir)) {
-                for (const file of readdirSync(tasksDir).filter((f) => f.endsWith(".json"))) {
-                    const fp = join(tasksDir, file);
-                    try {
-                        const data = JSON.parse(readFileSync(fp, "utf-8"));
-                        await processTaskCommand(data, deps);
-                        unlinkSync(fp);
-                    }
-                    catch (e) {
-                        console.error(`[ipc] Error processing task ${file}:`, e);
-                        try {
-                            renameSync(fp, join(ipcDir, `error-${file}`));
-                        }
-                        catch { }
-                    }
-                }
-            }
+            await processIpcDir(tasksDir, ipcDir, "task", (data) => processTaskCommand(data, deps));
         }
         catch (e) {
             console.error("[ipc] Error reading tasks dir:", e);
         }
-        setTimeout(poll, IPC_POLL_INTERVAL);
+        if (!running)
+            return;
+        pollTimer = setTimeout(poll, IPC_POLL_INTERVAL);
     };
     poll();
     console.log("[ipc] Watcher started");
+    return stopIpcWatcher;
+}
+/** Stop the active IPC watcher and clear associated runtime state. */
+export function stopIpcWatcher() {
+    running = false;
+    if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+    }
 }
 /**
  * Dispatch a single IPC message command.
  */
 export async function processMessageCommand(data, deps) {
-    if (data.type === "message" && data.chatJid && data.text) {
-        await deps.sendMessage(data.chatJid, data.text);
+    const type = getStringField(data, "type");
+    const chatJid = getStringField(data, "chatJid");
+    const text = getStringField(data, "text");
+    if (type === "message" && chatJid && text) {
+        await deps.sendMessage(chatJid, text);
         if (data.noNudge !== true) {
-            await deps.sendNudge?.(data.text);
+            await deps.sendNudge?.(text);
         }
     }
 }
@@ -109,93 +152,81 @@ export async function processMessageCommand(data, deps) {
  * which operation is performed (schedule, pause, resume, cancel, etc.).
  */
 export async function processTaskCommand(data, deps) {
-    switch (data.type) {
+    const commandType = getStringField(data, "type");
+    switch (commandType) {
         // --- Create a new scheduled task ---
         case "schedule_task": {
-            if (!data.schedule_type || !data.schedule_value || !data.chatJid)
+            const scheduleTypeValue = getStringField(data, "schedule_type");
+            const scheduleValue = getStringField(data, "schedule_value");
+            const chatJid = getStringField(data, "chatJid");
+            if (!scheduleTypeValue || !scheduleValue || !chatJid || !isScheduleType(scheduleTypeValue))
                 return;
-            const taskKind = data.task_kind === "shell" || data.command ? "shell" : "agent";
-            let nextRun = null;
-            if (data.schedule_type === "cron") {
-                try {
-                    nextRun = CronExpressionParser.parse(data.schedule_value, { tz: TIMEZONE }).next().toISOString();
-                }
-                catch {
-                    return;
-                }
-            }
-            else if (data.schedule_type === "interval") {
-                const ms = parseInt(data.schedule_value, 10);
-                if (isNaN(ms) || ms <= 0)
-                    return;
-                nextRun = new Date(Date.now() + ms).toISOString();
-            }
-            else if (data.schedule_type === "once") {
-                const d = new Date(data.schedule_value);
-                if (isNaN(d.getTime()))
-                    return;
-                nextRun = d.toISOString();
-            }
+            const taskKind = data.task_kind === "shell" || Boolean(data.command) ? "shell" : "agent";
+            const nextRun = computeScheduledNextRun(scheduleTypeValue, String(scheduleValue));
+            if (nextRun === undefined)
+                return;
             if (taskKind === "shell") {
                 const validated = validateShellCommand(data.command);
                 if (!validated.ok) {
-                    await deps.sendMessage(data.chatJid, `Cannot schedule shell task: ${validated.error || "Invalid command."}`);
+                    await deps.sendMessage(chatJid, `Cannot schedule shell task: ${validated.error || "Invalid command."}`);
                     return;
                 }
                 const cwdResult = validateShellCwd(data.cwd);
                 if (!cwdResult.ok) {
-                    await deps.sendMessage(data.chatJid, `Cannot schedule shell task: ${cwdResult.error || "Invalid cwd."}`);
+                    await deps.sendMessage(chatJid, `Cannot schedule shell task: ${cwdResult.error || "Invalid cwd."}`);
                     return;
                 }
                 if (data.model) {
-                    await deps.sendMessage(data.chatJid, "Cannot schedule shell task with a model override.");
+                    await deps.sendMessage(chatJid, "Cannot schedule shell task with a model override.");
                     return;
                 }
                 createTask({
                     id: createUuid("task"),
-                    chat_jid: data.chatJid,
+                    chat_jid: chatJid,
                     prompt: validated.command || "",
                     model: null,
                     task_kind: "shell",
                     command: validated.command || null,
                     cwd: cwdResult.cwd,
-                    timeout_sec: Number.isFinite(data.timeout_sec) ? Number(data.timeout_sec) : null,
-                    schedule_type: data.schedule_type,
-                    schedule_value: data.schedule_value,
+                    timeout_sec: getFiniteNumberField(data, "timeout_sec") ?? null,
+                    schedule_type: scheduleTypeValue,
+                    schedule_value: String(scheduleValue),
                     next_run: nextRun,
                     status: "active",
                     created_at: new Date().toISOString(),
                 });
                 break;
             }
-            if (!data.prompt || typeof data.prompt !== "string" || !data.prompt.trim())
+            const prompt = getStringField(data, "prompt");
+            if (!prompt?.trim())
                 return;
             // Validate the model override if one was requested.
-            const requested = typeof data.model === "string" && data.model.trim() ? data.model.trim() : null;
+            const modelInput = getStringField(data, "model");
+            const requested = modelInput?.trim() ? modelInput.trim() : null;
             let model = null;
             if (requested) {
                 if (!deps.resolveModel) {
-                    await deps.sendMessage(data.chatJid, `Cannot schedule task: model validation unavailable for "${requested}".`);
+                    await deps.sendMessage(chatJid, `Cannot schedule task: model validation unavailable for "${requested}".`);
                     return;
                 }
                 const resolved = deps.resolveModel(requested);
                 if (!resolved.model) {
-                    await deps.sendMessage(data.chatJid, `Cannot schedule task: ${resolved.error || "Invalid model."}`);
+                    await deps.sendMessage(chatJid, `Cannot schedule task: ${resolved.error || "Invalid model."}`);
                     return;
                 }
                 model = resolved.model;
             }
             createTask({
                 id: createUuid("task"),
-                chat_jid: data.chatJid,
-                prompt: data.prompt,
+                chat_jid: chatJid,
+                prompt,
                 model,
                 task_kind: "agent",
                 command: null,
                 cwd: null,
                 timeout_sec: null,
-                schedule_type: data.schedule_type,
-                schedule_value: data.schedule_value,
+                schedule_type: scheduleTypeValue,
+                schedule_value: String(scheduleValue),
                 next_run: nextRun,
                 status: "active",
                 created_at: new Date().toISOString(),
@@ -204,62 +235,83 @@ export async function processTaskCommand(data, deps) {
         }
         // --- Pause an active task ---
         case "pause_task": {
-            const t = data.taskId && getTaskById(data.taskId);
+            const taskId = getStringField(data, "taskId");
+            if (!taskId)
+                return;
+            const t = getTaskById(taskId);
             if (t)
-                updateTask(data.taskId, { status: "paused" });
+                updateTask(taskId, { status: "paused" });
             break;
         }
         // --- Resume a paused task ---
         case "resume_task": {
-            const t = data.taskId && getTaskById(data.taskId);
+            const taskId = getStringField(data, "taskId");
+            if (!taskId)
+                return;
+            const t = getTaskById(taskId);
             if (t)
-                updateTask(data.taskId, { status: "active" });
+                updateTask(taskId, { status: "active" });
             break;
         }
         // --- Delete a task and its run logs ---
         case "cancel_task": {
-            const t = data.taskId && getTaskById(data.taskId);
+            const taskId = getStringField(data, "taskId");
+            if (!taskId)
+                return;
+            const t = getTaskById(taskId);
             if (t)
-                deleteTask(data.taskId);
+                deleteTask(taskId);
             break;
         }
         // --- Partially update a task (prompt, schedule, model) ---
         case "update_task": {
-            if (!data.taskId)
+            const taskId = getStringField(data, "taskId");
+            const chatJid = getStringField(data, "chatJid");
+            if (!taskId)
                 return;
-            const t = getTaskById(data.taskId);
+            const t = getTaskById(taskId);
             if (!t)
                 return;
             const updates = {};
-            if (typeof data.prompt === "string")
-                updates.prompt = data.prompt;
-            if (typeof data.schedule_type === "string")
-                updates.schedule_type = data.schedule_type;
-            if (typeof data.schedule_value === "string")
-                updates.schedule_value = data.schedule_value;
-            if (typeof data.task_kind === "string")
-                updates.task_kind = data.task_kind;
-            if (typeof data.command === "string")
-                updates.command = data.command;
-            if (typeof data.cwd === "string")
-                updates.cwd = data.cwd;
-            if (Number.isFinite(data.timeout_sec))
-                updates.timeout_sec = Number(data.timeout_sec);
-            if (typeof data.model === "string") {
-                if (data.model === "") {
+            const prompt = getStringField(data, "prompt");
+            if (typeof prompt === "string")
+                updates.prompt = prompt;
+            const scheduleType = getStringField(data, "schedule_type");
+            if (typeof scheduleType === "string") {
+                updates.schedule_type = scheduleType;
+            }
+            const scheduleValue = getStringField(data, "schedule_value");
+            if (typeof scheduleValue === "string")
+                updates.schedule_value = scheduleValue;
+            const taskKind = getStringField(data, "task_kind");
+            if (typeof taskKind === "string") {
+                updates.task_kind = taskKind;
+            }
+            const command = getStringField(data, "command");
+            if (typeof command === "string")
+                updates.command = command;
+            const cwd = getStringField(data, "cwd");
+            if (typeof cwd === "string")
+                updates.cwd = cwd;
+            const timeoutSec = getFiniteNumberField(data, "timeout_sec");
+            if (timeoutSec !== undefined)
+                updates.timeout_sec = timeoutSec;
+            const modelInput = getStringField(data, "model");
+            if (typeof modelInput === "string") {
+                if (modelInput === "") {
                     updates.model = null;
                 }
                 else if (deps.resolveModel) {
-                    const resolved = deps.resolveModel(data.model.trim());
+                    const resolved = deps.resolveModel(modelInput.trim());
                     if (!resolved.model) {
-                        if (data.chatJid)
-                            await deps.sendMessage(data.chatJid, `Cannot update task: ${resolved.error || "Invalid model."}`);
+                        if (chatJid)
+                            await deps.sendMessage(chatJid, `Cannot update task: ${resolved.error || "Invalid model."}`);
                         return;
                     }
                     updates.model = resolved.model;
                 }
                 else {
-                    updates.model = data.model.trim();
+                    updates.model = modelInput.trim();
                 }
             }
             // Validate shell command changes if applicable
@@ -268,60 +320,57 @@ export async function processTaskCommand(data, deps) {
                 if (updates.command !== undefined) {
                     const validated = validateShellCommand(updates.command);
                     if (!validated.ok) {
-                        if (data.chatJid)
-                            await deps.sendMessage(data.chatJid, `Cannot update task: ${validated.error || "Invalid command."}`);
+                        if (chatJid)
+                            await deps.sendMessage(chatJid, `Cannot update task: ${validated.error || "Invalid command."}`);
                         return;
                     }
-                    updates.command = validated.command;
-                    updates.prompt = validated.command;
+                    const validatedCommand = validated.command || "";
+                    updates.command = validatedCommand;
+                    updates.prompt = validatedCommand;
                 }
                 if (updates.cwd !== undefined) {
                     const cwdResult = validateShellCwd(updates.cwd);
                     if (!cwdResult.ok) {
-                        if (data.chatJid)
-                            await deps.sendMessage(data.chatJid, `Cannot update task: ${cwdResult.error || "Invalid cwd."}`);
+                        if (chatJid)
+                            await deps.sendMessage(chatJid, `Cannot update task: ${cwdResult.error || "Invalid cwd."}`);
                         return;
                     }
                     updates.cwd = cwdResult.cwd;
                 }
                 if (updates.model !== undefined && updates.model) {
-                    if (data.chatJid)
-                        await deps.sendMessage(data.chatJid, "Cannot set model override on shell tasks.");
+                    if (chatJid)
+                        await deps.sendMessage(chatJid, "Cannot set model override on shell tasks.");
                     return;
                 }
             }
             // Recalculate next_run if schedule changed.
             if (updates.schedule_type || updates.schedule_value) {
-                const sType = updates.schedule_type || t.schedule_type;
-                const sValue = updates.schedule_value || t.schedule_value;
-                try {
-                    if (sType === "cron") {
-                        updates.next_run = CronExpressionParser.parse(sValue, { tz: TIMEZONE }).next().toISOString();
-                    }
-                    else if (sType === "interval") {
-                        updates.next_run = new Date(Date.now() + parseInt(sValue, 10)).toISOString();
-                    }
-                    else if (sType === "once") {
-                        updates.next_run = new Date(sValue).toISOString();
+                const currentScheduleType = String(updates.schedule_type ?? t.schedule_type);
+                const currentScheduleValue = String(updates.schedule_value ?? t.schedule_value);
+                if (isScheduleType(currentScheduleType)) {
+                    const nextRun = computeScheduledNextRun(currentScheduleType, currentScheduleValue);
+                    if (nextRun !== undefined) {
+                        updates.next_run = nextRun;
                     }
                 }
-                catch { /* keep existing next_run */ }
             }
             if (Object.keys(updates).length > 0)
-                updateTask(data.taskId, updates);
+                updateTask(taskId, updates);
             break;
         }
         // --- Bulk-delete all completed tasks ---
         case "cleanup_tasks": {
+            const chatJid = getStringField(data, "chatJid");
             const db = (await import("./db/connection.js")).getDb();
             const completed = db.prepare("SELECT id FROM scheduled_tasks WHERE status = 'completed'").all();
             for (const { id } of completed) {
                 db.prepare("DELETE FROM task_run_logs WHERE task_id = ?").run(id);
             }
             const result = db.prepare("DELETE FROM scheduled_tasks WHERE status = 'completed'").run();
-            const count = result.changes ?? 0;
-            if (data.chatJid)
-                await deps.sendMessage(data.chatJid, `Cleaned up ${count} completed task(s).`);
+            const countValue = result.changes;
+            const count = typeof countValue === "number" ? countValue : 0;
+            if (chatJid)
+                await deps.sendMessage(chatJid, `Cleaned up ${count} completed task(s).`);
             break;
         }
         // --- Resume a specific chat after restart ---

@@ -52,6 +52,7 @@ const envConfig = readEnvFile([
     "PICLAW_WEB_SESSION_TTL",
     "PICLAW_WEB_INTERNAL_SECRET",
     "PICLAW_WEB_PASSKEY_MODE",
+    "PICLAW_TRUST_PROXY",
     "PICLAW_INTERNAL_SECRET",
     "PICLAW_REMOTE_INTEROP_ENABLED",
     "PICLAW_REMOTE_INTEROP_ALLOW_HTTP",
@@ -227,6 +228,11 @@ const configWebPasskeyMode = pickString(webConfig, [
     "web_passkey_mode",
     "PICLAW_WEB_PASSKEY_MODE",
 ]);
+const configTrustProxy = pickBoolean(webConfig, [
+    "trustProxy",
+    "trust_proxy",
+    "PICLAW_TRUST_PROXY",
+]);
 // ---------------------------------------------------------------------------
 // Deprecation warnings for renamed environment variables.
 // ---------------------------------------------------------------------------
@@ -369,6 +375,10 @@ export const WEB_PASSKEY_MODE = (process.env.PICLAW_WEB_PASSKEY_MODE ||
     envConfig.PICLAW_WEB_PASSKEY_MODE ||
     configWebPasskeyMode ||
     "totp-fallback").toLowerCase();
+const envTrustProxyRaw = process.env.PICLAW_TRUST_PROXY ?? envConfig.PICLAW_TRUST_PROXY;
+const envTrustProxy = pickBoolean({ PICLAW_TRUST_PROXY: envTrustProxyRaw }, ["PICLAW_TRUST_PROXY"]);
+/** Trust x-forwarded-* / x-real-ip headers from a reverse proxy (default false). */
+export const TRUST_PROXY = envTrustProxy ?? configTrustProxy ?? false;
 // ---------------------------------------------------------------------------
 // Remote interop configuration (cross-instance IPC).
 // ---------------------------------------------------------------------------

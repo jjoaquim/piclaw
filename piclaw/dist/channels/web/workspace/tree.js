@@ -12,27 +12,7 @@ import path from "path";
 import { MAX_TREE_ENTRIES } from "./constants.js";
 import { formatMtime } from "./file-utils.js";
 import { shouldExcludeDir, toRelativePath } from "./paths.js";
-/** Recursively build a directory tree starting from the given root. */
-export function buildTree(absPath, depth, state, options) {
-    const stats = statSync(absPath);
-    const node = {
-        name: path.basename(absPath) || "workspace",
-        path: toRelativePath(absPath),
-        type: stats.isDirectory() ? "dir" : "file",
-        size: stats.isDirectory() ? null : stats.size,
-        mtime: formatMtime(stats),
-        children: [],
-    };
-    state.count += 1;
-    if (state.count > MAX_TREE_ENTRIES) {
-        state.truncated = true;
-        node.children = undefined;
-        return node;
-    }
-    if (!stats.isDirectory() || depth <= 0) {
-        node.children = undefined;
-        return node;
-    }
+function listDirEntries(absPath, includeHidden) {
     const entriesAll = readdirSync(absPath, { withFileTypes: true })
         .filter((entry) => !entry.isDirectory() || !shouldExcludeDir(entry.name));
     const sorter = (a, b) => {
@@ -44,7 +24,44 @@ export function buildTree(absPath, depth, state, options) {
     };
     const visibleEntries = entriesAll.filter((entry) => !entry.name.startsWith(".")).sort(sorter);
     const hiddenEntries = entriesAll.filter((entry) => entry.name.startsWith(".")).sort(sorter);
-    const entries = options.includeHidden ? visibleEntries.concat(hiddenEntries) : visibleEntries;
+    return includeHidden ? visibleEntries.concat(hiddenEntries) : visibleEntries;
+}
+/** Recursively build a directory tree starting from the given root. */
+export function buildTree(absPath, depth, state, options) {
+    const stats = statSync(absPath);
+    const node = {
+        name: path.basename(absPath) || "workspace",
+        path: toRelativePath(absPath),
+        type: stats.isDirectory() ? "dir" : "file",
+        size: stats.isDirectory() ? null : stats.size,
+        mtime: formatMtime(stats),
+        child_count: undefined,
+        children: [],
+    };
+    state.count += 1;
+    if (state.count > MAX_TREE_ENTRIES) {
+        state.truncated = true;
+        node.children = undefined;
+        return node;
+    }
+    if (!stats.isDirectory()) {
+        node.children = undefined;
+        return node;
+    }
+    let entries;
+    try {
+        entries = listDirEntries(absPath, options.includeHidden);
+    }
+    catch {
+        node.child_count = 0;
+        node.children = undefined;
+        return node;
+    }
+    node.child_count = entries.length;
+    if (depth <= 0) {
+        node.children = undefined;
+        return node;
+    }
     node.children = [];
     for (const entry of entries) {
         if (state.count >= MAX_TREE_ENTRIES) {

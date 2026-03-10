@@ -7,6 +7,7 @@
 import { getChatChannel } from "../../core/chat-context.js";
 import { generateQrSvg } from "../../utils/totp-qr.js";
 const base64Encode = (value) => Buffer.from(value, "utf8").toString("base64");
+/** Handle `/qr` control commands for rendering QR helpers/messages. */
 export async function handleQr(_session, command) {
     const text = (command.text || "").trim();
     if (!text) {
