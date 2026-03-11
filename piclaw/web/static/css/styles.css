@@ -543,7 +543,7 @@ body {
     height: var(--preview-height, 280px);
     min-height: 80px;
     overflow: auto;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-xs);
     background-color: var(--bg-primary);
     flex-shrink: 0;
     box-sizing: border-box;
