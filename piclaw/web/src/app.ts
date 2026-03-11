@@ -21,7 +21,8 @@ import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/s
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { WorkspaceEditor } from './components/editor.js';
-import { paneRegistry, editorPaneExtension } from './panes/index.js';
+import { TabStrip } from './components/tab-strip.js';
+import { paneRegistry, editorPaneExtension, tabStore } from './panes/index.js';
 import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
@@ -1295,6 +1296,12 @@ function App() {
 
     const openEditor = useCallback(async (path) => {
         if (!path) return;
+        // Save current tab's view state before switching
+        const prevId = tabStore.getActiveId();
+        if (prevId && prevId !== path) {
+            // View state is saved by the editor component via onDirtyChange
+        }
+        tabStore.open(path);
         setEditorSaveError(null);
         setEditorSavedAt(null);
         setEditorDirty(false);
@@ -1307,10 +1314,96 @@ function App() {
     }, [loadEditorFile]);
 
     const closeEditor = useCallback(() => {
-        setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+        const activeId = tabStore.getActiveId();
+        if (activeId) {
+            tabStore.close(activeId);
+        }
+        const nextTab = tabStore.getActive();
+        if (nextTab) {
+            // Switch to next tab via MRU
+            setEditorSaveError(null);
+            setEditorSavedAt(null);
+            setEditorDirty(nextTab.dirty);
+            setEditorState({ open: true, path: nextTab.path, content: '', loading: true, error: null, mtime: null, size: null });
+            loadEditorFile(nextTab.path).catch(() => {});
+        } else {
+            setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+            setEditorSaveError(null);
+            setEditorSavedAt(null);
+            setEditorDirty(false);
+        }
+    }, [loadEditorFile]);
+
+    // Close a specific tab (from tab strip)
+    const handleTabClose = useCallback((id) => {
+        const isActive = tabStore.getActiveId() === id;
+        tabStore.close(id);
+        if (isActive) {
+            const nextTab = tabStore.getActive();
+            if (nextTab) {
+                setEditorSaveError(null);
+                setEditorSavedAt(null);
+                setEditorDirty(nextTab.dirty);
+                setEditorState({ open: true, path: nextTab.path, content: '', loading: true, error: null, mtime: null, size: null });
+                loadEditorFile(nextTab.path).catch(() => {});
+            } else {
+                setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+                setEditorSaveError(null);
+                setEditorSavedAt(null);
+                setEditorDirty(false);
+            }
+        }
+    }, [loadEditorFile]);
+
+    // Activate a tab (from tab strip click)
+    const handleTabActivate = useCallback((id) => {
+        if (id === editorState.path) return;
+        tabStore.activate(id);
         setEditorSaveError(null);
         setEditorSavedAt(null);
         setEditorDirty(false);
+        setEditorState({ open: true, path: id, content: '', loading: true, error: null, mtime: null, size: null });
+        loadEditorFile(id).catch((err) => {
+            setEditorState({ open: true, path: id, content: '', loading: false, error: err.message || 'Failed to load file', mtime: null, size: null });
+        });
+    }, [loadEditorFile, editorState.path]);
+
+    const handleTabCloseOthers = useCallback((id) => {
+        tabStore.closeOthers(id);
+        if (tabStore.getActiveId() !== editorState.path) {
+            handleTabActivate(id);
+        }
+    }, [editorState.path, handleTabActivate]);
+
+    const handleTabCloseAll = useCallback(() => {
+        tabStore.closeAll();
+        if (!tabStore.getActive()) {
+            setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
+            setEditorSaveError(null);
+            setEditorSavedAt(null);
+            setEditorDirty(false);
+        }
+    }, []);
+
+    const handleTabTogglePin = useCallback((id) => {
+        tabStore.togglePin(id);
+    }, []);
+
+    // Sync dirty state to tab store
+    const handleEditorDirtyChange = useCallback((dirty) => {
+        setEditorDirty(dirty);
+        const activeId = tabStore.getActiveId();
+        if (activeId) tabStore.setDirty(activeId, dirty);
+    }, []);
+
+    // Track tab store state for rendering
+    const [tabStripTabs, setTabStripTabs] = useState(() => tabStore.getTabs());
+    const [tabStripActiveId, setTabStripActiveId] = useState(() => tabStore.getActiveId());
+    useEffect(() => {
+        return tabStore.onChange((tabs, activeId) => {
+            setTabStripTabs(tabs);
+            setTabStripActiveId(activeId);
+        });
     }, []);
 
     const handleEditorSave = useCallback(async (value) => {
@@ -1407,18 +1500,29 @@ function App() {
             </button>
             <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown} onTouchStart=${handleSplitterTouchStart}></div>
             ${editorOpen && html`
-                <${WorkspaceEditor}
-                    path=${editorState.path}
-                    content=${editorState.content}
-                    loading=${editorState.loading}
-                    error=${editorState.error}
-                    saving=${editorSaving}
-                    saveError=${editorSaveError}
-                    savedAt=${editorSavedAt}
-                    onSave=${handleEditorSave}
-                    onClose=${closeEditor}
-                    onDirtyChange=${setEditorDirty}
-                />
+                <div class="editor-pane-container">
+                    <${TabStrip}
+                        tabs=${tabStripTabs}
+                        activeId=${tabStripActiveId}
+                        onActivate=${handleTabActivate}
+                        onClose=${handleTabClose}
+                        onCloseOthers=${handleTabCloseOthers}
+                        onCloseAll=${handleTabCloseAll}
+                        onTogglePin=${handleTabTogglePin}
+                    />
+                    <${WorkspaceEditor}
+                        path=${editorState.path}
+                        content=${editorState.content}
+                        loading=${editorState.loading}
+                        error=${editorState.error}
+                        saving=${editorSaving}
+                        saveError=${editorSaveError}
+                        savedAt=${editorSavedAt}
+                        onSave=${handleEditorSave}
+                        onClose=${closeEditor}
+                        onDirtyChange=${handleEditorDirtyChange}
+                    />
+                </div>
                 <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>
             `}
             <div class="container">
