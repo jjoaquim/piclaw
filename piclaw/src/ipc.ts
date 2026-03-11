@@ -19,9 +19,10 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import { CronExpressionParser } from "cron-parser";
 import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from "./core/config.js";
+import { MediaService } from "./channels/web/media-service.js";
 import { createTask, deleteTask, getTaskById, updateTask } from "./db.js";
 import type { ScheduledTask } from "./types.js";
 import { createUuid } from "./utils/ids.js";
@@ -32,9 +33,17 @@ import { validateShellCommand, validateShellCwd } from "./utils/task-validation.
  * Provided by runtime.ts so IPC can send messages, resolve models, etc.
  * without circular imports.
  */
+interface IpcMessageOptions {
+  forceRoot?: boolean;
+  threadId?: number | null;
+  source?: string;
+  mediaIds?: number[];
+  contentBlocks?: Array<Record<string, unknown>>;
+}
+
 export interface IpcDeps {
   /** Send a text message to a specific chat JID. */
-  sendMessage: (jid: string, text: string, options?: { forceRoot?: boolean; threadId?: number | null; source?: string }) => Promise<void>;
+  sendMessage: (jid: string, text: string, options?: IpcMessageOptions) => Promise<void>;
   /** Send a push notification nudge (Pushover). */
   sendNudge?: (text: string) => Promise<void>;
   /** Validate and resolve a model identifier string. */
@@ -67,8 +76,72 @@ function getFiniteNumberField(data: JsonRecord, key: string): number | undefined
   return Number.isFinite(value) ? Number(value) : undefined;
 }
 
+function getBooleanField(data: JsonRecord, key: string): boolean | undefined {
+  const value = data[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function getArrayField(data: JsonRecord, key: string): unknown[] | undefined {
+  const value = data[key];
+  return Array.isArray(value) ? value : undefined;
+}
+
 function isScheduleType(value: string): value is IpcScheduleType {
   return value === "cron" || value === "interval" || value === "once";
+}
+
+const ipcMediaService = new MediaService();
+
+async function buildMediaPayloadFromIpcEntries(media: unknown[]): Promise<{
+  mediaIds: number[];
+  contentBlocks: Array<Record<string, unknown>>;
+  warnings: string[];
+}> {
+  const mediaEntries = media;
+  const mediaIds: number[] = [];
+  const contentBlocks: Array<Record<string, unknown>> = [];
+  const warnings: string[] = [];
+
+  for (const item of mediaEntries) {
+    if (!item || typeof item !== "object") {
+      warnings.push("Skipped invalid media entry.");
+      continue;
+    }
+
+    const normalized = item as Record<string, unknown>;
+    const mediaPath = getStringField(normalized, "path");
+    if (!mediaPath) {
+      warnings.push("Skipped media entry with missing path.");
+      continue;
+    }
+
+    const filename = getStringField(normalized, "filename") || basename(mediaPath);
+    const contentType = getStringField(normalized, "content_type");
+    const inline = getBooleanField(normalized, "inline");
+
+    const result = await ipcMediaService.createFromPath(mediaPath, contentType, filename);
+    if (result.status !== 200) {
+      warnings.push(
+        `Failed to attach ${filename}: ${(result.body as { error?: string }).error || `HTTP ${result.status}`}`,
+      );
+      continue;
+    }
+
+    const body = result.body as { id?: number; contentType?: string };
+    const mediaId = Number(body.id);
+    const mediaContentType = typeof body.contentType === "string" ? body.contentType : (contentType || "");
+    if (!Number.isFinite(mediaId) || mediaId <= 0) {
+      warnings.push(`Failed to attach ${filename}: invalid media id`);
+      continue;
+    }
+
+    const isImage = mediaContentType.startsWith("image/");
+    const finalInline = inline === undefined ? isImage : inline && isImage;
+    mediaIds.push(mediaId);
+    contentBlocks.push({ type: finalInline ? "image" : "file", media_id: mediaId, name: filename });
+  }
+
+  return { mediaIds, contentBlocks, warnings };
 }
 
 async function processIpcDir(
@@ -179,13 +252,28 @@ export function stopIpcWatcher(): void {
 export async function processMessageCommand(data: JsonRecord, deps: IpcDeps): Promise<void> {
   const type = getStringField(data, "type");
   const chatJid = getStringField(data, "chatJid");
-  const text = getStringField(data, "text");
+  const text = getStringField(data, "text") || "";
 
-  if (type === "message" && chatJid && text) {
-    await deps.sendMessage(chatJid, text);
-    if (data.noNudge !== true) {
-      await deps.sendNudge?.(text);
-    }
+  if (type !== "message" || !chatJid) return;
+
+  const media = getArrayField(data, "media") || [];
+  const { mediaIds, contentBlocks, warnings } = await buildMediaPayloadFromIpcEntries(media);
+
+  const warningSuffix = warnings.length > 0
+    ? `\n\n⚠️ Media attachment warnings:\n${warnings.map((warning) => `- ${warning}`).join("\n")}`
+    : "";
+  const finalText = `${text}${warningSuffix}`;
+  const hasPayload = Boolean(text) || warnings.length > 0 || mediaIds.length > 0;
+
+  if (!hasPayload) return;
+
+  const options: IpcMessageOptions = {};
+  if (mediaIds.length > 0) options.mediaIds = mediaIds;
+  if (contentBlocks.length > 0) options.contentBlocks = contentBlocks;
+
+  await deps.sendMessage(chatJid, finalText, options);
+  if (data.noNudge !== true) {
+    await deps.sendNudge?.(finalText || "Message with attachment(s)");
   }
 }
 

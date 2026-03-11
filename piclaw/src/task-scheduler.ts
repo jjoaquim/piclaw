@@ -39,7 +39,13 @@ export interface SchedulerDeps {
   /** The agent pool for running agent turns. */
   agentPool: AgentPool;
   /** Send a text message to a chat. */
-  sendMessage: (jid: string, text: string, options?: { forceRoot?: boolean; threadId?: number | null; source?: string }) => Promise<void>;
+  sendMessage: (jid: string, text: string, options?: {
+    forceRoot?: boolean;
+    threadId?: number | null;
+    source?: string;
+    mediaIds?: number[];
+    contentBlocks?: Array<Record<string, unknown>>;
+  }) => Promise<void>;
   /** Send a push notification nudge (optional). */
   sendNudge?: (text: string) => Promise<void>;
 }

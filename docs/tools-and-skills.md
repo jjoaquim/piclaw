@@ -55,7 +55,7 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `reload` | Force-restart `piclaw` after code changes (tarball install, not symlinks) |
 | `playwright` | Local Playwright browser automation |
 | `schedule` | Create/modify scheduled tasks via IPC |
-| `send-message` | Send chat messages immediately via IPC |
+| `send-message` | Send chat messages immediately via IPC (supports optional `media` attachments via `media` array) |
 | `token-chart` | Generate token usage charts (from `token_usage`) |
 | `graphite-power-chart` | Generate Zigbee/Graphite charts for the web timeline |
 | `web-search` | Search the web via SearXNG and convert pages to Markdown |

@@ -16,7 +16,7 @@ let ipc: typeof import("../../src/ipc.js");
 let config: typeof import("../../src/core/config.js");
 let deps: import("../../src/ipc.js").IpcDeps;
 
-const sentMessages: Array<{ jid: string; text: string }> = [];
+const sentMessages: Array<{ jid: string; text: string; options?: { mediaIds?: number[]; contentBlocks?: Array<Record<string, unknown>> } }> = [];
 const sentNudges: string[] = [];
 const resumedChats: Array<Record<string, any>> = [];
 const resumePendingCalls: Array<Record<string, any> | undefined> = [];
@@ -35,8 +35,8 @@ beforeAll(async () => {
   ipc = await import("../../src/ipc.js");
   config = await import("../../src/core/config.js");
   deps = {
-    sendMessage: async (jid, text) => {
-      sentMessages.push({ jid, text });
+    sendMessage: async (jid, text, options) => {
+      sentMessages.push({ jid, text, options });
     },
     sendNudge: async (text) => {
       sentNudges.push(text);
@@ -70,6 +70,147 @@ test("IPC message sends to web chat", async () => {
   const msg = sentMessages[sentMessages.length - 1];
   expect(msg.jid).toBe("web:default");
   expect(msg.text).toBe("hello");
+});
+
+test("IPC message with media attaches files and supports inline rendering hints", async () => {
+  const dataDir = config.DATA_DIR;
+  const mediaPath = join(dataDir, `ipc_media_${Date.now()}.svg`);
+  writeFileSync(mediaPath, "<svg xmlns='http://www.w3.org/2000/svg'><rect width='10' height='10' /></svg>");
+
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      text: "Kanban board",
+      media: [
+        {
+          path: mediaPath,
+          content_type: "image/svg+xml",
+          inline: true,
+        },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.jid).toBe("web:default");
+  expect(msg.text).toBe("Kanban board");
+  expect(msg.options?.mediaIds?.length).toBe(1);
+  expect(msg.options?.mediaIds?.[0]).toBeGreaterThan(0);
+  expect(msg.options?.contentBlocks?.[0]).toMatchObject({ type: "image" });
+
+  unlinkSync(mediaPath);
+
+});
+
+test("IPC message with missing media file still posts with warning", async () => {
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      text: "board",
+      media: [
+        {
+          path: join(config.DATA_DIR, "missing_file.svg"),
+        },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.jid).toBe("web:default");
+  expect(msg.text).toContain("⚠️ Media attachment warnings:");
+  expect(msg.text).toContain("missing_file.svg");
+  expect(msg.options?.mediaIds?.length || 0).toBe(0);
+});
+
+test("IPC media messages respect noNudge flag", async () => {
+  const startNudges = sentNudges.length;
+  const dataDir = config.DATA_DIR;
+  const mediaPath = join(dataDir, `ipc_media_no_nudge_${Date.now()}.svg`);
+  writeFileSync(mediaPath, "<svg xmlns='http://www.w3.org/2000/svg'></svg>");
+
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      text: "No nudge",
+      noNudge: true,
+      media: [
+        {
+          path: mediaPath,
+          content_type: "image/svg+xml",
+        },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.text).toContain("No nudge");
+  expect(msg.options?.mediaIds?.length).toBe(1);
+  expect(sentNudges.length).toBe(startNudges);
+
+  unlinkSync(mediaPath);
+});
+
+test("IPC media-only warning still posts warning text", async () => {
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      media: [
+        {
+          path: join(config.DATA_DIR, "missing_media_only.svg"),
+        },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.text).toContain("⚠️ Media attachment warnings:");
+  expect(msg.text).toContain("missing_media_only.svg");
+  expect(msg.options?.mediaIds?.length || 0).toBe(0);
+});
+
+test("IPC media-only message can post with no text", async () => {
+  const dataDir = config.DATA_DIR;
+  const mediaPath = join(dataDir, `ipc_media_only_${Date.now()}.png`);
+  writeFileSync(mediaPath, "\x89PNG\r\n", "binary");
+
+  const start = sentMessages.length;
+  await ipc.processMessageCommand(
+    {
+      type: "message",
+      chatJid: "web:default",
+      media: [
+        {
+          path: mediaPath,
+          content_type: "image/png",
+          inline: true,
+        },
+      ],
+    },
+    deps,
+  );
+  await waitFor(() => sentMessages.length > start);
+
+  const msg = sentMessages[sentMessages.length - 1];
+  expect(msg.jid).toBe("web:default");
+  expect(msg.text).toBe("");
+  expect(msg.options?.mediaIds?.length).toBe(1);
+  unlinkSync(mediaPath);
 });
 
 test("IPC schedule_task creates a due agent task", async () => {

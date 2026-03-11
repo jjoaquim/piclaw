@@ -12,6 +12,8 @@ export type SendMessageOptions =
       threadId?: number | null;
       forceRoot?: boolean;
       source?: string;
+      mediaIds?: number[];
+      contentBlocks?: Array<Record<string, unknown>>;
     };
 
 /** Persistence contract required by web message write flows. */
@@ -21,7 +23,7 @@ export interface MessageWriteStore {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options?: { threadId?: number }
+    options?: { threadId?: number; contentBlocks?: unknown[] }
   ): InteractionRow | null;
   replaceMessageContent(
     chatJid: string,
@@ -55,6 +57,8 @@ export interface MessageWriteContext {
 interface NormalizedSendMessageOptions {
   threadId: number | null;
   forceRoot: boolean;
+  mediaIds: number[];
+  contentBlocks: Array<Record<string, unknown>> | undefined;
 }
 
 function normalizeSendMessageOptions(options?: SendMessageOptions): NormalizedSendMessageOptions {
@@ -63,9 +67,20 @@ function normalizeSendMessageOptions(options?: SendMessageOptions): NormalizedSe
       ? { threadId: options ?? null }
       : (options ?? {});
 
+  const mediaIds =
+    Array.isArray(normalized.mediaIds)
+      ? normalized.mediaIds.filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+  const contentBlocks =
+    Array.isArray(normalized.contentBlocks)
+      ? normalized.contentBlocks.filter((block) => block && typeof block === "object")
+      : undefined;
+
   return {
     threadId: normalized.threadId ?? null,
     forceRoot: Boolean(normalized.forceRoot),
+    mediaIds: mediaIds,
+    contentBlocks,
   };
 }
 
@@ -76,8 +91,17 @@ export function sendWebMessage(
   options: SendMessageOptions | undefined,
   ctx: MessageWriteContext
 ): void {
-  const { threadId, forceRoot } = normalizeSendMessageOptions(options);
-  const interaction = ctx.store.storeMessage(chatJid, text, true, [], threadId ? { threadId } : undefined);
+  const { threadId, forceRoot, mediaIds, contentBlocks } = normalizeSendMessageOptions(options);
+  const interaction = ctx.store.storeMessage(
+    chatJid,
+    text,
+    true,
+    mediaIds,
+    {
+      ...(threadId !== null ? { threadId } : {}),
+      ...(contentBlocks && contentBlocks.length ? { contentBlocks } : {}),
+    }
+  );
 
   if (!interaction) return;
 
