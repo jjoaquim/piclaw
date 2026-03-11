@@ -21,6 +21,10 @@ Core tools (from `pi`):
 - `list_models` — list available models/providers
 - `switch_model` — switch to a different model
 - `switch_thinking` — change thinking level (off → xhigh)
+- `keychain` — list, get, set, and delete encrypted keychain entries
+- `schedule_task` — schedule agent prompts or shell commands (cron, interval, or one-shot)
+- `sql_introspect` — run read-only SQL queries against the messages database
+- `list_internal_tools` — list available tools with descriptions
 
 `search_messages` accepts `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
 
@@ -61,6 +65,7 @@ Each skill keeps its script alongside its `SKILL.md` for portability. Current se
 | `bootstrap-container` | Validate required tools and install missing dependencies |
 | `extension-design` | Design and audit Pi extensions safely |
 | `extension-troubleshoot` | Diagnose and fix extension issues (imports, DB init, watcher perms) |
+| `kanban-management` | Manage kanban board: ideation, triage, quality scoring, definition-of-done tracking |
 
 ## Slash commands
 

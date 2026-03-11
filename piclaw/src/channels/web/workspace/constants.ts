@@ -16,7 +16,7 @@ export const EXCLUDE_DIRS = new Set([
   "output",
   ".cache",
   ".venv",
-  "tmp",
+
   "coverage",
 ]);
 

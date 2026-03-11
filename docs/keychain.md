@@ -61,6 +61,15 @@ PICLAW_KEYCHAIN_KEY="your-master-key" piclaw keychain list
 PICLAW_KEYCHAIN_KEY="your-master-key" piclaw keychain delete github/foo/bar
 ```
 
+## Agent tool
+
+The agent has a `keychain` tool that can:
+
+- **list** — list all entry names and types
+- **get** — retrieve a secret or username by name
+- **set** — store or update an entry (name, type, secret, optional username)
+- **delete** — remove an entry by name
+
 ## Low-level API
 
 If you need direct access, you can call the module directly:

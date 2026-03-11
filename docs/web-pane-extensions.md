@@ -186,7 +186,23 @@ Verify no leaked listeners or DOM nodes after pane lifecycle:
 
 ## Built-in panes
 
-| ID | Placement | Priority | Description |
-|---|---|---|---|
-| `editor` | tabs | 1 | CodeMirror editor — handles all text files (fallback) |
-| `terminal` | dock | — | Terminal scaffold (xterm.js integration pending) |
+| ID | Placement | Priority | Location | Description |
+|---|---|---|---|---|
+| `editor` | tabs | 1 | `extensions/editor/editor-extension.ts` | CodeMirror 6 editor — handles all text files (fallback). Lazy-loaded as `editor.bundle.js` (889 KB). |
+| `terminal` | dock | — | `web/src/panes/terminal-pane.ts` | Terminal scaffold (xterm.js integration pending). Feature-flagged behind `localStorage.experimentalPanes`. |
+
+### Editor extension architecture
+
+The editor lives in `extensions/editor/` as a self-contained pane extension:
+
+```
+extensions/editor/
+  editor-extension.ts       — StandaloneEditorInstance + WebPaneExtension registration
+  vendor/
+    codemirror-entry.ts     — CodeMirror re-export entry point
+    codemirror.js           — Pre-built CodeMirror vendor bundle
+```
+
+The core app only includes a lightweight **lazy proxy** (`web/src/panes/editor-loader.ts`)
+that shows a loading spinner and dynamically imports `editor.bundle.js` on first mount.
+This keeps the core bundle at 185 KB; the 889 KB editor is only loaded when needed.
