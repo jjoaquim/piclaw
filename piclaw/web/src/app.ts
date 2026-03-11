@@ -1299,10 +1299,20 @@ function App() {
         if (!path) return;
         // Route through pane registry to find the best handler
         const context = { path, mode: 'edit' };
-        const pane = paneRegistry.resolve(context);
+        let pane;
+        try {
+            pane = paneRegistry.resolve(context);
+        } catch (err) {
+            console.warn(`[openEditor] paneRegistry.resolve() error for "${path}":`, err);
+            // Fall back to editor pane
+        }
         if (!pane) {
-            console.warn(`[openEditor] No pane handler for: ${path}`);
-            return;
+            // Fallback: use editor pane directly if registered
+            pane = paneRegistry.get('editor');
+            if (!pane) {
+                console.warn(`[openEditor] No pane handler for: ${path}`);
+                return;
+            }
         }
         tabStore.open(path);
         setEditorSaveError(null);
@@ -1319,6 +1329,11 @@ function App() {
     const closeEditor = useCallback(() => {
         const activeId = tabStore.getActiveId();
         if (activeId) {
+            const tab = tabStore.get(activeId);
+            if (tab?.dirty) {
+                const confirmed = window.confirm(`"${tab.label}" has unsaved changes. Close anyway?`);
+                if (!confirmed) return;
+            }
             tabStore.close(activeId);
         }
         const nextTab = tabStore.getActive();
@@ -1337,8 +1352,13 @@ function App() {
         }
     }, [loadEditorFile]);
 
-    // Close a specific tab (from tab strip)
+    // Close a specific tab (from tab strip) — with dirty confirmation
     const handleTabClose = useCallback((id) => {
+        const tab = tabStore.get(id);
+        if (tab?.dirty) {
+            const confirmed = window.confirm(`"${tab.label}" has unsaved changes. Close anyway?`);
+            if (!confirmed) return;
+        }
         const isActive = tabStore.getActiveId() === id;
         tabStore.close(id);
         if (isActive) {
@@ -1398,6 +1418,17 @@ function App() {
         const activeId = tabStore.getActiveId();
         if (activeId) tabStore.setDirty(activeId, dirty);
     }, []);
+
+    // Save view state (cursor, scroll) to tab store on editor changes
+    const handleViewStateChange = useCallback((viewState) => {
+        const activeId = tabStore.getActiveId();
+        if (activeId) tabStore.saveViewState(activeId, viewState);
+    }, []);
+
+    // Get initial view state for the currently active tab
+    const activeViewState = useMemo(() => {
+        return editorState.path ? tabStore.getViewState(editorState.path) : undefined;
+    }, [editorState.path]);
 
     // Track tab store state for rendering
     const [tabStripTabs, setTabStripTabs] = useState(() => tabStore.getTabs());
@@ -1480,6 +1511,63 @@ function App() {
         return () => window.removeEventListener('workspace-update', handleWorkspaceUpdate);
     }, [editorState.open, editorState.path, editorState.mtime, editorState.loading, editorDirty, loadEditorFile, reloadEditorFromDisk]);
 
+    // SSE rename/delete sync: update tab store when files are renamed or moved
+    useEffect(() => {
+        const handleFileRenamed = (e) => {
+            const { oldPath, newPath, type } = e.detail || {};
+            if (!oldPath || !newPath) return;
+            if (type === 'dir') {
+                // Rename all tabs under the old directory
+                for (const tab of tabStore.getTabs()) {
+                    if (tab.path === oldPath || tab.path.startsWith(`${oldPath}/`)) {
+                        const updatedPath = `${newPath}${tab.path.slice(oldPath.length)}`;
+                        tabStore.rename(tab.id, updatedPath);
+                    }
+                }
+            } else {
+                tabStore.rename(oldPath, newPath);
+            }
+        };
+        window.addEventListener('workspace-file-renamed', handleFileRenamed);
+        return () => window.removeEventListener('workspace-file-renamed', handleFileRenamed);
+    }, []);
+
+    // Warn before leaving if any tab has unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (tabStore.hasUnsaved()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
+    // Dock (terminal) toggle state
+    const [dockVisible, setDockVisible] = useState(false);
+    const toggleDock = useCallback(() => setDockVisible((v) => !v), []);
+
+    // Keyboard shortcut: Ctrl+` to toggle dock
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if (e.ctrlKey && e.key === '`') {
+                e.preventDefault();
+                toggleDock();
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [toggleDock]);
+
+    // Reveal active tab in workspace explorer
+    const revealInExplorer = useCallback(() => {
+        const activeId = tabStore.getActiveId();
+        if (activeId) {
+            window.dispatchEvent(new CustomEvent('workspace-reveal-path', { detail: { path: activeId } }));
+        }
+    }, []);
+
     const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
     const editorOpen = Boolean(editorState.open);
 
@@ -1512,6 +1600,8 @@ function App() {
                         onCloseOthers=${handleTabCloseOthers}
                         onCloseAll=${handleTabCloseAll}
                         onTogglePin=${handleTabTogglePin}
+                        onToggleDock=${toggleDock}
+                        dockVisible=${dockVisible}
                     />
                     <${WorkspaceEditor}
                         path=${editorState.path}
@@ -1524,7 +1614,23 @@ function App() {
                         onSave=${handleEditorSave}
                         onClose=${closeEditor}
                         onDirtyChange=${handleEditorDirtyChange}
+                        onViewStateChange=${handleViewStateChange}
+                        initialViewState=${activeViewState}
                     />
+                    <div class=${`dock-panel${dockVisible ? '' : ' hidden'}`}>
+                        <div class="dock-panel-header">
+                            <span class="dock-panel-title">Terminal</span>
+                            <button class="dock-panel-close" onClick=${toggleDock} title="Hide terminal (Ctrl+\`)" aria-label="Hide terminal">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                                    <line x1="4" y1="12" x2="12" y2="4"/>
+                                    <polyline points="4 4 12 4 12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="dock-panel-body">
+                            <div class="terminal-placeholder">Terminal integration pending — xterm.js + WebSocket</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>
             `}

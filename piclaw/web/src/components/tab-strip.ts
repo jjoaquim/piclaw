@@ -14,6 +14,8 @@
 import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
 
 /**
+ * TabStrip — horizontal tab bar for open editor files.
+ *
  * @param {Object} props
  * @param {import('../panes/tab-store.js').TabState[]} props.tabs
  * @param {string|null} props.activeId
@@ -22,8 +24,10 @@ import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vend
  * @param {(id: string) => void} props.onCloseOthers
  * @param {() => void} props.onCloseAll
  * @param {(id: string) => void} props.onTogglePin
+ * @param {() => void} [props.onToggleDock] - Toggle terminal dock visibility.
+ * @param {boolean} [props.dockVisible] - Whether the terminal dock is currently visible.
  */
-export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, onCloseAll, onTogglePin }) {
+export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, onCloseAll, onTogglePin, onToggleDock, dockVisible }) {
     const [contextMenu, setContextMenu] = useState(null);
     const stripRef = useRef(null);
 
@@ -142,6 +146,21 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, o
                     </span>
                 </div>
             `)}
+            ${onToggleDock && html`
+                <div class="tab-strip-spacer"></div>
+                <button
+                    class=${`tab-strip-dock-toggle${dockVisible ? ' active' : ''}`}
+                    onClick=${onToggleDock}
+                    title=${`${dockVisible ? 'Hide' : 'Show'} terminal (Ctrl+\`)`}
+                    aria-label=${`${dockVisible ? 'Hide' : 'Show'} terminal`}
+                    aria-pressed=${dockVisible ? 'true' : 'false'}
+                >
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 12 4 10 8 6 12 10 12 12"/>
+                        <line x1="2" y1="14" x2="14" y2="14"/>
+                    </svg>
+                </button>
+            `}
         </div>
         ${contextMenu && html`
             <div class="tab-context-menu" style=${{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }}>

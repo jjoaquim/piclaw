@@ -1158,6 +1158,81 @@ body {
     display: none;
 }
 
+.dock-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.dock-panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.dock-panel-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 0;
+}
+
+.dock-panel-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.dock-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Tab strip dock toggle and spacer */
+.tab-strip-spacer {
+    flex: 1;
+    min-width: 8px;
+}
+
+.tab-strip-dock-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    padding: 0;
+    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+}
+
+.tab-strip-dock-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.tab-strip-dock-toggle.active {
+    color: var(--accent-color);
+}
+
 /* ── CodeMirror syntax highlighting (classHighlighter) ── */
 /* Light mode */
 .tok-keyword { color: #a626a4; }

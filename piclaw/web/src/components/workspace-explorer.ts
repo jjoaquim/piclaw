@@ -659,6 +659,36 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     useEffect(() => { visibleRef.current = visible; }, [visible]);
     useEffect(() => { activeRef.current = active ?? visible; }, [active, visible]);
     useEffect(() => { dropTargetRef.current = dropTarget; }, [dropTarget]);
+
+    // Listen for reveal-path events (e.g., from tab strip "reveal in explorer")
+    useEffect(() => {
+        const handleReveal = (e) => {
+            const path = e?.detail?.path;
+            if (!path) return;
+            // Expand all parent directories
+            const parts = path.split('/');
+            const parents = [];
+            for (let i = 1; i < parts.length; i++) {
+                parents.push(parts.slice(0, i).join('/'));
+            }
+            if (parents.length) {
+                setExpanded((prev) => {
+                    const next = new Set(prev);
+                    next.add('.');
+                    for (const p of parents) next.add(p);
+                    return next;
+                });
+            }
+            setSelectedPath(path);
+            // Scroll the row into view after a tick
+            requestAnimationFrame(() => {
+                const row = document.querySelector(`[data-path="${CSS.escape(path)}"]`);
+                if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            });
+        };
+        window.addEventListener('workspace-reveal-path', handleReveal);
+        return () => window.removeEventListener('workspace-reveal-path', handleReveal);
+    }, []);
     useEffect(() => { dragActiveRef.current = dragActive; }, [dragActive]);
     useEffect(() => { dragModeRef.current = dragMode; }, [dragMode]);
     useEffect(() => { selectedPathRef.current = selectedPath; }, [selectedPath]);
@@ -924,6 +954,12 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
 
             cancelRename();
             setError(null);
+
+            // Notify listeners (tab store, etc.) about the rename
+            window.dispatchEvent(new CustomEvent('workspace-file-renamed', {
+                detail: { oldPath: targetPath, newPath: nextPath, type: node?.type || 'file' }
+            }));
+
             if (node?.type === 'dir') {
                 setExpanded((prev) => {
                     const next = new Set();
