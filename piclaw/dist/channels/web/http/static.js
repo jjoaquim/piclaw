@@ -29,12 +29,22 @@ export async function serveStatic(relPath, notFound) {
     const file = Bun.file(filePath);
     if (!(await file.exists()))
         return notFound();
+    const ext = extname(filePath);
     const contentType = relPath.endsWith("manifest.json")
         ? "application/manifest+json; charset=utf-8"
-        : MIME_TYPES[extname(filePath)] || "application/octet-stream";
+        : MIME_TYPES[ext] || "application/octet-stream";
+    // HTML pages: never cache (so new deploys are picked up immediately).
+    // Versioned assets (JS/CSS with ?v= query): cache for 1 year.
+    // Everything else: short cache with revalidation.
+    const cacheControl = ext === ".html"
+        ? "no-cache, no-store, must-revalidate"
+        : relPath.includes("/dist/")
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=3600";
     return new Response(file, {
         headers: {
             "Content-Type": contentType,
+            "Cache-Control": cacheControl,
         },
     });
 }

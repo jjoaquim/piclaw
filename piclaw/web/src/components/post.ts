@@ -563,7 +563,14 @@ export function Post({ post, onClick, onHashtagClick, onMessageRef, agentName, a
                         ${messageRefs.map((id) => {
                             return html`
                                 <a href=${`#msg-${id}`} class="post-msg-pill-link" onClick=${(e) => {
+                                    e.preventDefault();
                                     e.stopPropagation();
+                                    const el = document.getElementById('post-' + id);
+                                    if (el) {
+                                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        el.classList.add('post-highlight');
+                                        setTimeout(() => el.classList.remove('post-highlight'), 2000);
+                                    }
                                 }}>
                                     <${FilePill}
                                         prefix="post"
