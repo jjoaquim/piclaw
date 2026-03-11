@@ -762,7 +762,6 @@ body {
     height: 100dvh;
     overflow: hidden;
     flex-shrink: 0;
-    border-left: 1px solid var(--border-color);
 }
 
 .editor-pane-host {
@@ -780,7 +779,7 @@ body {
     overflow-y: hidden;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
-    min-height: 33px;
+    min-height: 28px;
     scrollbar-width: none;
     -ms-overflow-style: none;
     flex-shrink: 0;
@@ -790,9 +789,9 @@ body {
 .tab-item {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 6px 0 10px;
-    font-size: 12px;
+    gap: 3px;
+    padding: 0 4px 0 8px;
+    font-size: 11px;
     font-family: var(--font-family);
     color: var(--text-secondary);
     background: transparent;
@@ -984,16 +983,17 @@ body {
 }
 
 .editor-status {
-    padding: 4px 8px;
+    padding: 2px 8px;
     font-size: 11px;
     color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
 }
 
 .editor-status-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
 }
 
 .editor-status-text {
@@ -1003,17 +1003,17 @@ body {
 .editor-status-actions {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
 .editor-status-button {
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid var(--border-color);
     background: var(--bg-secondary);
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 11px;
-    padding: 2px 6px;
+    font-size: 10px;
+    padding: 1px 5px;
 }
 
 .editor-status-button.active {
