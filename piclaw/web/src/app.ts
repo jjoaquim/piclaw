@@ -134,13 +134,16 @@ function App() {
     const [removingPostIds, setRemovingPostIds] = useState(() => new Set());
     const [workspaceOpen, setWorkspaceOpen] = useState(() => getLocalStorageBoolean('workspaceOpen', true));
 
+    // Stable ref so useEditorState can call removeFileRef without a forward-reference TDZ
+    const removeFileRefRef = useRef(null);
+
     // Editor state hook (file load/save, tabs, dirty, view state, SSE sync)
     const {
         editorOpen, tabStripTabs, tabStripActiveId, previewTabs,
         openEditor, closeEditor, handleTabClose, handleTabActivate,
         handleTabCloseOthers, handleTabCloseAll, handleTabTogglePin,
         handleTabTogglePreview, revealInExplorer,
-    } = useEditorState({ onTabClosed: removeFileRef });
+    } = useEditorState({ onTabClosed: (path) => removeFileRefRef.current?.(path) });
 
     // Editor extension container ref + instance tracking
     const editorContainerRef = useRef(null);
@@ -278,6 +281,7 @@ function App() {
     const removeFileRef = useCallback((path) => {
         setFileRefs((prev) => prev.filter((item) => item !== path));
     }, []);
+    removeFileRefRef.current = removeFileRef;
 
     const clearFileRefs = useCallback(() => {
         setFileRefs([]);
