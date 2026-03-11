@@ -305,7 +305,44 @@ When refining a ticket, use this structure:
 
 ---
 
-## 9. Useful Commands
+## 9. Board Visualisation
+
+When asked to render the kanban board, use a Mermaid `graph LR` flowchart with
+subgraphs for each lane.  The bundled Mermaid version does **not** support
+`kanban`, `block-beta`, or YAML front matter headers — stick to classic
+`graph`/`flowchart` syntax.
+
+```mermaid
+graph LR
+  subgraph Inbox
+    T1["ticket-slug<br/>★★★☆☆ 5"]
+  end
+  subgraph Next
+    T2["other-ticket<br/>★★★★☆ 7"]
+  end
+  subgraph Doing
+    T3["active-work<br/>★★★★☆ 8"]
+  end
+  subgraph Blocked
+    B0[" "]
+  end
+  subgraph Review
+    R0[" "]
+  end
+  subgraph Done
+    X0[" "]
+  end
+  Inbox --> Next --> Doing --> Review --> Done
+  Doing -.-> Blocked -.-> Doing
+```
+
+- Each ticket node: `["slug<br/>★★★☆☆ score"]`
+- Empty lanes: use a space placeholder `[" "]` to keep the subgraph visible.
+- Priority: append `🔴` (critical), `🟠` (high), `🟡` (medium), or `⚪` (low) after the score.
+
+---
+
+## 10. Useful Commands
 
 ```bash
 # Full inventory
@@ -324,7 +361,7 @@ rg -n "^status:|^priority:|^estimate:|^risk:" kanban -S
 
 ---
 
-## 10. Guardrails
+## 11. Guardrails
 
 - Do not claim completion without test evidence.
 - Do not skip `## Test Plan` for implementation tickets.
