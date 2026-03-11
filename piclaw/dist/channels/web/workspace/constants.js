@@ -15,7 +15,6 @@ export const EXCLUDE_DIRS = new Set([
     "output",
     ".cache",
     ".venv",
-    "tmp",
     "coverage",
 ]);
 /** Maximum number of entries returned in a workspace tree response. */
