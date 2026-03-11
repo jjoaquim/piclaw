@@ -21,6 +21,8 @@ import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/s
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { WorkspaceEditor } from './components/editor.js';
+import { TabStrip } from './components/tab-strip.js';
+import { paneRegistry, editorPaneExtension, terminalPaneExtension } from './panes/index.js';
 import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
@@ -28,6 +30,7 @@ import { useTimeline } from './ui/use-timeline.js';
 import { dedupePosts } from './ui/timeline-utils.js';
 import { useAgentState } from './ui/use-agent-state.js';
 import { useSplitters } from './ui/use-splitters.js';
+import { useEditorState } from './ui/use-editor-state.js';
 import { initTheme, applyThemeFromEvent } from './ui/theme.js';
 import {
     LAST_ACTIVITY_TTL_MS,
@@ -53,8 +56,6 @@ const getAgents = api.getAgents;
 const getAgentThought = api.getAgentThought;
 const setAgentThoughtVisibility = api.setAgentThoughtVisibility;
 const getAgentStatus = api.getAgentStatus;
-const getWorkspaceFile = api.getWorkspaceFile;
-const updateWorkspaceFile = api.updateWorkspaceFile;
 const getAgentContext = typeof api.getAgentContext === 'function'
     ? api.getAgentContext
     : missingApi('getAgentContext', null);
@@ -73,6 +74,16 @@ if (window.marked) {
 /**
  * Main App component
  */
+// Register built-in pane extensions
+paneRegistry.register(editorPaneExtension);
+
+// Terminal dock pane is behind a feature flag — opt in via localStorage
+// or config. Editor pane is always registered as the default.
+const EXPERIMENTAL_PANES = typeof localStorage !== 'undefined' && localStorage.getItem('experimentalPanes') === 'true';
+if (EXPERIMENTAL_PANES) {
+    paneRegistry.register(terminalPaneExtension);
+}
+
 function App() {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [currentHashtag, setCurrentHashtag] = useState(null);
@@ -120,11 +131,17 @@ function App() {
     } = useNotifications();
     const [removingPostIds, setRemovingPostIds] = useState(() => new Set());
     const [workspaceOpen, setWorkspaceOpen] = useState(() => getLocalStorageBoolean('workspaceOpen', true));
-    const [editorState, setEditorState] = useState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
-    const [editorSaving, setEditorSaving] = useState(false);
-    const [editorSaveError, setEditorSaveError] = useState(null);
-    const [editorSavedAt, setEditorSavedAt] = useState(null);
-    const [editorDirty, setEditorDirty] = useState(false);
+
+    // Editor state hook (file load/save, tabs, dirty, view state, SSE sync)
+    const {
+        editorState, editorSaving, editorSaveError, editorSavedAt, editorDirty,
+        tabStripTabs, tabStripActiveId, activeViewState,
+        openEditor, closeEditor, handleEditorSave, handleEditorDirtyChange,
+        handleViewStateChange, handleTabClose, handleTabActivate,
+        handleTabCloseOthers, handleTabCloseAll, handleTabTogglePin,
+        revealInExplorer,
+    } = useEditorState();
+
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
     const hasConnectedOnceRef = useRef(false);
     const wasAgentActiveRef = useRef(false); // tracks active→idle transition for timeline refresh
@@ -135,6 +152,7 @@ function App() {
     const appShellRef = useRef(null);
     const sidebarWidthRef = useRef(0);
     const editorWidthRef = useRef(0);
+    const dockHeightRef = useRef(0);
     const lastNotifiedIdRef = useRef(null);
     const lastAgentResponseRef = useRef(null);
     const lastActivityTimerRef = useRef(null);
@@ -447,7 +465,9 @@ function App() {
         handleSplitterTouchStart,
         handleEditorSplitterMouseDown,
         handleEditorSplitterTouchStart,
-    } = useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef });
+        handleDockSplitterMouseDown,
+        handleDockSplitterTouchStart,
+    } = useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef, dockHeightRef });
 
     const finalizeStalledResponse = useCallback(() => {
         if (!isAgentRunningRef.current) return;
@@ -1202,183 +1222,31 @@ function App() {
             editorWidthRef.current = Number.isFinite(stored) ? stored : fallback;
         }
         shell.style.setProperty('--editor-width', `${editorWidthRef.current}px`);
+        if (!dockHeightRef.current) {
+            const stored = getLocalStorageNumber('dockHeight', null);
+            dockHeightRef.current = Number.isFinite(stored) ? stored : 200;
+        }
+        shell.style.setProperty('--dock-height', `${dockHeightRef.current}px`);
     }, [editorState.open]);
 
-    const EDITOR_MAX_BYTES = 256 * 1024;
 
-    const findNodeByPath = (node, targetPath) => {
-        if (!node) return null;
-        if (node.path === targetPath) return node;
-        const children = Array.isArray(node.children) ? node.children : null;
-        if (!children) return null;
-        for (const child of children) {
-            const found = findNodeByPath(child, targetPath);
-            if (found) return found;
-        }
-        return null;
-    };
+    // Dock (terminal) toggle state — only available when dock panes registered
+    const hasDockPanes = paneRegistry.getDockPanes().length > 0;
+    const [dockVisible, setDockVisible] = useState(false);
+    const toggleDock = useCallback(() => setDockVisible((v) => !v), []);
 
-    const applyEditorPayload = useCallback((path, data) => {
-        if (data?.error) {
-            setEditorState({ open: true, path, content: '', loading: false, error: data.error, mtime: null, size: null });
-            return false;
-        }
-        if (data?.kind && data.kind !== 'text') {
-            setEditorState({ open: true, path, content: '', loading: false, error: 'File is not editable', mtime: data.mtime, size: data.size });
-            return false;
-        }
-        setEditorState({
-            open: true,
-            path,
-            content: data?.text || '',
-            loading: false,
-            error: null,
-            mtime: data?.mtime || null,
-            size: data?.size || null,
-        });
-        return true;
-    }, []);
-
-    const loadEditorFile = useCallback(async (path) => {
-        const data = await getWorkspaceFile(path, EDITOR_MAX_BYTES, 'edit');
-        applyEditorPayload(path, data);
-    }, [applyEditorPayload]);
-
-    const reloadEditorFromDisk = useCallback(async (path) => {
-        setEditorState((prev) => ({
-            ...prev,
-            loading: true,
-            error: null,
-        }));
-        let data;
-        try {
-            data = await getWorkspaceFile(path, EDITOR_MAX_BYTES, 'edit');
-        } catch (err) {
-            setEditorState((prev) => ({
-                ...prev,
-                loading: false,
-                error: err.message || 'Failed to reload file',
-            }));
-            return;
-        }
-        if (data?.error || (data?.kind && data.kind !== 'text')) {
-            applyEditorPayload(path, data);
-            return;
-        }
-        const nextMtime = data?.mtime || null;
-        if (nextMtime && editorState.mtime && nextMtime === editorState.mtime) {
-            setEditorState((prev) => ({
-                ...prev,
-                loading: false,
-            }));
-            return;
-        }
-        if (editorDirty) {
-            const confirmReload = window.confirm('This file changed on disk. Reload and discard local changes?');
-            if (!confirmReload) {
-                setEditorState((prev) => ({
-                    ...prev,
-                    loading: false,
-                }));
-                return;
-            }
-        }
-        setEditorSaveError(null);
-        setEditorSavedAt(null);
-        setEditorDirty(false);
-        applyEditorPayload(path, data);
-    }, [applyEditorPayload, editorDirty, editorState.mtime]);
-
-    const openEditor = useCallback(async (path) => {
-        if (!path) return;
-        setEditorSaveError(null);
-        setEditorSavedAt(null);
-        setEditorDirty(false);
-        setEditorState({ open: true, path, content: '', loading: true, error: null, mtime: null, size: null });
-        try {
-            await loadEditorFile(path);
-        } catch (err) {
-            setEditorState({ open: true, path, content: '', loading: false, error: err.message || 'Failed to load file', mtime: null, size: null });
-        }
-    }, [loadEditorFile]);
-
-    const closeEditor = useCallback(() => {
-        setEditorState({ open: false, path: null, content: '', loading: false, error: null, mtime: null, size: null });
-        setEditorSaveError(null);
-        setEditorSavedAt(null);
-        setEditorDirty(false);
-    }, []);
-
-    const handleEditorSave = useCallback(async (value) => {
-        if (!editorState?.path || editorSaving) return;
-        setEditorSaving(true);
-        setEditorSaveError(null);
-        try {
-            const result = await updateWorkspaceFile(editorState.path, value);
-            setEditorState((prev) => ({
-                ...prev,
-                content: value,
-                mtime: result?.mtime || prev.mtime,
-                size: result?.size || prev.size,
-            }));
-            setEditorSavedAt(Date.now());
-        } catch (err) {
-            setEditorSaveError(err.message || 'Failed to save file');
-        } finally {
-            setEditorSaving(false);
-        }
-    }, [editorState?.path, editorSaving]);
-
+    // Keyboard shortcut: Ctrl+` to toggle dock (only when dock panes exist)
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const handleWorkspaceUpdate = (event) => {
-            if (!editorState.open || !editorState.path || editorState.loading) return;
-            const updates = event?.detail?.updates || [];
-            if (!Array.isArray(updates) || updates.length === 0) return;
-            const targetPath = editorState.path;
-            let nextMtime = null;
-            let sawMatch = false;
-            for (const update of updates) {
-                if (!update?.root) continue;
-                const updatePath = update.path || '.';
-                const matches = updatePath === '.' || targetPath === updatePath || targetPath.startsWith(`${updatePath}/`);
-                if (!matches) continue;
-                sawMatch = true;
-                const node = findNodeByPath(update.root, targetPath);
-                if (node && node.type === 'file') {
-                    nextMtime = node.mtime || null;
-                    break;
-                }
+        if (!hasDockPanes) return;
+        const onKeyDown = (e) => {
+            if (e.ctrlKey && e.key === '`') {
+                e.preventDefault();
+                toggleDock();
             }
-            if (!sawMatch) return;
-            if (nextMtime && editorState.mtime && nextMtime === editorState.mtime) return;
-            if (!nextMtime) {
-                reloadEditorFromDisk(targetPath);
-                return;
-            }
-            if (editorDirty) {
-                const confirmReload = window.confirm('This file changed on disk. Reload and discard local changes?');
-                if (!confirmReload) return;
-            }
-            setEditorSaveError(null);
-            setEditorSavedAt(null);
-            setEditorDirty(false);
-            setEditorState((prev) => ({
-                ...prev,
-                loading: true,
-                error: null,
-            }));
-            loadEditorFile(targetPath).catch((err) => {
-                setEditorState((prev) => ({
-                    ...prev,
-                    loading: false,
-                    error: err.message || 'Failed to reload file',
-                }));
-            });
         };
-        window.addEventListener('workspace-update', handleWorkspaceUpdate);
-        return () => window.removeEventListener('workspace-update', handleWorkspaceUpdate);
-    }, [editorState.open, editorState.path, editorState.mtime, editorState.loading, editorDirty, loadEditorFile, reloadEditorFromDisk]);
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [toggleDock, hasDockPanes]);
 
     const steerQueued = Boolean(steerQueuedTurnId && (steerQueuedTurnId === (agentStatus?.turn_id || currentTurnId)));
     const editorOpen = Boolean(editorState.open);
@@ -1403,18 +1271,48 @@ function App() {
             </button>
             <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown} onTouchStart=${handleSplitterTouchStart}></div>
             ${editorOpen && html`
-                <${WorkspaceEditor}
-                    path=${editorState.path}
-                    content=${editorState.content}
-                    loading=${editorState.loading}
-                    error=${editorState.error}
-                    saving=${editorSaving}
-                    saveError=${editorSaveError}
-                    savedAt=${editorSavedAt}
-                    onSave=${handleEditorSave}
-                    onClose=${closeEditor}
-                    onDirtyChange=${setEditorDirty}
-                />
+                <div class="editor-pane-container">
+                    <${TabStrip}
+                        tabs=${tabStripTabs}
+                        activeId=${tabStripActiveId}
+                        onActivate=${handleTabActivate}
+                        onClose=${handleTabClose}
+                        onCloseOthers=${handleTabCloseOthers}
+                        onCloseAll=${handleTabCloseAll}
+                        onTogglePin=${handleTabTogglePin}
+                        onToggleDock=${hasDockPanes ? toggleDock : undefined}
+                        dockVisible=${hasDockPanes && dockVisible}
+                    />
+                    <${WorkspaceEditor}
+                        path=${editorState.path}
+                        content=${editorState.content}
+                        loading=${editorState.loading}
+                        error=${editorState.error}
+                        saving=${editorSaving}
+                        saveError=${editorSaveError}
+                        savedAt=${editorSavedAt}
+                        onSave=${handleEditorSave}
+                        onClose=${closeEditor}
+                        onDirtyChange=${handleEditorDirtyChange}
+                        onViewStateChange=${handleViewStateChange}
+                        initialViewState=${activeViewState}
+                    />
+                    ${hasDockPanes && dockVisible && html`<div class="dock-splitter" onMouseDown=${handleDockSplitterMouseDown} onTouchStart=${handleDockSplitterTouchStart}></div>`}
+                    ${hasDockPanes && html`<div class=${`dock-panel${dockVisible ? '' : ' hidden'}`}>
+                        <div class="dock-panel-header">
+                            <span class="dock-panel-title">Terminal</span>
+                            <button class="dock-panel-close" onClick=${toggleDock} title="Hide terminal (Ctrl+\`)" aria-label="Hide terminal">
+                                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                                    <line x1="4" y1="12" x2="12" y2="4"/>
+                                    <polyline points="4 4 12 4 12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="dock-panel-body">
+                            <div class="terminal-placeholder">Terminal integration pending — xterm.js + WebSocket</div>
+                        </div>
+                    </div>`}
+                </div>
                 <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>
             `}
             <div class="container">

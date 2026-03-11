@@ -710,17 +710,12 @@ body {
 }
 
 .editor-pane {
-    width: var(--editor-width, 40vw);
-    min-width: 280px;
-    max-width: 70vw;
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-primary);
-    height: 100dvh;
     overflow: hidden;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border-color);
-    border-right: none;
     position: relative;
 }
 
@@ -755,6 +750,157 @@ body {
 .app-shell.editor-open > .container .post-avatar.has-image img {
     width: 28px;
     height: 28px;
+}
+
+/* ── Tab Strip ── */
+.editor-pane-container {
+    display: flex;
+    flex-direction: column;
+    width: var(--editor-width, 40vw);
+    min-width: 280px;
+    max-width: 70vw;
+    height: 100dvh;
+    overflow: hidden;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border-color);
+}
+
+.tab-strip {
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    min-height: 33px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex-shrink: 0;
+}
+.tab-strip::-webkit-scrollbar { display: none; }
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px 0 10px;
+    font-size: 12px;
+    font-family: var(--font-family);
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border-color);
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 180px;
+    position: relative;
+    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.tab-item:hover {
+    background: var(--bg-hover);
+}
+
+.tab-item.active {
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    box-shadow: inset 0 -2px 0 var(--accent-color);
+}
+
+.tab-item.pinned .tab-label {
+    font-style: italic;
+}
+
+.tab-pin-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+.tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--ui-transition-fast), background-color var(--ui-transition-fast);
+    cursor: pointer;
+}
+
+.tab-item:hover .tab-close,
+.tab-item.active .tab-close {
+    opacity: 1;
+}
+
+.tab-close:hover {
+    background: var(--bg-hover);
+}
+
+/* Dirty tabs always show the dot */
+.tab-item.dirty .tab-close {
+    opacity: 1;
+}
+
+.tab-dirty-dot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+}
+
+.tab-item.active .tab-dirty-dot {
+    background: var(--accent-color);
+}
+
+/* ── Tab Context Menu ── */
+.tab-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 4px 0;
+    min-width: 140px;
+}
+
+.tab-context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tab-context-menu button:hover {
+    background: var(--bg-hover);
+}
+
+.tab-context-menu hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 4px 0;
 }
 
 .editor-header {
@@ -944,6 +1090,163 @@ body {
     padding: 6px var(--spacing-md);
     font-size: 11px;
     color: var(--danger-color);
+}
+
+/* ── Terminal Dock Pane ── */
+.terminal-pane-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-primary);
+    outline: none;
+}
+
+.terminal-pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.terminal-pane-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.terminal-pane-status {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.terminal-pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--spacing-sm);
+}
+
+.terminal-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: var(--font-family-mono);
+}
+
+/* Dock panel layout (bottom panel) */
+/* Dock splitter — horizontal drag handle between editor and dock */
+.dock-splitter {
+    height: 4px;
+    cursor: row-resize;
+    background: var(--border-color);
+    flex-shrink: 0;
+    transition: background-color var(--ui-transition-fast);
+    position: relative;
+    z-index: 2;
+}
+
+.dock-splitter:hover,
+.dock-splitter.dragging {
+    background: var(--accent-color);
+}
+
+.dock-panel {
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    height: var(--dock-height, 200px);
+    min-height: 100px;
+    max-height: 50vh;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dock-panel.hidden {
+    display: none;
+}
+
+.dock-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.dock-panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.dock-panel-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 0;
+}
+
+.dock-panel-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.dock-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Tab strip dock toggle and spacer */
+.tab-strip-spacer {
+    flex: 1;
+    min-width: 8px;
+}
+
+.tab-strip-dock-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    padding: 0;
+    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+}
+
+.tab-strip-dock-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.tab-strip-dock-toggle.active {
+    color: var(--accent-color);
 }
 
 /* ── CodeMirror syntax highlighting (classHighlighter) ── */

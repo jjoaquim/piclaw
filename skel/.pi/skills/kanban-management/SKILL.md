@@ -1,6 +1,6 @@
 ---
 name: kanban-management
-description: Manage the kanban board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking.
+description: "Manage the kanban board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking."
 ---
 
 # Kanban Management Skill
@@ -235,6 +235,41 @@ A ticket **cannot** transition `doing → review` if:
 - It introduces new logic without corresponding test files.
 - Existing tests are broken by the changes.
 - The `## Updates` entry for the transition does not include test evidence.
+
+### JSDoc coverage gate
+
+Every **exported** symbol (function, class, interface, type, constant) in new or
+modified `.ts` files must have a JSDoc comment. The gate scales by symbol type:
+
+| Symbol type | Minimum JSDoc |
+|---|---|
+| Exported interface / type | `/** One-line purpose. */` on the type + every property |
+| Exported class | `/** One-line purpose. */` on the class + every public method |
+| Exported function | `/** Purpose. @param / @returns descriptions. */` |
+| Exported constant (singleton, config) | `/** One-line purpose. */` |
+| Internal / private helpers | Encouraged but not gated |
+| Re-exports (barrel `index.ts`) | Not required |
+
+**What to document:**
+
+- **Purpose** — what the symbol does, not how.
+- **Parameters** — `@param name Description` for each (types inferred from TS).
+- **Return value** — `@returns Description` when non-obvious.
+- **Side effects** — note event dispatch, DOM mutation, state changes.
+- **Example** — optional; add when usage isn't obvious from the signature.
+
+**Checklist** (add to `## Test Plan` alongside test items):
+
+```md
+- [ ] All exported symbols have JSDoc (`grep -rn 'export ' src/ | grep -v '\/\*\*'` returns zero new gaps)
+- [ ] Interface/type properties documented
+- [ ] Public class methods documented
+```
+
+A ticket **cannot** transition `doing → review` if:
+- New exported symbols lack JSDoc comments.
+- Public interface/type properties lack documentation.
+- The `## Updates` entry does not confirm JSDoc audit.
 
 ---
 

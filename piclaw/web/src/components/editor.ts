@@ -130,6 +130,8 @@ export function WorkspaceEditor({
     onSave,
     onClose,
     onDirtyChange,
+    onViewStateChange,
+    initialViewState,
 }) {
     const hostRef = useRef(null);
     const viewRef = useRef(null);
@@ -248,6 +250,14 @@ export function WorkspaceEditor({
             ]),
             EditorView.updateListener.of((update) => {
                 if (update.docChanged) updateDirty();
+                // Capture view state on cursor or scroll changes
+                if ((update.selectionSet || update.docChanged) && typeof onViewStateChange === 'function') {
+                    const pos = update.state.selection.main.head;
+                    const line = update.state.doc.lineAt(pos);
+                    const col = pos - line.from + 1;
+                    const scrollTop = update.view.scrollDOM?.scrollTop || 0;
+                    onViewStateChange({ cursorLine: line.number, cursorCol: col, scrollTop });
+                }
             }),
             EditorView.theme({
                 '&': { height: '100%', fontFamily: MONO_STACK },
@@ -268,6 +278,24 @@ export function WorkspaceEditor({
         viewRef.current = view;
         initialContentRef.current = content || '';
         setDirty(false);
+
+        // Restore saved view state (cursor + scroll) from tab store
+        if (initialViewState) {
+            try {
+                const { cursorLine, cursorCol, scrollTop } = initialViewState;
+                if (cursorLine && cursorLine > 0 && cursorLine <= view.state.doc.lines) {
+                    const line = view.state.doc.line(cursorLine);
+                    const col = Math.min(cursorCol || 1, line.length + 1);
+                    const pos = line.from + col - 1;
+                    view.dispatch({ selection: { anchor: pos } });
+                }
+                if (typeof scrollTop === 'number' && scrollTop > 0) {
+                    requestAnimationFrame(() => {
+                        if (view.scrollDOM) view.scrollDOM.scrollTop = scrollTop;
+                    });
+                }
+            } catch {}
+        }
 
         const updateGutterWidth = () => {
             const pane = paneRef.current;

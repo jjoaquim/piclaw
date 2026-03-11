@@ -1,7 +1,7 @@
 import { useRef } from '../vendor/preact-htm.js';
 import { setLocalStorageItem } from '../utils/storage.js';
 
-export function useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef }) {
+export function useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef, dockHeightRef }) {
   const handleSplitterMouseDown = useRef((e) => {
     e.preventDefault();
     const shell = appShellRef.current;
@@ -136,10 +136,81 @@ export function useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef }) {
     document.addEventListener('touchcancel', onUp);
   }).current;
 
+  const handleDockSplitterMouseDown = useRef((e) => {
+    e.preventDefault();
+    const shell = appShellRef.current;
+    if (!shell) return;
+    const startY = e.clientY;
+    const startH = dockHeightRef?.current || 200;
+    const splitter = e.currentTarget;
+    splitter.classList.add('dragging');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    let lastY = startY;
+    const onMove = (me) => {
+      lastY = me.clientY;
+      // Dragging up increases dock height
+      const h = Math.min(Math.max(startH - (me.clientY - startY), 100), window.innerHeight * 0.5);
+      shell.style.setProperty('--dock-height', `${h}px`);
+      if (dockHeightRef) dockHeightRef.current = h;
+    };
+    const onUp = () => {
+      const h = Math.min(Math.max(startH - (lastY - startY), 100), window.innerHeight * 0.5);
+      if (dockHeightRef) dockHeightRef.current = h;
+      splitter.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setLocalStorageItem('dockHeight', String(Math.round(h)));
+      // Notify dock pane of resize
+      window.dispatchEvent(new CustomEvent('dock-resize'));
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }).current;
+
+  const handleDockSplitterTouchStart = useRef((e) => {
+    e.preventDefault();
+    const shell = appShellRef.current;
+    if (!shell) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const startY = touch.clientY;
+    const startH = dockHeightRef?.current || 200;
+    const splitter = e.currentTarget;
+    splitter.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+
+    const onMove = (te) => {
+      const t = te.touches[0];
+      if (!t) return;
+      te.preventDefault();
+      const h = Math.min(Math.max(startH - (t.clientY - startY), 100), window.innerHeight * 0.5);
+      shell.style.setProperty('--dock-height', `${h}px`);
+      if (dockHeightRef) dockHeightRef.current = h;
+    };
+    const onUp = () => {
+      splitter.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      setLocalStorageItem('dockHeight', String(Math.round(dockHeightRef?.current || startH)));
+      window.dispatchEvent(new CustomEvent('dock-resize'));
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      document.removeEventListener('touchcancel', onUp);
+    };
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
+  }).current;
+
   return {
     handleSplitterMouseDown,
     handleSplitterTouchStart,
     handleEditorSplitterMouseDown,
     handleEditorSplitterTouchStart,
+    handleDockSplitterMouseDown,
+    handleDockSplitterTouchStart,
   };
 }
