@@ -62,6 +62,18 @@ const AOAI_IMAGE_MODEL_ID = process.env.AOAI_IMAGE_MODEL_ID || "gpt-image-1-5";
 const AOAI_API_VERSION = process.env.AOAI_API_VERSION || process.env.OPENAI_API_VERSION || "2024-02-15-preview";
 const FOUNDRY_BASE_URL =
   process.env.FOUNDRY_BASE_URL || "https://{FOUNDRY_RESOURCE}.cognitiveservices.azure.com/openai/v1";
+// Secondary Azure OpenAI endpoint (e.g. a different region). Optional.
+// AOAI2_BASE_URL, AOAI2_MODEL_IDS, AOAI2_MODEL_NAMES follow the same pattern as the primary.
+const AOAI2_BASE_URL = process.env.AOAI2_BASE_URL || "";
+const AOAI2_PROVIDER = "azure-openai-2";
+const AOAI2_API = "azure-openai-responses-mi-2";
+const AOAI2_MODEL_IDS = (process.env.AOAI2_MODEL_IDS || "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+const AOAI2_MODEL_NAMES = (process.env.AOAI2_MODEL_NAMES || "")
+  .split(",")
+  .map((entry) => entry.trim());
 const FOUNDRY_MODEL_IDS = (process.env.FOUNDRY_MODEL_IDS || "mistral-large-3,flux-2-pro")
   .split(",")
   .map((entry) => entry.trim())
@@ -105,7 +117,7 @@ const SKEW_SECONDS = Number(process.env.AOAI_TOKEN_SKEW_SECONDS || "300");
 // When AOAI_API_KEY is set, use it directly instead of fetching managed-identity tokens.
 // This is used when connecting through a proxy that handles MI auth on our behalf.
 const STATIC_API_KEY = process.env.AOAI_API_KEY || "";
-const TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode", PROVIDER, FOUNDRY_PROVIDER]);
+const TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode", PROVIDER, FOUNDRY_PROVIDER, AOAI2_PROVIDER]);
 const DISABLE_TOOLS = /^(1|true|yes)$/i.test(process.env.AOAI_DISABLE_TOOLS || "");
 const DISABLE_REASONING = /^(1|true|yes)$/i.test(process.env.AOAI_DISABLE_REASONING || "");
 const TOOL_CALL_LIMIT = parseInt(process.env.AOAI_MAX_TOOL_CALLS || "96", 10);
@@ -198,6 +210,8 @@ function logExtensionLoaded(): void {
     foundryBaseUrl: FOUNDRY_BASE_URL,
     modelIds: MODEL_IDS,
     foundryModelIds: FOUNDRY_MODEL_IDS,
+    aoai2ModelIds: AOAI2_MODEL_IDS,
+    aoai2BaseUrl: AOAI2_BASE_URL || "(not set)",
     authMode: STATIC_API_KEY ? "api-key (proxy)" : "managed-identity",
     disableTools: DISABLE_TOOLS,
     disableReasoning: DISABLE_REASONING,
@@ -1314,6 +1328,37 @@ export function registerAzureProviders(register: (name: string, config: any) => 
       apiKey: token,
       streamSimple: streamSimpleFoundryOpenAICompletions,
       models: foundryModels,
+    });
+  }
+
+  // Secondary Azure OpenAI endpoint (optional — only registered when AOAI2_BASE_URL is set)
+  if (AOAI2_BASE_URL && AOAI2_MODEL_IDS.length > 0) {
+    const aoai2Models = AOAI2_MODEL_IDS.flatMap((id, idx) => {
+      const spec = MODEL_SPECS[id] || DEFAULT_AZURE_SPEC;
+      const caps = MODEL_CAPABILITIES[id];
+      const rateLimits = MODEL_RATE_LIMITS[id];
+      if (caps?.responses === false) {
+        console.error(`[azure-openai-2] Skipping ${id}: responses not supported.`);
+        return [];
+      }
+      return [{
+        id,
+        name: AOAI2_MODEL_NAMES[idx] || `Azure ${id}`,
+        api: AOAI2_API,
+        reasoning: spec.reasoning ?? true,
+        input: ["text"],
+        contextWindow: spec.contextWindow ?? 200000,
+        maxTokens: spec.maxTokens ?? 64000,
+        rateLimits,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      }];
+    });
+    register(AOAI2_PROVIDER, {
+      baseUrl: AOAI2_BASE_URL,
+      api: AOAI2_API,
+      apiKey: token,
+      streamSimple: streamSimpleAzureOpenAIResponses,
+      models: aoai2Models,
     });
   }
 }
