@@ -202,9 +202,39 @@ Add a quality score line to the latest `## Updates` entry:
 |---|---|---|---|
 | inbox → next | 3 | ★★☆☆☆ | Summary + rough acceptance criteria |
 | next → doing | 5 | ★★★☆☆ | Implementation paths + test plan + DoD checklist |
-| doing → review | 7 | ★★★★☆ | All tests passing, update history current |
+| doing → review | 7 | ★★★★☆ | All tests passing, update history current, test gate met |
 | review → done | 9 | ★★★★★ | DoD fully checked, no open gaps |
 | any → blocked | n/a | — | Blockers section with ticket links |
+
+### Test coverage gate
+
+Every ticket that introduces or modifies code **must** pass a test gate before
+moving from `doing → review`. The gate requirements scale with risk:
+
+| Change type | Minimum test requirement |
+|---|---|
+| New module / contract / interface | Unit tests for all public API surface (registry, resolution, lifecycle) |
+| Bug fix | Regression test reproducing the bug before fix, passing after |
+| Refactor (behavior-preserving) | Existing tests still pass; add tests if uncovered paths are touched |
+| UI-only (CSS / template) | Manual test noted in `## Updates` with browser + device |
+| Config / docs only | No test required |
+
+**Concrete checklist** (add to `## Test Plan` in every implementation ticket):
+
+```md
+## Test Plan
+
+- [ ] Unit tests written for new/changed logic (file paths or describe blocks listed)
+- [ ] All existing tests pass (`bun run test`)
+- [ ] Type check clean (`bun run typecheck`)
+- [ ] Edge cases and error paths covered (invalid input, exceptions, empty state)
+- [ ] Test evidence recorded in `## Updates` (commit hash, pass/fail count)
+```
+
+A ticket **cannot** transition `doing → review` if:
+- It introduces new logic without corresponding test files.
+- Existing tests are broken by the changes.
+- The `## Updates` entry for the transition does not include test evidence.
 
 ---
 
