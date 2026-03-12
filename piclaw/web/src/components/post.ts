@@ -252,12 +252,6 @@ function enhanceCodeBlocks(container) {
     const resetTimers = new Map();
     const cleanups = [];
 
-    const setTouchActive = (activePre) => {
-        blocks.forEach((pre) => {
-            pre.classList.toggle('code-copy-touch-active', pre === activePre);
-        });
-    };
-
     const setButtonState = (button, state) => {
         const nextState = state || 'idle';
         button.dataset.copyState = nextState;
@@ -282,12 +276,16 @@ function enhanceCodeBlocks(container) {
     };
 
     blocks.forEach((pre) => {
-        pre.classList.add('post-code-block');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'post-code-block';
+        pre.parentNode?.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'post-code-copy-btn';
         setButtonState(button, 'idle');
-        pre.appendChild(button);
+        wrapper.appendChild(button);
 
         const handleCopyClick = async (event) => {
             event.preventDefault();
@@ -305,32 +303,17 @@ function enhanceCodeBlocks(container) {
             resetTimers.set(button, timer);
         };
 
-        const handleTouchPointerDown = (event) => {
-            if (event.pointerType === 'touch') {
-                setTouchActive(pre);
-            }
-        };
-
         button.addEventListener('click', handleCopyClick);
-        pre.addEventListener('pointerdown', handleTouchPointerDown);
         cleanups.push(() => {
             button.removeEventListener('click', handleCopyClick);
-            pre.removeEventListener('pointerdown', handleTouchPointerDown);
             const timer = resetTimers.get(button);
             if (timer) clearTimeout(timer);
-            button.remove();
-            pre.classList.remove('post-code-block', 'code-copy-touch-active');
+            if (wrapper.parentNode) {
+                wrapper.parentNode.insertBefore(pre, wrapper);
+                wrapper.remove();
+            }
         });
     });
-
-    const handleDocumentPointerDown = (event) => {
-        if (event.pointerType !== 'touch') return;
-        const targetPre = event.target?.closest?.('.post-code-block');
-        setTouchActive(targetPre || null);
-    };
-
-    document.addEventListener('pointerdown', handleDocumentPointerDown);
-    cleanups.push(() => document.removeEventListener('pointerdown', handleDocumentPointerDown));
 
     return () => {
         cleanups.forEach((cleanup) => cleanup());
