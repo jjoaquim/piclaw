@@ -67,6 +67,7 @@ update-mermaid-vendor: ## Rebuild or upgrade vendored mermaid (use MERMAID_VERSI
 
 build-web: ## Build web JS/CSS bundles (+ sourcemaps) into static/dist/ (includes vendor bundle)
 	cd piclaw && bun run build:web
+	@cd piclaw && bun test test/channels/web/web-build.test.ts test/channels/web/post-link-preview-content.test.ts
 	@ls -lh \
 		piclaw/web/static/dist/app.bundle.js \
 		piclaw/web/static/dist/app.bundle.js.map \

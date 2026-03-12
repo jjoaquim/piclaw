@@ -304,6 +304,11 @@ function App() {
         setFileRefs([]);
     }, []);
 
+    // TDZ-safe hook ordering note:
+    // - keep handler callbacks defined before they are passed downstream,
+    // - avoid forward references to uninitialized const callbacks,
+    // - use useRef.current for mutable forward refs when needed.
+    // See notes/piclaw-web-frontend-safety.md for the full checklist.
     const showIntentToast = useCallback((title, detail = null, durationMs = 3000) => {
         clearIntentToast();
         setIntentToast({ title, detail: detail || null });

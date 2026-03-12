@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web-build:
+    name: Build web UI + frontend regression checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: piclaw
+        run: bun install --frozen-lockfile
+
+      - name: Build web bundles and run web regression tests
+        working-directory: piclaw
+        run: make build-web

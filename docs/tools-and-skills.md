@@ -14,8 +14,11 @@ Core tools (from `pi`):
 `piclaw` extensions:
 
 - `attach_file` — attach a workspace file for download in the web UI (cards appear automatically; use `attachment:<filename>` only for inline embeds)
-- `search_messages` — full‑text search across stored messages (FTS + hashtags + row lookup)
-- `get_message` — retrieve full message content by row_id (with optional context)
+- `messages` — unified message CRUD tool with `action`:
+  - `search` (FTS + hashtag + optional time filtering)
+  - `get` (lookup by `row_ids` with context)
+  - `add` (insert a row, optionally attaching media)
+  - `delete` (thread-cascade delete, optional `dry_run`, optional `force`)
 - `search_workspace` — full‑text search across notes + skills (FTS, with aggressive cleanup and size limits)
 - `get_model_state` — show current model, thinking level, and context usage
 - `list_models` — list available models/providers
@@ -26,7 +29,10 @@ Core tools (from `pi`):
 - `sql_introspect` — run read-only SQL queries against the messages database
 - `list_internal_tools` — list available tools with descriptions
 
-`search_messages` accepts `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
+`messages` `search` accepts `query`, `chat_jid` (or `*`/`all`), `role`, `after`, `before`, `since`, `limit`, `offset`, and `details_max_chars` for controlling detail payloads.
+`messages` `get` accepts `row_ids`, optional `chat_jid`, `role`, `context_before`, `context_after`, and `details_max_chars`.
+`messages` `add` accepts `content`, optional `chat_jid`, `type` (`user` or `agent`), and `media_ids`.
+`messages` `delete` accepts `row_ids` and optional `chat_jid`, `force`, and `dry_run`.
 
 `search_workspace` accepts:
 - `query` — FTS query text

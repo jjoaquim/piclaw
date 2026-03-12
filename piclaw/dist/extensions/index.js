@@ -1,5 +1,5 @@
 import { fileAttachments } from "./file-attachments.js";
-import { messageSearch } from "./message-search.js";
+import { messagesCrud } from "./messages-crud.js";
 import { modelControl } from "./model-control.js";
 import { internalTools } from "./internal-tools.js";
 import { keychainTools } from "./keychain-tools.js";
@@ -10,7 +10,7 @@ import { uiThemeExtension } from "./ui-theme.js";
 /** Array of all built-in extension factories to register on session creation. */
 export const builtinExtensionFactories = [
     fileAttachments,
-    messageSearch,
+    messagesCrud,
     modelControl,
     internalTools,
     keychainTools,

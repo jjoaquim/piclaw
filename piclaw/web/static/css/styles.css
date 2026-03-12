@@ -2087,8 +2087,33 @@ body {
 
 .post.thread-reply {
     margin-left: 2.5rem;
-    border-left: 2px solid var(--border-color);
     padding-left: calc(var(--spacing-md) - 2px);
+    position: relative;
+}
+
+.post.thread-reply::before,
+.post.thread-reply::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 2px;
+    background: var(--border-color);
+    opacity: 0;
+}
+
+.post.thread-reply::before {
+    top: 0;
+    bottom: 50%;
+}
+
+.post.thread-reply::after {
+    top: 50%;
+    bottom: 0;
+}
+
+.post.thread-reply.thread-prev::before,
+.post.thread-reply.thread-next::after {
+    opacity: 1;
 }
 
 .post.thread-reply .post-avatar {

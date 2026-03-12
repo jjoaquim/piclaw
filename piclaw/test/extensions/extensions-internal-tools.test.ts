@@ -57,7 +57,7 @@ describe("internal-tools extension", () => {
     const { internalTools } = await import("../../src/extensions/internal-tools.js");
     const fake = makeFakeApi([
       { name: "bash", description: "Run a shell command and return output." },
-      { name: "search_messages", description: "Search chat history by FTS or hashtag." },
+      { name: "messages", description: "Search, retrieve, add, or delete messages." },
       { name: "list_internal_tools", description: "List available internal tools." },
     ]);
     internalTools(fake.api);
@@ -69,7 +69,7 @@ describe("internal-tools extension", () => {
 
     const filtered = await tool.execute("t2", { query: "search" });
     expect(filtered.content[0].text).toContain("filtered");
-    expect(filtered.content[0].text).toContain("search_messages");
+    expect(filtered.content[0].text).toContain("messages");
     expect(filtered.content[0].text).not.toContain("• bash —");
   });
 

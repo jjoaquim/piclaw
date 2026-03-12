@@ -90,7 +90,7 @@ These are compiled into the package and registered via `extensionFactories` on t
 | Factory | Tools / Commands |
 |---------|-----------------|
 | `fileAttachments` | `attach_file` |
-| `messageSearch` | `search_messages`, `get_message` |
+| `messagesCrud` | `messages` |
 | `workspaceSearch` | `search_workspace` |
 | `modelControl` | `get_model_state`, `list_models`, `switch_model`, `switch_thinking` |
 | `keychainTools` | `keychain` (list, get, set, delete) |

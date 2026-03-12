@@ -7,7 +7,7 @@
  *
  * Extensions registered here:
  *   - fileAttachments: attach_file tool for delivering workspace files.
- *   - messageSearch: search_messages + get_message tools for querying/retrieving chat history.
+ *   - messages: unified messages tool for searching, retrieving, adding, and deleting chat messages.
  *   - modelControl: get_model_state, list_models, switch_model, switch_thinking.
  *   - internalTools: list_internal_tools for tool discovery.
  *   - keychainTools: keychain for listing/retrieving keychain entries.
@@ -20,7 +20,7 @@
  */
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import { fileAttachments } from "./file-attachments.js";
-import { messageSearch } from "./message-search.js";
+import { messagesCrud } from "./messages-crud.js";
 import { modelControl } from "./model-control.js";
 import { internalTools } from "./internal-tools.js";
 import { keychainTools } from "./keychain-tools.js";
@@ -32,7 +32,7 @@ import { uiThemeExtension } from "./ui-theme.js";
 /** Array of all built-in extension factories to register on session creation. */
 export const builtinExtensionFactories: ExtensionFactory[] = [
   fileAttachments,
-  messageSearch,
+  messagesCrud,
   modelControl,
   internalTools,
   keychainTools,

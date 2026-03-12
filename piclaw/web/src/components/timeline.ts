@@ -99,20 +99,69 @@ export function Timeline({ posts, hasMore, onLoadMore, onPostClick, onHashtagCli
     // Sort posts by id (oldest first)
     const displayPosts = posts.slice().sort((a, b) => a.id - b.id);
 
+    const resolveThreadRootId = (post) => {
+        const raw = post?.data?.thread_id;
+        if (raw === null || raw === undefined || raw === '') return null;
+        const threadId = Number(raw);
+        return Number.isFinite(threadId) ? threadId : null;
+    };
+
+    const threadGroups = new Map();
+    for (let i = 0; i < displayPosts.length; i += 1) {
+        const post = displayPosts[i];
+        const postId = Number(post?.id);
+        const threadRootId = resolveThreadRootId(post);
+
+        if (threadRootId !== null) {
+            const group = threadGroups.get(threadRootId) || { anchorIndex: -1, replyIndexes: [] };
+            group.replyIndexes.push(i);
+            threadGroups.set(threadRootId, group);
+        } else if (Number.isFinite(postId)) {
+            const group = threadGroups.get(postId) || { anchorIndex: -1, replyIndexes: [] };
+            group.anchorIndex = i;
+            threadGroups.set(postId, group);
+        }
+    }
+
+    const threadSequences = new Map();
+    for (const [threadId, group] of threadGroups.entries()) {
+        const ordered = new Set();
+        if (group.anchorIndex >= 0) ordered.add(group.anchorIndex);
+        for (const index of group.replyIndexes) ordered.add(index);
+        threadSequences.set(threadId, Array.from(ordered).sort((a, b) => a - b));
+    }
+
+    const threadInfoByIndex = displayPosts.map((post, index) => {
+        const threadRootId = resolveThreadRootId(post);
+        if (threadRootId === null) return { hasThreadPrev: false, hasThreadNext: false };
+
+        const sequence = threadSequences.get(threadRootId);
+        if (!sequence || sequence.length === 0) return { hasThreadPrev: false, hasThreadNext: false };
+        const position = sequence.indexOf(index);
+        if (position < 0) return { hasThreadPrev: false, hasThreadNext: false };
+        return {
+            hasThreadPrev: position > 0,
+            hasThreadNext: position < sequence.length - 1,
+        };
+    });
+
     const sentinel = html`<div class="timeline-sentinel" ref=${sentinelRef}></div>`;
 
     return html`
         <div class="timeline ${reverse ? 'reverse' : 'normal'}" ref=${timelineRef} onScroll=${handleScroll}>
             <div class="timeline-content">
                 ${reverse ? sentinel : null}
-                ${displayPosts.map(post => {
+                ${displayPosts.map((post, index) => {
                     const isThreadReply = Boolean(post.data?.thread_id && post.data.thread_id !== post.id);
                     const isRemoving = removingPostIds?.has?.(post.id);
+                    const threadInfo = threadInfoByIndex[index] || {};
                     return html`
                     <${Post}
                         key=${post.id}
                         post=${post}
                         isThreadReply=${isThreadReply}
+                        isThreadPrev=${threadInfo.hasThreadPrev}
+                        isThreadNext=${threadInfo.hasThreadNext}
                         isRemoving=${isRemoving}
                         highlightQuery=${searchQuery}
                         agentName=${getAgentName(post.data?.agent_id, agents || {})}
