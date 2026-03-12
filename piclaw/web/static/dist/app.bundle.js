@@ -245,8 +245,8 @@ ${X_.map((A_,P_)=>{let K2=o[P_]?.name||`image-${P_+1}`;return`- attachment:${A_}
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             <input type="file" accept="image/*" multiple hidden onChange=${A0} />
                         </label>
-                        <button
-                            class="icon-btn send-btn"
+                        <button 
+                            class="icon-btn send-btn" 
                             type="button"
                             onClick=${()=>{R_()}}
                             disabled=${!P}
@@ -391,7 +391,7 @@ ${J}
                 `}
                 <div class="agent-request-actions">
                     ${H?X.map((A)=>q`
-                            <button
+                            <button 
                                 key=${A.optionId||A.id||String(A)}
                                 class="agent-request-btn ${A.kind==="allow_once"||A.kind==="allow_always"?"primary":""}"
                                 onClick=${()=>M(A.optionId||A.id||A)}
@@ -590,7 +590,7 @@ ${J}
                     </div>
                 `}
                 ${H_&&q`
-                    <div
+                    <div 
                         ref=${R}
                         class="post-content"
                         dangerouslySetInnerHTML=${{__html:E_}}
@@ -605,10 +605,10 @@ ${J}
                 ${a_.length>0&&q`
                     <div class="media-preview">
                         ${a_.map(({id:P,mimeType:r})=>{let c_=typeof r==="string"&&r.toLowerCase().startsWith("image/svg")?J2(P):F3(P);return q`
-                                <img
-                                    key=${P}
-                                    src=${c_}
-                                    alt="Media"
+                                <img 
+                                    key=${P} 
+                                    src=${c_} 
+                                    alt="Media" 
                                     loading="lazy"
                                     onClick=${(r_)=>D_(r_,P)}
                                 />

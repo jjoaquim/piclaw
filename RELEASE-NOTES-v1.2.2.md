@@ -1,53 +1,64 @@
-# v1.2.2
+# v1.2.3
 
-**Scope:** Provider usage display · IPC media attachments · inline SVG UX · kanban board workflow · test guardrails
+**Scope:** Unified internal message tool, thread connector regression fix, file-pill/editor UX hardening, and web CI hardening.
 
 ## Highlights
 
-- **Provider quota/usage hints** for OpenAI Codex and GitHub Copilot shown inline next to the model picker in the web UI.
-- **IPC messages** now support inline media attachments (SVG, images, etc.) with best-effort delivery.
-- **Inline SVG** rendering in the web timeline is now full-quality and zoomable.
-- **Kanban board skill** defaults to posting via IPC with auto light/dark theme by time of day.
-- **Test harness** enforces in-memory DB fixture globally, with an explicit guard test.
+- **Unified internal `messages` tool** replaces `search_messages` and `get_message` with a single `messages` action-based tool (`search/get/add/delete`).
+- **Thread connector rendering fixed** so thread lines stop at the thread boundary and remain stable when anchor cards are large.
+- **File-pill editor open flow hardened** with safe visibility/editor-capability checks and intent-style feedback on unsupported opens.
+- **Web build guardrails strengthened**: targeted frontend regressions now run automatically on every web build and CI.
+- **Release notes/packaging readiness** for patch release.
 
-## Added
+## Internal tools
 
-### Provider usage display
-- New `provider-usage.ts` module fetches live quota snapshots from the **OpenAI Codex** (ChatGPT usage API) and **GitHub Copilot** (internal quota API).
-- Compact usage hint (e.g. `5h 62% · wk 41% · credits 123` or `premium 70% · chat 80%`) displayed next to the active model label in the compose box.
-- Tooltip shows plan type and reset countdown.
-- Results cached with configurable TTL (`PICLAW_PROVIDER_USAGE_TTL_MS`, default 60s).
-- `getAvailableModels()` now returns `provider_usage` alongside model/thinking state.
-- Unit tests cover both Codex and Copilot fetch paths with mocked responses.
+### `messages` migration
 
-### IPC media pipeline
-- `media[]` array in IPC message payloads supports `path`, `content_type`, `filename`, `inline` fields.
-- `inline` parsing accepts boolean-like strings (`"true"`, `"1"`, `"yes"`, `"on"`).
-- `content_blocks` include `mime_type` for downstream rendering decisions.
-- Best-effort attachment: failed media appends a warning but the message still posts.
-- `MediaService.createFromPath()` added for filesystem-based media uploads with extension-based MIME inference.
-- FTS indexes SVG text content from IPC-injected media.
-- JSDoc guard test prevents regression of export-level documentation on IPC/media-service exports.
+- Added the built-in internal `messages` tool with actions:
+  - `search`: full-text search with filters
+  - `get`: direct retrieval by row IDs
+  - `add`: direct insert path
+  - `delete`: safe deletion with explicit action
+- Removed legacy tool registrations for:
+  - `search_messages`
+  - `get_message`
+- Updated and expanded tests in `test/extensions/messages-crud.test.ts` and integration coverage that exercise the new action contract.
+- Kept result envelope compatibility by preserving the existing internal `AgentToolResult` patterns used by tools.
 
-### Test DB fixture guardrail
-- New `test/db/in-memory-fixture.test.ts` asserts `PRAGMA database_list` returns `:memory:`.
-- `test/helpers.ts` enforces `PICLAW_DB_IN_MEMORY=1` in both the global prelude and every `setEnv()` call.
-- `package.json` test scripts set the env var at process level as belt-and-suspenders.
+## Frontend UX and rendering
 
-## Web & UX
+### Thread line stability
 
-- **SVG image blocks** in posts use the full `/media/:id` URL instead of thumbnail, preserving click-to-zoom via `ImageModal`.
-- **Model picker** refreshes provider usage after every `/model` switch and after sending a message.
-- Compose box model hint tooltip shows plan, quota percentages, and reset countdown.
+- Reworked timeline thread-line rendering to avoid a single always-on border approach.
+- Connector now uses per-thread sequence info and only renders when adjacent messages are in the same thread chain.
+- Prevents “connector over-shoot” past the thread endpoint and visual distortion with oversized anchor posts.
 
-## Kanban board skill
+### File pill interactions
 
-- Skill script (`kanban-board-svg.ts`) supports `--theme auto` (default): dark 18:00–07:59, light 08:00–17:59.
-- Board/lane surfaces changed to neutral grayscale + translucency for cross-theme blending.
-- `SKILL.md` updated: `--post` required when sharing the board; Mermaid relegated to fallback.
-- Script and skill doc synced to `skel/.pi/skills/kanban-management/`.
+- File-pill click handling now checks editor availability + editor pane visibility before opening.
+- Unsupported file open attempts no longer fail noisily and now show intent-style user feedback.
+- Anchor behavior now avoids duplicate file-tab creation by reusing existing editor tab focus flow where already supported.
+
+## Build and release quality
+
+### Web build hardening
+
+- `make build-web` now always runs:
+  - `bun run build:web`
+  - `bun test test/channels/web/web-build.test.ts`
+  - `bun test test/channels/web/post-link-preview-content.test.ts`
+- Added GitHub Actions workflow `.github/workflows/ci.yml`:
+  - runs on `push` to `main` and `pull_request`
+  - executes `make build-web` in the `piclaw` package.
 
 ## Notes
 
-- Expected `SyntaxError: JSON Parse error` logs in IPC tests are intentional (malformed fixture coverage).
-- No breaking API changes.
+- No public HTTP API changes were made for this release.
+- Existing user-visible message compose and timeline behaviors remain stable while fixing the above regressions.
+
+## Suggested verification
+
+- `bun run lint`
+- `bun run typecheck`
+- `make build-web`
+- `bun run test`
