@@ -22,7 +22,7 @@ import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { TabStrip } from './components/tab-strip.js';
 import { MarkdownPreview } from './components/markdown-preview.js';
-import { paneRegistry, editorPaneExtension, preloadEditorBundle, terminalPaneExtension, tabStore } from './panes/index.js';
+import { paneRegistry, editorPaneExtension, preloadEditorBundle, terminalPaneExtension, workspacePreviewPaneExtension, workspaceMarkdownPreviewPaneExtension, tabStore } from './panes/index.js';
 import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from './utils/storage.js';
 import { useSseConnection } from './ui/use-sse-connection.js';
 import { useNotifications } from './ui/use-notifications.js';
@@ -76,6 +76,8 @@ if (window.marked) {
  */
 // Register built-in pane extensions
 paneRegistry.register(editorPaneExtension);
+paneRegistry.register(workspacePreviewPaneExtension);
+paneRegistry.register(workspaceMarkdownPreviewPaneExtension);
 // Preload the editor bundle in the background so first file open is instant
 preloadEditorBundle();
 

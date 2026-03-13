@@ -211,7 +211,8 @@ export const editorPaneExtension: WebPaneExtension = {
 
     canHandle(context: PaneContext): boolean | number {
         if (!context.path) return false;
-        return 1; // low priority — specialized viewers override
+        if (context.mode !== 'edit') return false;
+        return 1; // low priority — specialized editors override
     },
 
     mount(container: HTMLElement, context: PaneContext): PaneInstance {

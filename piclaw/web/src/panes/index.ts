@@ -10,5 +10,6 @@ export type { PanePlacement, PaneCapability, PaneContext, PaneInstance, WebPaneE
 export { paneRegistry } from './pane-registry.js';
 export { editorPaneExtension, preloadEditorBundle } from './editor-loader.js';
 export { terminalPaneExtension } from './terminal-pane.js';
+export { workspacePreviewPaneExtension, workspaceMarkdownPreviewPaneExtension } from './workspace-preview-pane.js';
 export type { TabState, TabViewState } from './tab-store.js';
 export { tabStore } from './tab-store.js';

@@ -9,7 +9,6 @@ import {
     getMediaUrl,
     getWorkspaceDownloadUrl,
     getWorkspaceFile,
-    getWorkspaceRawUrl,
     getWorkspaceTree,
     moveWorkspaceEntry,
     renameWorkspaceFile,
@@ -17,7 +16,7 @@ import {
     uploadWorkspaceFile,
 } from '../api.js';
 import { formatFileSize, formatTimestamp } from '../utils/format.js';
-import { renderMarkdown } from '../markdown.js';
+import { paneRegistry } from '../panes/index.js';
 
 const INDENT = 16;
 const REFRESH_INTERVAL_MS = 60000;
@@ -27,44 +26,6 @@ const isHiddenNode = (node) => {
     if (node.path === '.') return false;
     return node.name.startsWith('.');
 };
-
-function rewriteMarkdownImagePath(src, markdownPath) {
-    const raw = String(src || '').trim();
-    if (!raw) return raw;
-
-    // Keep explicit protocols and data/blob URLs untouched.
-    if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(raw) || raw.startsWith('#') || raw.startsWith('data:') || raw.startsWith('blob:')) {
-        return raw;
-    }
-
-    const match = raw.match(/^([^?#]*)(\?[^#]*)?(#.*)?$/);
-    const relPath = match?.[1] || raw;
-    const query = match?.[2] || '';
-    const hash = match?.[3] || '';
-
-    const baseDir = String(markdownPath || '')
-        .split('/')
-        .slice(0, -1)
-        .join('/');
-
-    const isAbsolute = relPath.startsWith('/');
-    const combined = isAbsolute
-        ? relPath
-        : `${baseDir ? `${baseDir}/` : ''}${relPath}`;
-
-    const normalized = [];
-    for (const segment of combined.split('/')) {
-        if (!segment || segment === '.') continue;
-        if (segment === '..') {
-            if (normalized.length > 0) normalized.pop();
-            continue;
-        }
-        normalized.push(segment);
-    }
-
-    const workspacePath = normalized.join('/');
-    return `${getWorkspaceRawUrl(workspacePath)}${query}${hash}`;
-}
 
 // ── Tree data helpers ─────────────────────────────────────────────────────────
 
@@ -636,6 +597,8 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const folderChartCacheRef = useRef(new Map());
     const folderChartPayloadRef = useRef(null);
     const folderChartPathRef = useRef(null);
+    const previewPaneHostRef = useRef(null);
+    const previewPaneInstanceRef = useRef(null);
     const showHiddenRef   = useRef(showHidden);
     const visibleRef      = useRef(visible);
     const activeRef       = useRef(active ?? visible);
@@ -649,6 +612,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const moveEntryToTargetRef = useRef(null);
     const selectedPathRef = useRef(selectedPath);
     const renamingPathRef = useRef(renamingPath);
+    const pendingProgrammaticFileClickRef = useRef(null);
     const renameTimerRef = useRef(null);
     const previewRef      = useRef(preview);
 
@@ -1220,6 +1184,42 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
             ? 'File too large to edit'
             : 'File is not editable';
 
+    useEffect(() => {
+        const container = previewPaneHostRef.current;
+
+        if (previewPaneInstanceRef.current) {
+            previewPaneInstanceRef.current.dispose();
+            previewPaneInstanceRef.current = null;
+        }
+
+        if (!container) return undefined;
+        container.innerHTML = '';
+
+        if (!selectedPath || selectedIsDir || !preview || preview.error) return undefined;
+
+        const context = {
+            path: selectedPath,
+            content: typeof preview.text === 'string' ? preview.text : undefined,
+            mtime: preview.mtime,
+            size: preview.size,
+            preview,
+            mode: 'view',
+        };
+        const extension = paneRegistry.resolve(context) || paneRegistry.get('workspace-preview-default');
+        if (!extension) return undefined;
+
+        const instance = extension.mount(container, context);
+        previewPaneInstanceRef.current = instance;
+
+        return () => {
+            if (previewPaneInstanceRef.current === instance) {
+                instance.dispose();
+                previewPaneInstanceRef.current = null;
+            }
+            container.innerHTML = '';
+        };
+    }, [selectedPath, selectedIsDir, preview]);
+
     const getEventTargetElement = (event) => {
         const target = event?.target;
         if (target instanceof Element) return target;
@@ -1264,7 +1264,12 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
             cancelRename();
         }
 
-        if (isSelected && !isCaretClick && !isActionClick && clickedPath !== '.') {
+        const allowFirstProgrammaticFileClick = clickedType === 'file'
+            && pendingProgrammaticFileClickRef.current === clickedPath
+            && !isCaretClick
+            && !isActionClick;
+
+        if (isSelected && !isCaretClick && !isActionClick && clickedPath !== '.' && !allowFirstProgrammaticFileClick) {
             // Delay rename to allow double-click to fire first
             if (renameTimerRef.current) clearTimeout(renameTimerRef.current);
             renameTimerRef.current = setTimeout(() => {
@@ -1275,6 +1280,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
         }
 
         if (clickedType === 'dir') {
+            pendingProgrammaticFileClickRef.current = null;
             setSelectedPath(clickedPath);
             setPreview(null);
             setDownloadId(null);
@@ -1289,6 +1295,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                 return next;
             });
         } else {
+            pendingProgrammaticFileClickRef.current = null;
             setSelectedPath(clickedPath);
             const node = nodeMapRef.current.get(clickedPath);
             if (node) onFileSelectRef.current?.(node.path, node);
@@ -1306,6 +1313,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     }).current;
 
     const clearSelection = useRef(() => {
+        pendingProgrammaticFileClickRef.current = null;
         setSelectedPath(null);
         setPreview(null);
         setDownloadId(null);
@@ -1692,6 +1700,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                 }
             }
             if (lastResult?.path) {
+                pendingProgrammaticFileClickRef.current = lastResult.path;
                 setSelectedPath(lastResult.path);
                 loadPreviewRef.current?.(lastResult.path);
             }
@@ -2087,22 +2096,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                             ${preview.mtime ? html`<span>${formatTimestamp(preview.mtime)}</span>` : ''}
                             ${preview.truncated ? html`<span>truncated</span>` : ''}
                         </div>
-                        ${preview.kind === 'image' && html`
-                            <div class="workspace-preview-image">
-                                <img src=${preview.url || getWorkspaceRawUrl(preview.path)} alt="preview" />
-                            </div>
-                        `}
-                        ${preview.kind === 'text' && html`
-                            ${preview.content_type === 'text/markdown'
-                                ? html`<div class="workspace-preview-text"
-                                    dangerouslySetInnerHTML=${{ __html: renderMarkdown(preview.text || '', null, {
-                                        rewriteImageSrc: (src) => rewriteMarkdownImagePath(src, preview.path || selectedPath),
-                                    }) }} />`
-                                : html`<pre class="workspace-preview-text"><code>${preview.text || ''}</code></pre>`}
-                        `}
-                        ${preview.kind === 'binary' && html`
-                            <div class="workspace-preview-text">Binary file — download to view.</div>
-                        `}
+                        <div class="workspace-preview-body" ref=${previewPaneHostRef}></div>
                     `}
                     ${downloadId && html`
                         <div class="workspace-download-card">

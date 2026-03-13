@@ -27,6 +27,8 @@ export interface PaneContext {
     mtime?: string;
     /** File size in bytes. */
     size?: number;
+    /** Optional preview payload for read-only workspace/file previews. */
+    preview?: Record<string, unknown>;
     /** Whether the pane should open in edit or read-only mode. */
     mode: "edit" | "view";
 }
