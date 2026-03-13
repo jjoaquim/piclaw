@@ -72,10 +72,10 @@ Cons: does not reduce fragility now.
 
 ## Definition of Done
 
-- [ ] Ticket includes evidence of each changed cycle and rationale.
-- [ ] `check:hook-tdz` remains green.
-- [ ] `quality` remains green after each refactor step.
-- [ ] Cycle list and next action are documented in this ticket.
+- [x] Ticket includes evidence of each changed cycle and rationale.
+- [x] `check:hook-tdz` remains green.
+- [x] `quality` remains green after each refactor step.
+- [x] Cycle list and next action are documented in this ticket.
 
 ## Relevant files
 
