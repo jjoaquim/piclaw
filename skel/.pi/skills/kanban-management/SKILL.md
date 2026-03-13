@@ -10,6 +10,18 @@ move kanban tickets — or when asked to review the board and propose next actio
 
 ---
 
+## 0. Board Scope Preference
+
+Kanban boards should ideally be **per project**, not one global mixed board.
+
+- Prefer keeping each project's tickets inside that project's own repository or workspace subtree.
+- Use a shared/global board only for cross-project work, personal backlog items, or tickets explicitly marked as non-project work.
+- If both a project-local board and a global board exist, place tickets in the board that matches the owning project.
+- If a ticket is explicitly tagged like `non-piclaw` / `new-project`, keep it out of the piclaw project board unless the user says otherwise.
+- When splitting or migrating boards, preserve lane structure and ticket history while clarifying ownership in README/docs.
+
+---
+
 ## 1. Board Layout
 
 | Lane | Path | Purpose |
