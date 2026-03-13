@@ -498,6 +498,14 @@ body {
     -webkit-user-select: none;
 }
 
+.workspace-label-text {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .workspace-rename-input {
     flex: 1;
     min-width: 0;

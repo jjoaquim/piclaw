@@ -1284,7 +1284,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     };
 
     const isRowDragHandleTarget = (targetEl) => {
-        return Boolean(targetEl?.closest?.('.workspace-node-icon, .workspace-label'));
+        return Boolean(targetEl?.closest?.('.workspace-node-icon, .workspace-label-text'));
     };
 
     // ── Double-click to open file in editor ────────────────────────────────
@@ -2045,7 +2045,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                                                 onClick=${(e) => e.stopPropagation()}
                                             />
                                         `
-                                        : html`<span class="workspace-label">${node.name}</span>`}
+                                        : html`<span class="workspace-label"><span class="workspace-label-text">${node.name}</span></span>`}
                                     ${isDir && !isOpen && childCount > 0 && html`
                                         <span class="workspace-count">${childCount}</span>
                                     `}
