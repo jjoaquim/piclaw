@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { html, useCallback, useEffect, useMemo, useRef, useState } from '../vendor/preact-htm.js';
-import { getLocalStorageBoolean, getLocalStorageNumber, setLocalStorageItem } from '../utils/storage.js';
+import { getLocalStorageBoolean, getLocalStorageItem, getLocalStorageNumber, setLocalStorageItem } from '../utils/storage.js';
 import {
     attachWorkspaceFile,
     createWorkspaceFile,
@@ -17,8 +17,13 @@ import {
 } from '../api.js';
 import { formatFileSize, formatTimestamp } from '../utils/format.js';
 import { paneRegistry } from '../panes/index.js';
+import {
+    WORKSPACE_SCALE_STORAGE_KEY,
+    getWorkspaceScaleMetrics,
+    readWorkspaceScaleEnvironment,
+    resolveWorkspaceScale,
+} from '../ui/workspace-scale.js';
 
-const INDENT = 16;
 const REFRESH_INTERVAL_MS = 60000;
 
 const isHiddenNode = (node) => {
@@ -568,6 +573,10 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     const [uploading,    setUploading]     = useState(false);
     const [folderChart,  setFolderChart]   = useState(null);
     const [isDarkTheme,  setIsDarkTheme]   = useState(() => detectDarkTheme());
+    const [explorerScale, setExplorerScale] = useState(() => resolveWorkspaceScale({
+        stored: getLocalStorageItem(WORKSPACE_SCALE_STORAGE_KEY),
+        ...readWorkspaceScaleEnvironment(),
+    }));
 
     // ── Stable refs (never trigger re-renders) ────────────────────────────────
     const expandedRef     = useRef(expanded);
@@ -624,6 +633,53 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     useEffect(() => { visibleRef.current = visible; }, [visible]);
     useEffect(() => { activeRef.current = active ?? visible; }, [active, visible]);
     useEffect(() => { dropTargetRef.current = dropTarget; }, [dropTarget]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+
+        const syncScale = () => {
+            setExplorerScale(resolveWorkspaceScale({
+                stored: getLocalStorageItem(WORKSPACE_SCALE_STORAGE_KEY),
+                ...readWorkspaceScaleEnvironment(),
+            }));
+        };
+
+        syncScale();
+
+        const onResize = () => syncScale();
+        const onFocus = () => syncScale();
+        const onStorage = (event) => {
+            if (!event || event.key === null || event.key === WORKSPACE_SCALE_STORAGE_KEY) syncScale();
+        };
+
+        window.addEventListener('resize', onResize);
+        window.addEventListener('focus', onFocus);
+        window.addEventListener('storage', onStorage);
+
+        const pointerMedia = window.matchMedia?.('(pointer: coarse)');
+        const hoverMedia = window.matchMedia?.('(hover: none)');
+        const addMediaListener = (media, handler) => {
+            if (!media) return;
+            if (media.addEventListener) media.addEventListener('change', handler);
+            else if (media.addListener) media.addListener(handler);
+        };
+        const removeMediaListener = (media, handler) => {
+            if (!media) return;
+            if (media.removeEventListener) media.removeEventListener('change', handler);
+            else if (media.removeListener) media.removeListener(handler);
+        };
+
+        addMediaListener(pointerMedia, onResize);
+        addMediaListener(hoverMedia, onResize);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('focus', onFocus);
+            window.removeEventListener('storage', onStorage);
+            removeMediaListener(pointerMedia, onResize);
+            removeMediaListener(hoverMedia, onResize);
+        };
+    }, []);
 
     // Listen for reveal-path events (e.g., from tab strip "reveal in explorer")
     useEffect(() => {
@@ -1122,6 +1178,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     // ── Flattened visible rows ────────────────────────────────────────────────
     const rows = useMemo(() => flattenTree(tree, expanded, showHidden), [tree, expanded, showHidden]);
     const nodeMap = useMemo(() => new Map(rows.map(r => [r.node.path, r.node])), [rows]);
+    const workspaceScaleMetrics = useMemo(() => getWorkspaceScaleMetrics(explorerScale), [explorerScale]);
     nodeMapRef.current = nodeMap;
     const selectedNode = selectedPath ? nodeMapRef.current.get(selectedPath) : null;
     const selectedIsDir = selectedNode?.type === 'dir';
@@ -1871,6 +1928,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
     return html`
         <aside
             class=${`workspace-sidebar${dragActive ? ' workspace-drop-active' : ''}`}
+            data-workspace-scale=${explorerScale}
             ref=${sidebarRef}
             onDragEnter=${handleDragEnter}
             onDragOver=${handleDragOver}
@@ -1940,7 +1998,7 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                                 <div
                                     key=${node.path}
                                     class=${`workspace-row${isSelected ? ' selected' : ''}${isDropTarget ? ' drop-target' : ''}`}
-                                    style=${{ paddingLeft: `${8 + depth * INDENT}px` }}
+                                    style=${{ paddingLeft: `${8 + depth * workspaceScaleMetrics.indentPx}px` }}
                                     data-path=${node.path}
                                     data-type=${node.type}
                                     onMouseDown=${handleRowMouseDown}
