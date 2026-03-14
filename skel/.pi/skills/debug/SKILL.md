@@ -1,6 +1,7 @@
 ---
 name: debug
 description: Diagnose and fix issues with the Pibox container environment — tools, paths, mounts, pi configuration.
+distribution: public
 ---
 
 # Debug

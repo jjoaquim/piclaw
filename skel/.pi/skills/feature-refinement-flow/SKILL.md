@@ -1,6 +1,7 @@
 ---
 name: feature-refinement-flow
 description: Run a structured 20-question refinement flow before implementation for feature requests.
+distribution: public
 ---
 
 # Feature Refinement Flow

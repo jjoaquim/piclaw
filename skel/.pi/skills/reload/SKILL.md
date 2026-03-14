@@ -1,6 +1,7 @@
 ---
 name: reload
 description: Reinstall piclaw from workspace source and force-restart the running process. Use after making code changes to piclaw.
+distribution: public
 ---
 
 # Reload Piclaw (force)

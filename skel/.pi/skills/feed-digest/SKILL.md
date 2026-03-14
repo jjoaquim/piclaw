@@ -1,6 +1,7 @@
 ---
 name: feed-digest
 description: Build a deduped markdown digest from feeds.carmo.io (last N hours) and store links separately.
+distribution: public
 ---
 
 # Feed Digest

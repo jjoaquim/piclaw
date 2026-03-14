@@ -1,6 +1,7 @@
 ---
 name: web-search
 description: Search the web via SearXNG and optionally convert result pages to Markdown.
+distribution: public
 ---
 
 # Web Search

@@ -1,6 +1,7 @@
 ---
 name: token-chart
 description: Generate a 7-day token usage chart (all chats) and post it to the web UI timeline.
+distribution: public
 ---
 
 # Token chart

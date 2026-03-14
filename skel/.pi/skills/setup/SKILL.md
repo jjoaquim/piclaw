@@ -1,6 +1,7 @@
 ---
 name: setup
 description: Initialize a new project in the workspace. Scaffolds files, Makefile, git, and AGENTS.md for the chosen project type.
+distribution: public
 ---
 
 # Setup

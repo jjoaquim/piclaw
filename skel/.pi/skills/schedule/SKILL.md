@@ -1,6 +1,7 @@
 ---
 name: schedule
 description: Schedule a task to run later or on a recurring basis. Prefer the schedule_task tool; fallback to IPC only if needed.
+distribution: public
 ---
 
 # Schedule a Task

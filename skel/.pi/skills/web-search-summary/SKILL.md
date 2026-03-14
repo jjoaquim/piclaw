@@ -1,6 +1,7 @@
 ---
 name: web-search-summary
 description: Search via SearXNG, fetch top results, and return quick summaries plus markdown.
+distribution: public
 ---
 
 # Web Search + Summaries

@@ -1,6 +1,7 @@
 ---
 name: bootstrap-container
 description: Bootstrap a new container by validating required tools and installing missing dependencies.
+distribution: public
 ---
 
 # Bootstrap container

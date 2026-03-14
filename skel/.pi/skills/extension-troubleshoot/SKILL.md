@@ -1,6 +1,7 @@
 ---
 name: extension-troubleshoot
 description: Diagnose and fix piclaw extension issues (imports, DB init errors, watcher perms), update skel, and restart safely.
+distribution: public
 ---
 
 # Extension Troubleshoot (piclaw)

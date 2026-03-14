@@ -1,6 +1,7 @@
 ---
 name: graphite-power-chart
 description: Generate a Graphite chart (12h default) for a Zigbee device metric and post it to the web timeline.
+distribution: public
 ---
 
 # Graphite power chart

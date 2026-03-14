@@ -1,6 +1,7 @@
 ---
 name: send-message
 description: Send a message to the chat immediately without waiting for the current task to finish. Useful for acknowledging requests or sending progress updates while working.
+distribution: public
 ---
 
 # Send a Message

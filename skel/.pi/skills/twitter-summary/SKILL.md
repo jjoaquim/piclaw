@@ -1,6 +1,7 @@
 ---
 name: twitter-summary
 description: Fetch a user's recent tweets (tweets, replies, retweets) using Playwright + Nitter fallbacks and produce compact JSON/Markdown summaries.
+distribution: public
 ---
 
 # Twitter Summary

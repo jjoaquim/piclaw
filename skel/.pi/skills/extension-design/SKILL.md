@@ -1,6 +1,7 @@
 ---
 name: extension-design
 description: Design and audit Pi extensions safely (avoid workspace source imports).
+distribution: public
 ---
 
 # Extension design notes

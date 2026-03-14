@@ -1,6 +1,7 @@
 ---
 name: playwright
 description: Use Playwright for browser automation in this workspace. Install locally and run scripts as needed.
+distribution: public
 ---
 
 # Playwright

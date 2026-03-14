@@ -1,6 +1,7 @@
 ---
 name: kanban-management
 description: "Manage the kanban board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking."
+distribution: public
 ---
 
 # Kanban Management Skill
