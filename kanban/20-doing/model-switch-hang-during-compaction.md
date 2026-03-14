@@ -1,10 +1,10 @@
 ---
 id: model-switch-hang-during-compaction
 title: Recover cleanly when model switching hangs during compaction
-status: inbox
+status: doing
 priority: high
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-14
 estimate: M
 risk: medium
 tags:
@@ -72,6 +72,10 @@ compaction, leaving the runtime stuck with no reliable user-facing recovery path
 - The compaction-intent surface should clean itself up after completion rather than lingering.
 
 ## Updates
+
+### 2026-03-14
+- Lane change: `00-inbox` → `20-doing` after explicit request to pick up the compaction-related reliability issue alongside active web work.
+- Remains scoped as a reliability/recovery task first: reproduce the hang, block switching during compaction, and provide an explicit user-facing recovery path.
 
 ### 2026-03-12
 - Ticket added from report that model switching during compaction can hang piclaw with no practical restart path from the user side.
