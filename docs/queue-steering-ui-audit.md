@@ -263,3 +263,9 @@ Client:
     │
     Next turn starts automatically for materialized message ✓
 ```
+
+## See also
+
+- [Turn mechanism audit](turn-mechanism-audit.md) — server‑side state machine and crash recovery
+- [Runtime flows](runtime-flows.md) — high‑level message flow and recovery
+- [Architecture](architecture.md) — component layout

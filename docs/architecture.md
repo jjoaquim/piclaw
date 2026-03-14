@@ -169,7 +169,7 @@ Page load
 ## Notes
 
 - The agent pool keeps one warm session per chat JID and evicts idle sessions after a TTL.
-- The web UI is the primary interface; the WhatsApp channel is optional.
+- The web UI is the primary interface; the WhatsApp channel is optional (skipped entirely when `WHATSAPP_PHONE` is not configured).
 - Web and WhatsApp share the same storage and agent pool.
 - Core utilities (config/env/chat context) live in `src/core`; shared helpers live in `src/utils`.
 - Chat context (chat JID + channel) is tracked in AsyncLocalStorage; tools/extensions read from the scoped context (defaults to `web:default` / `web`) rather than env variables.
@@ -184,3 +184,8 @@ Page load
 - Scheduled tasks validate the requested model at creation time; invalid or ambiguous model names are rejected before the task is persisted.
 
 For the message‑level flow, see [runtime-flows.md](runtime-flows.md).
+
+## Additional documentation
+
+- [Turn mechanism audit](turn-mechanism-audit.md) — detailed state machine analysis (cursor, inflight, failed states, crash recovery, no‑op finalization)
+- [Queue/steering UI audit](queue-steering-ui-audit.md) — client‑server queue architecture, cancel vs steer, `dismissedQueueRowIdsRef` lifecycle, data flow diagrams

@@ -280,3 +280,10 @@ Startup:
         for each cursor:
             getMessagesSince(cursor) → any pending? → enqueue processChat
 ```
+
+## See also
+
+- [Queue/steering UI audit](queue-steering-ui-audit.md) — client‑side queue architecture
+- [Runtime flows](runtime-flows.md) — high‑level message flow and recovery
+- [Architecture](architecture.md) — component layout
+- [Storage model](storage.md) — `chat_cursors` schema

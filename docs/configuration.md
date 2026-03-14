@@ -149,6 +149,8 @@ PICLAW_KEYCHAIN_KEY="your-master-key" \
 
 See [whatsapp.md](whatsapp.md) for full details.
 
+WhatsApp is optional. If `WHATSAPP_PHONE` is not set or empty, piclaw does not attempt to connect — no QR prompt, no reconnect logs. A no‑op stub is used internally so all other channels work normally.
+
 If QR pairing fails (headless/server environments), provide a phone number to request a pairing code:
 
 ```bash

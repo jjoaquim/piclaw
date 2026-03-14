@@ -137,10 +137,12 @@ PiClaw works with any OCI-compliant runtime:
 - [Configuration](docs/configuration.md) — all env vars, TOTP, TLS, keychain, Pushover, WhatsApp
 - [Architecture](docs/architecture.md) — codebase layout and design decisions
 - [Storage model](docs/storage.md) — SQLite schema and data lifecycle
-- [Runtime flows](docs/runtime-flows.md) — message processing and agent lifecycle
+- [Runtime flows](docs/runtime-flows.md) — message processing, queue/steering, and crash recovery
 - [Tools and skills](docs/tools-and-skills.md) — built-in tools and skill catalogue
 - [Keychain](docs/keychain.md) — encrypted secret storage
 - [WhatsApp](docs/whatsapp.md) — optional WhatsApp integration
+- [Turn mechanism audit](docs/turn-mechanism-audit.md) — cursor/inflight/failed state machine analysis
+- [Queue/steering UI audit](docs/queue-steering-ui-audit.md) — client‑server queue architecture and data flow
 
 ## Credits
 

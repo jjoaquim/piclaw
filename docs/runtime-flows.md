@@ -37,9 +37,78 @@ sequenceDiagram
   Pool->>DB: Store assistant reply
 ```
 
+### Follow‑up queueing and steering
+
+When the agent is streaming a response, the user can submit additional messages. These are automatically queued as follow‑ups rather than interrupting the active turn:
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Web as Web UI
+  participant API as WebChannel
+  participant Queue as Deferred Queue
+  participant Placeholder as Placeholder Store
+  participant Pool as AgentPool
+
+  User->>Web: Submit while agent is streaming
+  Web->>API: POST /agent
+  API->>API: isStreaming(chatJid) = true
+
+  alt Deferred follow‑up (queue full path)
+    API->>Queue: Append to queued_followups_json
+    API-->>Web: { queued: "followup" }
+    Web->>Web: Add to queue stack UI
+  end
+
+  Note over Pool: Active turn completes
+  API->>Queue: Peek next deferred item
+  Queue-->>API: { rowId, content, threadId }
+  API->>Placeholder: Move to placeholder store
+  API->>Pool: processChat(content)
+  Pool->>Pool: Run agent turn
+  Note over Web: Queue stack item disappears
+```
+
+There are two queue storage layers:
+
+1. **Deferred Queue** — persisted in `queued_followups_json` column of `chat_cursors`. Uses negative synthetic row IDs. Survives restarts.
+2. **Placeholder Store** — in‑memory FIFO (`FollowupPlaceholderStore`). Uses positive real row IDs (from the stored message). Lost on restart but recovered via the deferred queue.
+
+`getQueuedFollowupItems()` merges both stores, deduplicating by `rowId`.
+
+The user can interact with queued items in the compose area:
+
+- **Cancel (×)** — calls `removeAgentQueueItem(rowId)`, which splices the item from the server‑side queue array and broadcasts `agent_followup_removed`.
+- **Steer (→)** — calls `steerAgentQueueItem(rowId)`, which injects the item's content as steering into the active agent session. The agent sees it as mid‑turn user input.
+
+The client tracks a `dismissedQueueRowIdsRef` (Set) to prevent `refreshQueueState` from re‑adding items that were just cancelled or steered. The set is cleared when the agent turn completes or when the server queue empties.
+
+### Turn state machine
+
+Each chat JID has a cursor tracked in `chat_cursors`:
+
+```
+IDLE → (beginChatRun) → IN‑FLIGHT → (endChatRun) → IDLE
+                                   → (endChatRunWithError) → FAILED
+FAILED → (clearFailedRun / next success) → IDLE
+```
+
+All state transitions are single SQL statements — crash‑safe under SQLite WAL mode:
+
+- `beginChatRun(chatJid, messageId)` — saves current cursor as `inflight_prev_ts`, records `inflight_message_id` and `inflight_started_at`
+- `endChatRun(chatJid, newCursorTs)` — advances cursor, clears inflight + failed markers
+- `endChatRunWithError(chatJid, ...)` — records failure metadata, clears inflight marker
+- `rollbackInflightRun(chatJid)` — restores cursor from `inflight_prev_ts`, clears inflight marker
+
 If piclaw restarts mid-turn, startup recovery now happens in two phases:
 1. inflight web runs are rolled back/cleared immediately on startup
 2. once workers and channels are online, piclaw writes a self-addressed `resume_pending` IPC task and resumes any remaining pending chats through the normal IPC path
+
+Recovery logic (`recoverInflightRuns`):
+- Finds all `chat_cursors` rows with a non‑null `inflight_message_id`
+- If a terminal agent reply already exists past the inflight message → clears the inflight marker (the turn actually completed before the crash)
+- If the inflight marker is older than 30 minutes (`MAX_INFLIGHT_AGE_MS`) → clears without rollback (prevents infinite retry of permanently failing messages)
+- Otherwise → rolls back the cursor, deletes non‑terminal bot messages after the inflight point, and enqueues a retry through the normal processing path
 
 That keeps restart recovery on the same code path as an explicit reload instead of depending on a lucky post-reboot user action.
 

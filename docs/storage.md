@@ -20,7 +20,7 @@
 | `tool_outputs_fts` | Full‑text index for tool output |
 | `workspace_files` | Indexed workspace files (path, size, mtime) |
 | `workspace_fts` | Full‑text index for workspace content |
-| `chat_cursors` | Per‑chat cursor + inflight/failed run tracking |
+| `chat_cursors` | Per‑chat cursor + inflight/failed run tracking + deferred follow‑up queue |
 | `router_state` | Misc router state (auto‑compaction + web status) |
 | `keychain_entries` | Encrypted secrets for tool env injection |
 | `webauthn_credentials` | Stored passkeys (credential public keys + counters) |
@@ -133,6 +133,7 @@ erDiagram
     text failed_message_id
     int failed_thread_root
     text failed_created_at
+    text queued_followups_json
   }
   TOOL_OUTPUTS {
     text id

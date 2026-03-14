@@ -36,7 +36,8 @@ Set a custom name via `.piclaw/config.json`:
 
 ## Notes
 
+- If `WHATSAPP_PHONE` is not set (empty or unset), piclaw skips all WhatsApp connection attempts. A no‑op stub is used internally so the web UI and other channels work normally without noisy reconnect logs.
 - WhatsApp state is persisted in SQLite and the session store, so reconnects are usually seamless.
-- If you do not need WhatsApp, simply ignore the QR prompt; the web UI still works.
+- If you do not need WhatsApp, simply leave `WHATSAPP_PHONE` unset; the web UI still works.
 
 See [runtime-flows.md](runtime-flows.md) for the web‑first flow and [architecture.md](architecture.md) for component context.
