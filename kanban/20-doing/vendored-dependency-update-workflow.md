@@ -1,10 +1,10 @@
 ---
 id: vendored-dependency-update-workflow
 title: General-purpose vendored dependency update workflow
-status: next
+status: doing
 priority: medium
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-14
 target_release: next
 estimate: M
 risk: medium
@@ -90,6 +90,69 @@ Use **Path A**: define a reusable script-first workflow, then optionally expose 
 - [ ] Ticket moved to `50-done/`
 
 ## Updates
+
+### 2026-03-14
+- Lane change: `next` → `doing`.
+- Picked up implementation using the script-first path.
+- Started factoring the existing Mermaid vendoring flow into a reusable manifest-driven workflow in `piclaw/piclaw/`:
+  - `scripts/vendor-workflow.ts`
+  - `scripts/build-vendored-dependency.ts`
+  - `scripts/update-vendored-dependency.ts`
+  - `vendor-manifests/beautiful-mermaid.json`
+- Kept the historical Mermaid entrypoints as compatibility wrappers so existing package scripts / docs / Make targets do not break during the transition.
+- Selected Mermaid as the first manifest-backed adopter.
+- Initial audited vendored/runtime asset inventory now includes:
+  - `web/static/js/vendor/beautiful-mermaid.js`
+  - `extensions/editor/vendor/codemirror.js`
+  - `web/static/js/vendor/preact-htm.js`
+  - `web/static/js/marked.min.js`
+  - `web/static/js/vendor/katex.min.js`
+- CodeMirror was selected as the second concrete migration target because it already has an in-tree source entry (`extensions/editor/vendor/codemirror-entry.ts`) and pinned package dependencies, making it a clean manifest-backed adopter.
+- Added `vendor-manifests/codemirror-editor.json` and wired CodeMirror into the shared vendor workflow and top-level `build:vendor` / `make vendor` path.
+- Added direct exact package pins for the audited runtime vendor inputs so provenance is explicit instead of purely transitive / opaque:
+  - `marked@17.0.4` (upgraded during this pass)
+  - `katex@0.16.38`
+  - `preact@10.29.0`
+  - `htm@3.1.1`
+- Added the missing direct CodeMirror-family pin used by the editor vendor entry:
+  - `@lezer/highlight@1.2.3`
+- Added manifest-backed rebuilds for the remaining audited runtime vendors:
+  - `vendor-manifests/preact-htm.json`
+  - `vendor-manifests/marked-global.json`
+  - `vendor-manifests/katex-global.json`
+- Added an export-style vendoring path and used it to vendor the GitHub-pinned `rcarmo/ghostty-web` fork (`fcc47d423a7fce1c02c702b6464d0b1ab89175f1`) as shipped frontend assets:
+  - `vendor-manifests/ghostty-web.json`
+  - `web/static/js/vendor/ghostty-web.js`
+  - `web/static/js/vendor/ghostty-vt.wasm`
+  - `web/static/js/vendor/ghostty-web.meta.json`
+- Added a manifest-backed self-hosted terminal font bundle so the docked terminal frontend does not rely on remote CDNs or host-native monospace availability:
+  - exact pin `@fontsource/jetbrains-mono@5.2.8`
+  - `vendor-manifests/jetbrains-mono-terminal-fonts.json`
+  - `web/static/fonts/vendor/*.woff2`
+  - `web/static/fonts/vendor/jetbrains-mono.meta.json`
+- Added source entries for reproducible rebuilds:
+  - `web/src/vendor/preact-htm-entry.ts`
+  - `web/src/vendor/marked-entry.ts`
+  - `web/src/vendor/katex-entry.ts`
+- The shared workflow now covers all currently audited checked-in JS vendor/runtime artifacts plus the terminal font bundle:
+  - Mermaid
+  - CodeMirror
+  - Preact/HTM
+  - Marked
+  - KaTeX JS
+  - Ghostty Web frontend (JS + wasm export)
+  - JetBrains Mono terminal webfonts
+- Extended workflow metadata to record multi-package provenance (`package_versions`, licenses, repositories), which is required for composed vendors like `preact-htm`.
+- Added smoke coverage for the new vendor paths, including runtime-global validation for `marked` and `katex`, export validation for `ghostty-web`, and local terminal font validation for the JetBrains Mono bundle.
+- Added a minimal `ghostty-web` frontend bootstrap in `web/src/panes/terminal-pane.ts` so the vendored terminal frontend is actually exercised in the dock pane while the authenticated PTY/WebSocket bridge remains separate work.
+- Added self-hosted `@font-face` wiring plus `document.fonts`/`terminal.loadFonts()` bootstrapping so the terminal measures against the vendored JetBrains Mono webfont instead of host-native fallbacks.
+- Evidence so far:
+  - `cd /workspace/piclaw/piclaw && bun test test/scripts/beautiful-mermaid-vendor.test.ts test/scripts/codemirror-vendor.test.ts test/scripts/runtime-vendors.test.ts test/scripts/ghostty-web-vendor.test.ts test/scripts/terminal-font-vendor.test.ts test/web/terminal-pane.test.ts` → pass
+  - `cd /workspace/piclaw/piclaw && bun run build:vendor` → pass
+  - `cd /workspace/piclaw && make vendor` → pass
+  - `cd /workspace/piclaw/piclaw && bun run build:web` → pass
+  - `cd /workspace/piclaw/piclaw && bun run quality` → pass (`824 pass, 0 fail`)
+- Remaining scoped gap after this pass: KaTeX CSS/font provenance is still managed separately from the JS vendor manifest flow, so a small follow-up ticket is warranted rather than silently pretending that part is fully standardized.
 
 ### 2026-03-12
 - Lane change: `inbox` → `next`.

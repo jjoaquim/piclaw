@@ -37,6 +37,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     const command = parseControlCommand(content, TRIGGER_PATTERN);
     const requestMode = normalized.mode ?? "auto";
     const trimmed = content.trim();
+    const themeCommand = handleUiThemeCommand(trimmed);
     const isStreaming = typeof channel.agentPool.isStreaming === "function"
         ? channel.agentPool.isStreaming(chatJid)
         : false;
@@ -82,7 +83,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     // Normal in-turn user messages should remain out of the timeline until the
     // current turn fully finalizes. Queue them in server state first, then
     // persist/broadcast the real user message only when consumed.
-    const shouldDeferQueuedFollowup = !command && isStreaming && (requestMode === "queue" || requestMode === "auto");
+    const shouldDeferQueuedFollowup = !command && !themeCommand && isStreaming && (requestMode === "queue" || requestMode === "auto");
     console.log(`[web] handleAgentMessage ${chatJid}: mode=${requestMode}, isStreaming=${isStreaming}, ` +
         `shouldDefer=${shouldDeferQueuedFollowup}, hasCommand=${!!command}, ` +
         `content=${content.slice(0, 60)}`);
@@ -93,7 +94,7 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
             linkPreviews: normalized.linkPreviews,
         });
     }
-    if (!command && isStreaming && requestMode === "steer") {
+    if (!command && !themeCommand && isStreaming && requestMode === "steer") {
         const steerResponse = await queueDeferredSteer(content, "compose");
         if (steerResponse)
             return steerResponse;
@@ -268,7 +269,6 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
         markCommandHandled();
         return channel.json({ user_message: interaction, thread_id: threadId, command: result }, 201);
     }
-    const themeCommand = handleUiThemeCommand(trimmed);
     if (themeCommand) {
         broadcastNewPost();
         if (themeCommand.payload) {

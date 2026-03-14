@@ -170,8 +170,9 @@ export function TabStrip({ tabs, activeId, onActivate, onClose, onCloseOthers, o
                     aria-pressed=${dockVisible ? 'true' : 'false'}
                 >
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="4 12 4 10 8 6 12 10 12 12"/>
-                        <line x1="2" y1="14" x2="14" y2="14"/>
+                        <rect x="1.75" y="2.25" width="12.5" height="11.5" rx="2"/>
+                        <polyline points="4.5 5.25 7 7.75 4.5 10.25"/>
+                        <line x1="8.5" y1="10.25" x2="11.5" y2="10.25"/>
                     </svg>
                 </button>
             `}

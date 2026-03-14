@@ -4,7 +4,7 @@ title: Integrate single terminal pane via rcarmo/webterm
 status: blocked
 priority: medium
 created: 2026-03-11
-updated: 2026-03-12
+updated: 2026-03-14
 target_release: next
 tags:
   - work-item
@@ -85,6 +85,12 @@ Cons: larger implementation burden and security surface.
 Adopt **Path A** for MVP after tabbed layout decisions land; reserve **Path B** if stronger isolation is required.
 
 ## Updates
+
+### 2026-03-14
+- Re-inspected `rcarmo/webterm` as the backend/session reference model while vendoring terminal frontend assets.
+- Current useful takeaway: `webterm` still represents the right shape for the server side of this feature — authenticated HTTP/WebSocket bootstrap around a PTY/session service.
+- In parallel, the frontend side now has a vendored `ghostty-web` fork available locally (`rcarmo/ghostty-web` pinned by commit) and the terminal dock pane can bootstrap that frontend in a local/no-backend mode.
+- That means this ticket no longer needs to answer "which browser terminal frontend?" before it starts; the remaining blocked work is the secure session/PTY bridge and endpoint model.
 
 ### 2026-03-12
 - Board quality review: added explicit test plan and DoD checklist.

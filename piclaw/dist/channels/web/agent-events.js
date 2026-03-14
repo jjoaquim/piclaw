@@ -276,13 +276,18 @@ export function createStreamingEventHandler(options) {
         if (event.type === "auto_compaction_start") {
             const reason = event.reason;
             const title = reason === "overflow"
-                ? "Recovering from context overflow"
+                ? "Compacting context"
                 : "Auto-compacting after response";
+            const detail = reason === "overflow"
+                ? "Recovering from context pressure so the turn can continue."
+                : "Shrinking recent context before continuing the turn.";
             options.emitter.status({
                 ...base,
                 type: "intent",
                 title,
-                detail: "If Pi appears stuck during compaction, use /exit to restart it.",
+                detail,
+                intent_key: "compaction",
+                started_at: new Date().toISOString(),
             });
         }
         if (event.type === "auto_compaction_end") {
@@ -291,7 +296,7 @@ export function createStreamingEventHandler(options) {
                 options.emitter.status({
                     ...base,
                     type: "error",
-                    title: `${e.errorMessage} Use /exit if Pi appears stuck.`,
+                    title: e.errorMessage,
                 });
             }
             else if (e.willRetry) {

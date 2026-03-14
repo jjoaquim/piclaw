@@ -57,9 +57,25 @@ build: ## Build Docker image
 
 # ── Build pipeline ───────────────────────────────────────────────────
 
-vendor: ## Build the checked-in beautiful-mermaid vendor bundle + metadata
+vendor: ## Build the checked-in vendored bundles + metadata
 	cd piclaw && bun run build:vendor
-	@ls -lh piclaw/web/static/js/vendor/beautiful-mermaid.js piclaw/web/static/js/vendor/beautiful-mermaid.meta.json
+	@ls -lh \
+		piclaw/web/static/js/vendor/beautiful-mermaid.js \
+		piclaw/web/static/js/vendor/beautiful-mermaid.meta.json \
+		piclaw/extensions/editor/vendor/codemirror.js \
+		piclaw/extensions/editor/vendor/codemirror.meta.json \
+		piclaw/web/static/js/vendor/preact-htm.js \
+		piclaw/web/static/js/vendor/preact-htm.meta.json \
+		piclaw/web/static/js/marked.min.js \
+		piclaw/web/static/js/marked.meta.json \
+		piclaw/web/static/js/vendor/katex.min.js \
+		piclaw/web/static/js/vendor/katex.meta.json \
+		piclaw/web/static/fonts/vendor/firacode-nerd-font-mono-regular.ttf \
+		piclaw/web/static/fonts/vendor/firacode-nerd-font-mono-bold.ttf \
+		piclaw/web/static/fonts/vendor/firacode-nerd-font.meta.json \
+		piclaw/web/static/js/vendor/ghostty-web.js \
+		piclaw/web/static/js/vendor/ghostty-vt.wasm \
+		piclaw/web/static/js/vendor/ghostty-web.meta.json
 
 update-mermaid-vendor: ## Rebuild or upgrade vendored mermaid (use MERMAID_VERSION=1.2.3 to upgrade)
 	cd piclaw && bun run update:vendor:mermaid $(if $(MERMAID_VERSION),--version $(MERMAID_VERSION),)

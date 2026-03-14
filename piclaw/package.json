@@ -1,6 +1,6 @@
 {
   "name": "piclaw",
-  "version": "1.3.0",
+  "version": "1.3.14",
   "description": "Personal pi coding agent assistant. Lightweight nanoclaw-style orchestrator using Bun and pi.",
   "type": "module",
   "main": "src/index.ts",
@@ -14,6 +14,7 @@
     "web/static",
     "docs",
     "scripts",
+    "vendor-manifests",
     "LICENSE"
   ],
   "scripts": {
@@ -22,9 +23,15 @@
     "build": "rm -rf dist && tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "build:vendor:mermaid": "bun run scripts/build-beautiful-mermaid-vendor.ts",
-    "build:vendor": "bun run build:vendor:mermaid",
-    "update:vendor:mermaid": "bun run scripts/update-beautiful-mermaid.ts",
+    "build:vendor:mermaid": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/beautiful-mermaid.json",
+    "build:vendor:codemirror": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/codemirror-editor.json",
+    "build:vendor:preact-htm": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/preact-htm.json",
+    "build:vendor:marked": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/marked-global.json",
+    "build:vendor:katex": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/katex-global.json",
+    "build:vendor:terminal-fonts": "bun run scripts/vendor-firacode-nerd-font.ts",
+    "build:vendor:ghostty-web": "bun run scripts/build-vendored-dependency.ts --manifest vendor-manifests/ghostty-web.json",
+    "build:vendor": "bun run build:vendor:mermaid && bun run build:vendor:codemirror && bun run build:vendor:preact-htm && bun run build:vendor:marked && bun run build:vendor:katex && bun run build:vendor:terminal-fonts && bun run build:vendor:ghostty-web",
+    "update:vendor:mermaid": "bun run scripts/update-vendored-dependency.ts --manifest vendor-manifests/beautiful-mermaid.json",
     "build:web": "bun run build:vendor && rm -rf web/static/dist && mkdir -p web/static/dist && bun build web/src/app.ts web/src/login.ts --target=browser --format=esm --minify --sourcemap --outdir web/static/dist --entry-naming=\"[name].bundle.js\" && bun build extensions/editor/editor-extension.ts --target=browser --format=esm --minify --sourcemap --outdir web/static/dist --entry-naming=\"editor.bundle.js\" && bun build web/src/styles/app.css web/src/styles/login.css --target=browser --minify --sourcemap --outdir web/static/dist --entry-naming=\"[name].bundle.css\" && rm -rf web/static/js/components web/static/js/utils web/static/js/ui && rm -f web/static/js/app.js web/static/js/api.js web/static/js/markdown.js && bun run scripts/stamp-cache-buster.ts",
     "test": "PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1",
     "test:coverage": "PICLAW_DB_IN_MEMORY=1 bun test --max-concurrency=1 --coverage --coverage-reporter=text --coverage-reporter=lcov",
@@ -36,12 +43,18 @@
     "quality": "bun run lint && bun run typecheck && bun run test && bun run check:pack-hygiene && bun run check:stale-dist && bun run check:import-boundaries && bun run check:unused-exports && bun run check:hook-tdz"
   },
   "dependencies": {
+    "@lezer/highlight": "1.2.3",
     "@mariozechner/pi-coding-agent": "0.58.0",
     "@simplewebauthn/server": "13.2.3",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
     "beautiful-mermaid": "1.1.3",
     "cron-parser": "5.5.0",
     "fflate": "0.8.2",
+    "ghostty-web": "github:rcarmo/ghostty-web#fcc47d423a7fce1c02c702b6464d0b1ab89175f1",
+    "htm": "3.1.1",
+    "katex": "0.16.38",
+    "marked": "17.0.4",
+    "preact": "10.29.0",
     "qrcode-terminal": "0.12.0"
   },
   "devDependencies": {
@@ -75,6 +88,7 @@
     "codemirror": "6.0.2",
     "eslint": "10.0.3",
     "globals": "17.4.0",
+    "playwright": "^1.58.2",
     "ts-prune": "^0.10.3",
     "typescript": "5.9.3"
   },

@@ -5,9 +5,11 @@
  * DB table (db/chat-cursors.ts), this class is responsible only for
  * transient per-chat agent status payloads that the UI polls for.
  *
- * agentStatuses is cleared on every startup (in loadState()), so its
- * persisted form is only ever used to clean up stale UI state from the
- * previous process – it is not relied upon for correctness.
+ * Most persisted agentStatuses are cleared on startup because they are just
+ * ephemeral UI hints from the previous process. The one intentional exception
+ * is the restart-restorable compaction indicator, whose original started_at
+ * timestamp lets the web UI keep showing a meaningful elapsed timer while
+ * recovery resumes the interrupted turn.
  *
  * Consumers: channels/web.ts reads/writes state during agent run
  *            orchestration and SSE broadcasting.

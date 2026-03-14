@@ -33,10 +33,12 @@ import {
   WEB_TOTP_SECRET,
   WEB_INTERNAL_SECRET,
   WEB_PASSKEY_MODE,
+  WEB_TERMINAL_ENABLED,
 } from "../core/config.js";
 import { startWorkspaceWatcher } from "./web/handlers/workspace.js";
 import type { WebChannelLike } from "./web/web-channel-contracts.js";
 import { RequestRouterService } from "./web/request-router-service.js";
+import { checkCsrfOrigin } from "./web/http/security.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
 import {
   handleAgentMessage as handleAgentMessageRequest,
@@ -115,6 +117,7 @@ import {
 } from "./web/channel-endpoint-context-factory.js";
 import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import { WebAuthGateway } from "./web/auth-gateway.js";
+import { TerminalSessionService, type TerminalSocketData } from "./web/terminal/terminal-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
 
 const DEFAULT_CHAT_JID = "web:default";
@@ -151,6 +154,7 @@ export class WebChannel implements WebChannelLike {
   totpFailureTracker = new TotpFailureTracker();
   agentBuffers = new AgentBuffers();
   authGateway: WebAuthGateway;
+  terminalService = new TerminalSessionService();
 
   constructor(opts: WebChannelOpts) {
     this.queue = opts.queue;
@@ -200,7 +204,7 @@ export class WebChannel implements WebChannelLike {
     this.loadState();
     try { initTheme(); } catch {}
     const tls = await this.loadTlsOptions();
-    this.server = Bun.serve({
+    this.server = Bun.serve<TerminalSocketData>({
       hostname: WEB_HOST,
       port: WEB_PORT,
       idleTimeout: WEB_IDLE_TIMEOUT,
@@ -210,7 +214,12 @@ export class WebChannel implements WebChannelLike {
       // This is the outermost safety net; Bun rejects bodies exceeding this
       // before any handler code runs.
       maxRequestBodySize: 512 * 1024 * 1024, // 512 MB hard cap
-      fetch: (req) => this.handleRequest(req),
+      fetch: (req, server) => this.handleFetch(req, server),
+      websocket: {
+        open: (ws) => this.terminalService.attachClient(ws),
+        message: (ws, message) => this.terminalService.handleMessage(ws, message),
+        close: (ws) => this.terminalService.detachClient(ws),
+      },
       ...(tls ? { tls } : {}),
     });
     this.workspaceWatcher = startWorkspaceWatcher(this);
@@ -221,6 +230,7 @@ export class WebChannel implements WebChannelLike {
   async stop(): Promise<void> {
     this.sse.closeAll();
     this.uiBridge.stop();
+    this.terminalService.shutdown();
     this.server?.stop(true);
     this.server = null;
     if (this.workspaceWatcher) {
@@ -513,6 +523,35 @@ export class WebChannel implements WebChannelLike {
     }
   }
 
+  async handleFetch(req: Request, server?: Bun.Server<TerminalSocketData>): Promise<Response | undefined> {
+    const pathname = new URL(req.url).pathname;
+    if (pathname === "/terminal/ws") {
+      return this.handleTerminalWebSocketUpgrade(req, server);
+    }
+    return this.handleRequest(req);
+  }
+
+  private handleTerminalWebSocketUpgrade(req: Request, server?: Bun.Server<TerminalSocketData>): Response | undefined {
+    if (!WEB_TERMINAL_ENABLED) {
+      return this.json({ error: "Web terminal is disabled." }, 404);
+    }
+    const authEnabled = this.authGateway.isAuthEnabled();
+    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
+      return this.json({ error: "Unauthorized" }, 401);
+    }
+    if (!checkCsrfOrigin(req)) {
+      return this.json({ error: "Origin not allowed" }, 403);
+    }
+    const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
+    if (!owner) {
+      return this.json({ error: "Unauthorized" }, 401);
+    }
+    if (!server?.upgrade(req, { data: owner })) {
+      return this.json({ error: "WebSocket upgrade failed" }, 400);
+    }
+    return undefined;
+  }
+
   async handleRequest(req: Request): Promise<Response> {
     return this.requestRouter.handle(req);
   }
@@ -589,6 +628,21 @@ export class WebChannel implements WebChannelLike {
 
   handleSse(): Response {
     return this.sse.handleRequest();
+  }
+
+  handleTerminalSession(req: Request): Response {
+    if (!WEB_TERMINAL_ENABLED) {
+      return this.json({ enabled: false, error: "Web terminal is disabled." }, 200);
+    }
+    const authEnabled = this.authGateway.isAuthEnabled();
+    if (authEnabled && !this.authGateway.isAuthenticated(req)) {
+      return this.json({ error: "Unauthorized" }, 401);
+    }
+    const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
+    if (!owner) {
+      return this.json({ error: "Unauthorized" }, 401);
+    }
+    return this.json(this.terminalService.getSessionInfo(owner));
   }
 
   broadcastEvent(eventType: string, data: unknown): void {

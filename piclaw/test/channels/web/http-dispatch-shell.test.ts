@@ -10,12 +10,13 @@ describe("web http shell dispatch", () => {
     expect(response).toBeNull();
   });
 
-  test("dispatches index/manifest/static/docs/sse/agents", async () => {
+  test("dispatches index/manifest/static/docs/sse/terminal-session/agents", async () => {
     const channel = {
       serveStatic: (rel: string) => new Response(`static:${rel}`),
       handleManifest: () => new Response("manifest"),
       serveDocsStatic: (rel: string) => new Response(`docs:${rel}`),
       handleSse: () => new Response("sse"),
+      handleTerminalSession: () => new Response("terminal-session"),
       handleAgents: async () => new Response("agents"),
       handleAvatar: async () => new Response("avatar", { status: 200 }),
     } as any;
@@ -26,6 +27,8 @@ describe("web http shell dispatch", () => {
     const manifestFlags = buildRouteFlags({ isManifest: true });
     expect(await (await handleShellRoutes(channel, new Request("https://e/manifest.json", { method: "GET" }), "/manifest.json", manifestFlags, async () => new Response()))?.text()).toBe("manifest");
 
+    expect(await (await handleShellRoutes(channel, new Request("https://e/ghostty-vt.wasm", { method: "GET" }), "/ghostty-vt.wasm", buildRouteFlags(), async () => new Response()))?.text()).toBe("static:js/vendor/ghostty-vt.wasm");
+
     const staticFlags = buildRouteFlags({ isStaticAsset: true });
     expect(await (await handleShellRoutes(channel, new Request("https://e/static/x.js", { method: "GET" }), "/static/x.js", staticFlags, async () => new Response()))?.text()).toBe("static:x.js");
 
@@ -33,6 +36,7 @@ describe("web http shell dispatch", () => {
     expect(await (await handleShellRoutes(channel, new Request("https://e/docs/a.md", { method: "GET" }), "/docs/a.md", docsFlags, async () => new Response()))?.text()).toBe("docs:a.md");
 
     expect(await (await handleShellRoutes(channel, new Request("https://e/sse/stream", { method: "GET" }), "/sse/stream", buildRouteFlags(), async () => new Response()))?.text()).toBe("sse");
+    expect(await (await handleShellRoutes(channel, new Request("https://e/terminal/session", { method: "GET" }), "/terminal/session", buildRouteFlags(), async () => new Response()))?.text()).toBe("terminal-session");
     expect(await (await handleShellRoutes(channel, new Request("https://e/agents", { method: "GET" }), "/agents", buildRouteFlags(), async () => new Response()))?.text()).toBe("agents");
   });
 

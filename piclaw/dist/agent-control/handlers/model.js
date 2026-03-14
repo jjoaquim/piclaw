@@ -12,7 +12,7 @@ function compactionGuard(session) {
         return null;
     return {
         status: "error",
-        message: "Auto-compaction is still running. Try again in a moment. If Pi appears stuck, use /exit to restart it.",
+        message: "Auto-compaction is still running. Try again in a moment.",
     };
 }
 /** Handle /model: switch model, list models, or show current model. */

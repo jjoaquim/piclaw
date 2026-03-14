@@ -1,0 +1,15 @@
+{
+  "id": "ghostty-web",
+  "packageName": "ghostty-web",
+  "metadataFile": "web/static/js/vendor/ghostty-web.meta.json",
+  "exportFiles": [
+    {
+      "packagePath": "dist/ghostty-web.js",
+      "outputFile": "web/static/js/vendor/ghostty-web.js"
+    },
+    {
+      "packagePath": "dist/ghostty-vt.wasm",
+      "outputFile": "web/static/js/vendor/ghostty-vt.wasm"
+    }
+  ]
+}

@@ -52,6 +52,7 @@ const envConfig = readEnvFile([
     "PICLAW_WEB_SESSION_TTL",
     "PICLAW_WEB_INTERNAL_SECRET",
     "PICLAW_WEB_PASSKEY_MODE",
+    "PICLAW_WEB_TERMINAL_ENABLED",
     "PICLAW_TRUST_PROXY",
     "PICLAW_INTERNAL_SECRET",
     "PICLAW_REMOTE_INTEROP_ENABLED",
@@ -375,6 +376,10 @@ export const WEB_PASSKEY_MODE = (process.env.PICLAW_WEB_PASSKEY_MODE ||
     envConfig.PICLAW_WEB_PASSKEY_MODE ||
     configWebPasskeyMode ||
     "totp-fallback").toLowerCase();
+const webTerminalEnabled = pickBoolean(piclawConfig, ["webTerminalEnabled", "PICLAW_WEB_TERMINAL_ENABLED"]);
+const envWebTerminalEnabled = pickBoolean({ PICLAW_WEB_TERMINAL_ENABLED: process.env.PICLAW_WEB_TERMINAL_ENABLED ?? envConfig.PICLAW_WEB_TERMINAL_ENABLED }, ["PICLAW_WEB_TERMINAL_ENABLED"]);
+/** Enable the experimental authenticated web terminal backend (default false). */
+export const WEB_TERMINAL_ENABLED = envWebTerminalEnabled ?? webTerminalEnabled ?? false;
 const envTrustProxyRaw = process.env.PICLAW_TRUST_PROXY ?? envConfig.PICLAW_TRUST_PROXY;
 const envTrustProxy = pickBoolean({ PICLAW_TRUST_PROXY: envTrustProxyRaw }, ["PICLAW_TRUST_PROXY"]);
 /** Trust x-forwarded-* / x-real-ip headers from a reverse proxy (default false). */

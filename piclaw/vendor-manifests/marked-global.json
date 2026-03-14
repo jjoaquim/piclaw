@@ -1,0 +1,17 @@
+{
+  "id": "marked-global",
+  "packageName": "marked",
+  "sourceEntry": "web/src/vendor/marked-entry.ts",
+  "outputFile": "web/static/js/marked.min.js",
+  "metadataFile": "web/static/js/marked.meta.json",
+  "buildCommand": [
+    "bun",
+    "build",
+    "$SOURCE_ENTRY",
+    "--target=browser",
+    "--format=iife",
+    "--minify",
+    "--outfile",
+    "$OUTPUT_FILE"
+  ]
+}

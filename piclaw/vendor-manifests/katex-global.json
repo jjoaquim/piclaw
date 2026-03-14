@@ -1,0 +1,17 @@
+{
+  "id": "katex-global",
+  "packageName": "katex",
+  "sourceEntry": "web/src/vendor/katex-entry.ts",
+  "outputFile": "web/static/js/vendor/katex.min.js",
+  "metadataFile": "web/static/js/vendor/katex.meta.json",
+  "buildCommand": [
+    "bun",
+    "build",
+    "$SOURCE_ENTRY",
+    "--target=browser",
+    "--format=iife",
+    "--minify",
+    "--outfile",
+    "$OUTPUT_FILE"
+  ]
+}

@@ -92,12 +92,8 @@ paneRegistry.register(workspaceMarkdownPreviewPaneExtension);
 // Preload the editor bundle in the background so first file open is instant
 preloadEditorBundle();
 
-// Terminal dock pane is behind a feature flag - opt in via localStorage
-// or config. Editor pane is always registered as the default.
-const EXPERIMENTAL_PANES = typeof localStorage !== 'undefined' && localStorage.getItem('experimentalPanes') === 'true';
-if (EXPERIMENTAL_PANES) {
-    paneRegistry.register(terminalPaneExtension);
-}
+// Terminal dock pane is now part of the default web UI surface.
+paneRegistry.register(terminalPaneExtension);
 
 function App() {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -178,6 +174,14 @@ function App() {
     // Editor extension container ref + instance tracking
     const editorContainerRef = useRef(null);
     const editorInstanceRef = useRef(null);
+    const dockContainerRef = useRef(null);
+    const dockInstanceRef = useRef(null);
+
+    // Dock (terminal) toggle state - only available when dock panes registered
+    const hasDockPanes = paneRegistry.getDockPanes().length > 0;
+    const [dockVisible, setDockVisible] = useState(false);
+    const toggleDock = useCallback(() => setDockVisible((v) => !v), []);
+    const showEditorPaneContainer = editorOpen || (hasDockPanes && dockVisible);
 
     useEffect(() => {
         let cancelled = false;
@@ -264,6 +268,34 @@ function App() {
             }
         };
     }, [tabStripActiveId, closeEditor]);
+
+    useEffect(() => {
+        const container = dockContainerRef.current;
+
+        if (dockInstanceRef.current) {
+            dockInstanceRef.current.dispose();
+            dockInstanceRef.current = null;
+        }
+
+        if (!container || !hasDockPanes || !dockVisible) return;
+
+        const ext = paneRegistry.getDockPanes()[0];
+        if (!ext) {
+            container.innerHTML = '<div class="terminal-placeholder">No dock pane available.</div>';
+            return;
+        }
+
+        const instance = ext.mount(container, { mode: 'view' });
+        dockInstanceRef.current = instance;
+        requestAnimationFrame(() => instance.focus?.());
+
+        return () => {
+            if (dockInstanceRef.current === instance) {
+                instance.dispose();
+                dockInstanceRef.current = null;
+            }
+        };
+    }, [hasDockPanes, dockVisible]);
 
     const [userProfile, setUserProfile] = useState({ name: 'You', avatar_url: null, avatar_background: null });
     const hasConnectedOnceRef = useRef(false);
@@ -1727,11 +1759,6 @@ function App() {
     }, [editorOpen]);
 
 
-    // Dock (terminal) toggle state - only available when dock panes registered
-    const hasDockPanes = paneRegistry.getDockPanes().length > 0;
-    const [dockVisible, setDockVisible] = useState(false);
-    const toggleDock = useCallback(() => setDockVisible((v) => !v), []);
-
     // Keyboard shortcut: Ctrl+` to toggle dock (only when dock panes exist)
     useEffect(() => {
         if (!hasDockPanes) return;
@@ -1766,23 +1793,25 @@ function App() {
                 </svg>
             </button>
             <div class="workspace-splitter" onMouseDown=${handleSplitterMouseDown} onTouchStart=${handleSplitterTouchStart}></div>
-            ${editorOpen && html`
+            ${showEditorPaneContainer && html`
                 <div class="editor-pane-container">
-                    <${TabStrip}
-                        tabs=${tabStripTabs}
-                        activeId=${tabStripActiveId}
-                        onActivate=${handleTabActivate}
-                        onClose=${handleTabClose}
-                        onCloseOthers=${handleTabCloseOthers}
-                        onCloseAll=${handleTabCloseAll}
-                        onTogglePin=${handleTabTogglePin}
-                        onTogglePreview=${handleTabTogglePreview}
-                        previewTabs=${previewTabs}
-                        onToggleDock=${hasDockPanes ? toggleDock : undefined}
-                        dockVisible=${hasDockPanes && dockVisible}
-                    />
-                    <div class="editor-pane-host" ref=${editorContainerRef}></div>
-                    ${tabStripActiveId && previewTabs.has(tabStripActiveId) && html`
+                    ${editorOpen && html`
+                        <${TabStrip}
+                            tabs=${tabStripTabs}
+                            activeId=${tabStripActiveId}
+                            onActivate=${handleTabActivate}
+                            onClose=${handleTabClose}
+                            onCloseOthers=${handleTabCloseOthers}
+                            onCloseAll=${handleTabCloseAll}
+                            onTogglePin=${handleTabTogglePin}
+                            onTogglePreview=${handleTabTogglePreview}
+                            previewTabs=${previewTabs}
+                            onToggleDock=${hasDockPanes ? toggleDock : undefined}
+                            dockVisible=${hasDockPanes && dockVisible}
+                        />
+                    `}
+                    ${editorOpen && html`<div class="editor-pane-host" ref=${editorContainerRef}></div>`}
+                    ${editorOpen && tabStripActiveId && previewTabs.has(tabStripActiveId) && html`
                         <${MarkdownPreview}
                             getContent=${() => editorInstanceRef.current?.getContent?.()}
                             path=${tabStripActiveId}
@@ -1800,9 +1829,7 @@ function App() {
                                 </svg>
                             </button>
                         </div>
-                        <div class="dock-panel-body">
-                            <div class="terminal-placeholder">Terminal integration pending - xterm.js + WebSocket</div>
-                        </div>
+                        <div class="dock-panel-body" ref=${dockContainerRef}></div>
                     </div>`}
                 </div>
                 <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>

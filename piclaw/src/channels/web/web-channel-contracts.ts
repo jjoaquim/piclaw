@@ -131,6 +131,7 @@ export interface WebChannelLike
   handleManifest(req: Request): Promise<Response>;
   handleAvatar(kind: "agent" | "user", req: Request): Promise<Response>;
   handleSse(): Response;
+  handleTerminalSession(req: Request): Response;
   handleAgents(): Promise<Response>;
 
   handleWorkspaceVisibility(req: Request): Promise<Response>;

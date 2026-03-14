@@ -154,6 +154,7 @@ export function useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef, doc
       const h = Math.min(Math.max(startH - (me.clientY - startY), 100), window.innerHeight * 0.5);
       shell.style.setProperty('--dock-height', `${h}px`);
       if (dockHeightRef) dockHeightRef.current = h;
+      window.dispatchEvent(new CustomEvent('dock-resize'));
     };
     const onUp = () => {
       const h = Math.min(Math.max(startH - (lastY - startY), 100), window.innerHeight * 0.5);
@@ -190,6 +191,7 @@ export function useSplitters({ appShellRef, sidebarWidthRef, editorWidthRef, doc
       const h = Math.min(Math.max(startH - (t.clientY - startY), 100), window.innerHeight * 0.5);
       shell.style.setProperty('--dock-height', `${h}px`);
       if (dockHeightRef) dockHeightRef.current = h;
+      window.dispatchEvent(new CustomEvent('dock-resize'));
     };
     const onUp = () => {
       splitter.classList.remove('dragging');

@@ -38,6 +38,10 @@ export async function handleShellRoutes(
     return await serveStaticAsset(req, pathname.slice(1));
   }
 
+  if (req.method === "GET" && pathname === "/ghostty-vt.wasm") {
+    return channel.serveStatic("js/vendor/ghostty-vt.wasm");
+  }
+
   if (flags.isStaticAsset) {
     const rel = pathname.replace("/static/", "");
     return channel.serveStatic(rel);
@@ -50,6 +54,10 @@ export async function handleShellRoutes(
 
   if (pathname === "/sse/stream") {
     return channel.handleSse();
+  }
+
+  if (req.method === "GET" && pathname === "/terminal/session") {
+    return channel.handleTerminalSession(req);
   }
 
   if (req.method === "GET" && pathname === "/agents") {

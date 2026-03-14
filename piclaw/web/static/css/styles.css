@@ -8,6 +8,22 @@
  * Loaded by: index.html via <link> tag.
  */
 
+@font-face {
+    font-family: "FiraCode Nerd Font Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 400;
+    src: url("../fonts/vendor/firacode-nerd-font-mono-regular.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "FiraCode Nerd Font Mono";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 700;
+    src: url("../fonts/vendor/firacode-nerd-font-mono-bold.ttf") format("truetype");
+}
+
 /* CSS Variables for theming */
 :root {
     color-scheme: light dark;
@@ -34,6 +50,7 @@
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-family-terminal: "FiraCode Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --font-size-sm: 13px;
     --font-size-md: 15px;
     --font-size-lg: 20px;
@@ -955,28 +972,41 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
     border-radius: var(--radius-sm);
     flex-shrink: 0;
     opacity: 0;
-    transition: opacity var(--ui-transition-fast), background-color var(--ui-transition-fast);
+    transition: opacity var(--ui-transition-fast), background-color var(--ui-transition-fast), color var(--ui-transition-fast);
     cursor: pointer;
     border: none;
     background: transparent;
     color: inherit;
     padding: 0;
-    margin: 0;
+    margin: -2px;
     appearance: none;
     -webkit-appearance: none;
+    position: relative;
+    z-index: 1;
+}
+
+.tab-close > svg,
+.tab-close > svg *,
+.tab-close > .tab-dirty-dot {
+    pointer-events: none;
 }
 
 .tab-item:hover .tab-close,
-.tab-item.active .tab-close {
+.tab-item.active .tab-close,
+.tab-close:hover,
+.tab-close:focus-visible {
     opacity: 1;
 }
 
-.tab-close:hover {
+.tab-close:hover,
+.tab-close:focus-visible {
     background: var(--bg-hover);
 }
 
@@ -1298,8 +1328,8 @@ body {
 .terminal-pane-body {
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    padding: var(--spacing-sm);
+    overflow: hidden;
+    padding: 0;
 }
 
 .terminal-placeholder {
@@ -1309,7 +1339,23 @@ body {
     height: 100%;
     color: var(--text-secondary);
     font-size: 12px;
-    font-family: var(--font-family-mono);
+    font-family: var(--font-family-terminal);
+}
+
+.terminal-live-host {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-family-terminal);
+}
+
+.terminal-live-host > canvas {
+    flex: 0 0 auto;
+    max-width: none;
 }
 
 /* Dock panel layout (bottom panel) */
@@ -1394,6 +1440,20 @@ body {
     min-width: 8px;
 }
 
+.dock-launcher {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 8px 6px;
+    flex-shrink: 0;
+}
+
+.dock-launcher-label {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
 .tab-strip-dock-toggle {
     display: inline-flex;
     align-items: center;
@@ -1408,7 +1468,25 @@ body {
     border-radius: var(--radius-sm);
     flex-shrink: 0;
     padding: 0;
-    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast);
+    transition: background-color var(--ui-transition-fast), color var(--ui-transition-fast), border-color var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+}
+
+.tab-strip-dock-toggle > svg,
+.tab-strip-dock-toggle > svg * {
+    pointer-events: none;
+}
+
+.dock-launcher-button {
+    width: auto;
+    min-width: 0;
+    height: 30px;
+    gap: 6px;
+    padding: 0 10px;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .tab-strip-dock-toggle:hover {
@@ -1416,8 +1494,17 @@ body {
     color: var(--text-primary);
 }
 
+.dock-launcher-button:hover {
+    border-color: var(--accent-color);
+}
+
 .tab-strip-dock-toggle.active {
     color: var(--accent-color);
+}
+
+.dock-launcher-button.active {
+    border-color: var(--accent-color);
+    background: var(--accent-soft, var(--bg-hover));
 }
 
 /* ── CodeMirror syntax highlighting (classHighlighter) ── */

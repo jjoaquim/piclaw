@@ -15,9 +15,10 @@
 import { initTheme } from "@mariozechner/pi-coding-agent";
 import { WebauthnChallengeTracker } from "./web/webauthn-challenges.js";
 import { TotpFailureTracker } from "./web/totp-failure-tracker.js";
-import { ASSISTANT_AVATAR, ASSISTANT_NAME, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY, WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_INTERNAL_SECRET, WEB_PASSKEY_MODE, } from "../core/config.js";
+import { ASSISTANT_AVATAR, ASSISTANT_NAME, USER_AVATAR, USER_AVATAR_BACKGROUND, USER_NAME, WEB_HOST, WEB_IDLE_TIMEOUT, WEB_PORT, WEB_TLS_CERT, WEB_TLS_KEY, WEB_SESSION_TTL, WEB_TOTP_SECRET, WEB_INTERNAL_SECRET, WEB_PASSKEY_MODE, WEB_TERMINAL_ENABLED, } from "../core/config.js";
 import { startWorkspaceWatcher } from "./web/handlers/workspace.js";
 import { RequestRouterService } from "./web/request-router-service.js";
+import { checkCsrfOrigin } from "./web/http/security.js";
 import { handlePost as handlePostRequest } from "./web/handlers/posts.js";
 import { handleAgentMessage as handleAgentMessageRequest, processChat as processAgentChat, } from "./web/handlers/agent.js";
 import { SseHub } from "./web/sse-hub.js";
@@ -45,6 +46,7 @@ import { handleAgentRespondRequest, handleThoughtVisibilityRequest, handleWorksp
 import { createWebChannelEndpointContexts, } from "./web/channel-endpoint-context-factory.js";
 import { createInteractionBroadcaster } from "./web/interaction-broadcaster.js";
 import { WebAuthGateway } from "./web/auth-gateway.js";
+import { TerminalSessionService } from "./web/terminal/terminal-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -74,6 +76,7 @@ export class WebChannel {
     totpFailureTracker = new TotpFailureTracker();
     agentBuffers = new AgentBuffers();
     authGateway;
+    terminalService = new TerminalSessionService();
     constructor(opts) {
         this.queue = opts.queue;
         this.agentPool = opts.agentPool;
@@ -129,7 +132,12 @@ export class WebChannel {
             // This is the outermost safety net; Bun rejects bodies exceeding this
             // before any handler code runs.
             maxRequestBodySize: 512 * 1024 * 1024, // 512 MB hard cap
-            fetch: (req) => this.handleRequest(req),
+            fetch: (req, server) => this.handleFetch(req, server),
+            websocket: {
+                open: (ws) => this.terminalService.attachClient(ws),
+                message: (ws, message) => this.terminalService.handleMessage(ws, message),
+                close: (ws) => this.terminalService.detachClient(ws),
+            },
             ...(tls ? { tls } : {}),
         });
         this.workspaceWatcher = startWorkspaceWatcher(this);
@@ -139,6 +147,7 @@ export class WebChannel {
     async stop() {
         this.sse.closeAll();
         this.uiBridge.stop();
+        this.terminalService.shutdown();
         this.server?.stop(true);
         this.server = null;
         if (this.workspaceWatcher) {
@@ -367,6 +376,33 @@ export class WebChannel {
             return null;
         }
     }
+    async handleFetch(req, server) {
+        const pathname = new URL(req.url).pathname;
+        if (pathname === "/terminal/ws") {
+            return this.handleTerminalWebSocketUpgrade(req, server);
+        }
+        return this.handleRequest(req);
+    }
+    handleTerminalWebSocketUpgrade(req, server) {
+        if (!WEB_TERMINAL_ENABLED) {
+            return this.json({ error: "Web terminal is disabled." }, 404);
+        }
+        const authEnabled = this.authGateway.isAuthEnabled();
+        if (authEnabled && !this.authGateway.isAuthenticated(req)) {
+            return this.json({ error: "Unauthorized" }, 401);
+        }
+        if (!checkCsrfOrigin(req)) {
+            return this.json({ error: "Origin not allowed" }, 403);
+        }
+        const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
+        if (!owner) {
+            return this.json({ error: "Unauthorized" }, 401);
+        }
+        if (!server?.upgrade(req, { data: owner })) {
+            return this.json({ error: "WebSocket upgrade failed" }, 400);
+        }
+        return undefined;
+    }
     async handleRequest(req) {
         return this.requestRouter.handle(req);
     }
@@ -429,6 +465,20 @@ export class WebChannel {
     }
     handleSse() {
         return this.sse.handleRequest();
+    }
+    handleTerminalSession(req) {
+        if (!WEB_TERMINAL_ENABLED) {
+            return this.json({ enabled: false, error: "Web terminal is disabled." }, 200);
+        }
+        const authEnabled = this.authGateway.isAuthEnabled();
+        if (authEnabled && !this.authGateway.isAuthenticated(req)) {
+            return this.json({ error: "Unauthorized" }, 401);
+        }
+        const owner = this.terminalService.resolveOwnerFromRequest(req, !authEnabled);
+        if (!owner) {
+            return this.json({ error: "Unauthorized" }, 401);
+        }
+        return this.json(this.terminalService.getSessionInfo(owner));
     }
     broadcastEvent(eventType, data) {
         this.sse.broadcast(eventType, data);

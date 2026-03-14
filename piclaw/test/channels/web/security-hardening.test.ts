@@ -478,6 +478,7 @@ describe("security headers", () => {
     const res = await router.handle(new Request("http://localhost/timeline?limit=1"));
 
     expect(res.headers.get("Content-Security-Policy")).toContain("default-src 'self'");
+    expect(res.headers.get("Content-Security-Policy")).toContain("'wasm-unsafe-eval'");
     expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
