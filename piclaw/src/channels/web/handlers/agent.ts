@@ -33,7 +33,6 @@ import {
   getChatCursor,
   getInflightMessageId,
   getMessageRowIdById,
-  getMessageThreadRootIdById,
   getMessagesSince,
   getDb,
   rollbackInflightRun,
@@ -84,17 +83,17 @@ export async function handleAgentMessage(
   // processChat is actively draining. isStreaming() resets on restart and
   // accurately reflects whether the agent pool has an active run.
 
-  const getActiveTurnThreadRootId = (): number | null => {
-    if (!inflightMessageId) return null;
-    return getMessageThreadRootIdById(chatJid, inflightMessageId);
-  };
 
   const queueDeferredFollowup = (
     queuedContent: string,
     extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
   ): Response => {
     const queuedAt = new Date().toISOString();
-    const queuedThreadId = getActiveTurnThreadRootId();
+    // Don't inherit the active turn's thread root. Deferred followups are
+    // independent messages typed while the agent was busy — they should
+    // start their own thread when materialized (self-rooted via
+    // storeWebMessage's default behaviour).
+    const queuedThreadId: number | null = null;
     const queuedRowId = channel.enqueueQueuedFollowupItem(chatJid, 0, queuedContent, queuedThreadId, queuedAt, extras);
     channel.broadcastEvent("agent_followup_queued", {
       chat_jid: chatJid,

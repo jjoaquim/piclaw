@@ -11,7 +11,7 @@ import { AGENT_TIMEOUT, ASSISTANT_AVATAR, ASSISTANT_NAME, BACKGROUND_AGENT_TIMEO
 import { parseControlCommand } from "../../../agent-control/index.js";
 import { normalizeAgentMessagePayload, parseAgentMessageRequest, storeAgentUserMessage, } from "../agent-message-service.js";
 import { handleUiThemeCommand } from "../ui-theme-commands.js";
-import { beginChatRun, endChatRun, endChatRunWithError, getChatCursor, getInflightMessageId, getMessageRowIdById, getMessageThreadRootIdById, getMessagesSince, getDb, rollbackInflightRun, setChatCursor, } from "../../../db.js";
+import { beginChatRun, endChatRun, endChatRunWithError, getChatCursor, getInflightMessageId, getMessageRowIdById, getMessagesSince, getDb, rollbackInflightRun, setChatCursor, } from "../../../db.js";
 import { detectChannel, formatMessages, formatOutbound } from "../../../router.js";
 import { createAgentProfileBuilder } from "../agent-utils.js";
 import { resolveAvatarUrl } from "../avatar-service.js";
@@ -47,14 +47,13 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     // it here would silently defer messages against ghost turns that no
     // processChat is actively draining. isStreaming() resets on restart and
     // accurately reflects whether the agent pool has an active run.
-    const getActiveTurnThreadRootId = () => {
-        if (!inflightMessageId)
-            return null;
-        return getMessageThreadRootIdById(chatJid, inflightMessageId);
-    };
     const queueDeferredFollowup = (queuedContent, extras) => {
         const queuedAt = new Date().toISOString();
-        const queuedThreadId = getActiveTurnThreadRootId();
+        // Don't inherit the active turn's thread root. Deferred followups are
+        // independent messages typed while the agent was busy — they should
+        // start their own thread when materialized (self-rooted via
+        // storeWebMessage's default behaviour).
+        const queuedThreadId = null;
         const queuedRowId = channel.enqueueQueuedFollowupItem(chatJid, 0, queuedContent, queuedThreadId, queuedAt, extras);
         channel.broadcastEvent("agent_followup_queued", {
             chat_jid: chatJid,

@@ -231,7 +231,9 @@ test("web channel queues normal message as follow-up when no mode is provided", 
   expect(res.status).toBe(201);
   const payload = await res.json();
   expect(payload.queued).toBe("followup");
-  expect(payload.thread_id).toBe(rootRowId);
+  // Deferred followups should NOT inherit the active turn's thread root.
+  // They start their own thread when materialized (self-rooted).
+  expect(payload.thread_id).toBe(null);
 
   expect(runCalls).toBe(0);
 
@@ -240,7 +242,7 @@ test("web channel queues normal message as follow-up when no mode is provided", 
   expect(queueState.count).toBe(1);
   expect(queueState.items[0].content).toBe("Queue this while active");
   expect(queueState.items[0].row_id).toBeLessThan(0);
-  expect(queueState.items[0].thread_id).toBe(rootRowId);
+  expect(queueState.items[0].thread_id).toBe(null);
 
   // Deferred queued messages should not be persisted to the timeline until consumed.
   const timeline = db.getTimeline("web:default", 10);
@@ -646,11 +648,11 @@ test("web channel atomically converts a queued item into steering when active", 
   const queueJson = await queueRes.json();
   expect(queueRes.status).toBe(201);
   expect(queueJson.queued).toBe("followup");
-  expect(queueJson.thread_id).toBe(rootRowId);
+  expect(queueJson.thread_id).toBe(null);
 
   const queueStateRes = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
   const queueState = await queueStateRes.json();
-  expect(queueState.items[0].thread_id).toBe(rootRowId);
+  expect(queueState.items[0].thread_id).toBe(null);
   const rowId = queueState.items[0].row_id;
 
   const res = await (web as any).handleRequest(new Request("http://test/agent/queue-steer", {

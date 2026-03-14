@@ -657,10 +657,6 @@ function App() {
         if (!items || !Array.isArray(items)) return items;
         const queueRowIds = followupQueueRowIdsRef.current;
         const hiddenIds = new Set(queueRowIds);
-        const queueItems = followupQueueItemsRef.current;
-        for (const qi of queueItems) {
-            if (qi?.thread_id != null) hiddenIds.add(qi.thread_id);
-        }
 
         const filtered = items.filter((post) => {
             if (hiddenIds.has(post?.id)) return false;
