@@ -15,7 +15,7 @@ import {
     setWorkspaceVisibility,
     uploadWorkspaceFile,
 } from '../api.js';
-import { formatFileSize, formatTimestamp } from '../utils/format.js';
+import { formatFileSize } from '../utils/format.js';
 import { paneRegistry } from '../panes/index.js';
 import {
     WORKSPACE_SCALE_STORAGE_KEY,
@@ -2156,11 +2156,6 @@ export function WorkspaceExplorer({ onFileSelect, visible = true, active = undef
                         `}
                     `}
                     ${preview && !preview.error && !selectedIsDir && html`
-                        <div class="workspace-preview-meta">
-                            ${preview.size  ? html`<span>${formatFileSize(preview.size)}</span>` : ''}
-                            ${preview.mtime ? html`<span>${formatTimestamp(preview.mtime)}</span>` : ''}
-                            ${preview.truncated ? html`<span>truncated</span>` : ''}
-                        </div>
                         <div class="workspace-preview-body" ref=${previewPaneHostRef}></div>
                     `}
                     ${downloadId && html`

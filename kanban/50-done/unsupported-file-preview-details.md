@@ -1,10 +1,11 @@
 ---
 id: unsupported-file-preview-details
 title: Preview unsupported files with metadata (size, date, type, etc.)
-status: doing
+status: done
 priority: medium
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-14
+completed: 2026-03-14
 estimate: M
 risk: medium
 tags:
@@ -55,18 +56,18 @@ and why it cannot be rendered inline.
 
 ## Acceptance Criteria
 
-- [ ] Preview metadata block appears inline in the preview area rather than as a separate header treatment.
-- [ ] Metadata block is shown for all previewed files, including supported text/image previews and unsupported/binary previews.
-- [ ] Metadata block includes:
+- [x] Preview metadata block appears inline in the preview area rather than as a separate header treatment.
+- [x] Metadata block is shown for all previewed files, including supported text/image previews and unsupported/binary previews.
+- [x] Metadata block includes:
   - file type (MIME)
   - size
   - modified date/time (localised)
   - extension / kind
   - full path
-- [ ] If truncated status exists, keep the existing truncation indicator.
-- [ ] Unsupported/binary previews retain the existing download action as the only action in that area.
-- [ ] Existing text/image preview behaviour is unchanged apart from the added metadata display.
-- [ ] API errors for unsupported file reads still present a clear inline error.
+- [x] If truncated status exists, keep the existing truncation indicator.
+- [x] Unsupported/binary previews retain the existing download action as the only action in that area.
+- [x] Existing text/image preview behaviour is unchanged apart from the added metadata display.
+- [x] API errors for unsupported file reads still present a clear inline error.
 
 ## Relevant Files
 
@@ -90,6 +91,20 @@ and why it cannot be rendered inline.
   with no extra copy-path or utility buttons in this ticket.
 
 ## Updates
+
+### 2026-03-14
+- Lane change: `20-doing` → `50-done` after user validation on a real `.zip` preview from the workspace root.
+- Implemented the metadata surfacing through the existing extension-driven preview path instead of re-introducing inline preview branching in `workspace-explorer.ts`.
+- `piclaw/web/src/panes/workspace-preview-pane.ts` now renders an inline metadata block for text, markdown, image, and binary previews, including type, size, modified time, kind, extension, full path, and truncated state where applicable.
+- Removed the older outer preview-meta row from `piclaw/web/src/components/workspace-explorer.ts` so metadata now lives in the preview area itself.
+- Added wrapped inline metadata styling in `piclaw/web/static/css/styles.css`.
+- Added regression coverage in `piclaw/test/web/workspace-preview-pane.test.ts` and kept `piclaw/test/channels/web/workspace-file-service.test.ts` green.
+- Validation/build evidence:
+  - `bun test test/web/workspace-preview-pane.test.ts test/channels/web/workspace-file-service.test.ts`
+  - `bun run quality` → `794 pass, 0 fail`
+  - manual confirmation from workspace-root validation file `preview-validation.zip`
+- Synced updated web assets into the live runtime for manual validation.
+- Quality: ★★★★★ 10/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 2)
 
 ### 2026-03-12
 - Added to inbox for planning and scoped as a focused UI enhancement.

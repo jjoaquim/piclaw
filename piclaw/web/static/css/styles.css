@@ -668,6 +668,26 @@ body {
     margin-bottom: 2px;
 }
 
+.workspace-preview-meta-inline {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    column-gap: 10px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.workspace-preview-meta-inline span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.workspace-preview-meta-inline strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 .workspace-preview-body,
 .workspace-preview-render-host {
     min-height: 0;

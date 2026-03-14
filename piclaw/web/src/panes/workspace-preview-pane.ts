@@ -9,6 +9,7 @@
 
 import { renderMarkdown } from '../markdown.js';
 import { getWorkspaceRawUrl } from '../api.js';
+import { formatFileSize, formatTimestamp } from '../utils/format.js';
 import type { PaneCapability, PaneContext, PaneInstance, WebPaneExtension } from './pane-types.js';
 
 function escapeHtml(value) {
@@ -61,15 +62,60 @@ function getPreview(context) {
     return context?.preview || null;
 }
 
-function renderPreviewMarkup(context) {
+function fileExtensionFromPath(filePath) {
+    const value = String(filePath || '');
+    const lastSlash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
+    const base = lastSlash >= 0 ? value.slice(lastSlash + 1) : value;
+    const lastDot = base.lastIndexOf('.');
+    if (lastDot <= 0 || lastDot === base.length - 1) return 'none';
+    return base.slice(lastDot + 1);
+}
+
+function previewKindLabel(preview) {
+    if (!preview) return 'unknown';
+    if (preview.kind === 'image') return 'image';
+    if (preview.kind === 'text') return preview.content_type === 'text/markdown' ? 'markdown' : 'text';
+    if (preview.kind === 'binary') return 'binary';
+    return String(preview.kind || 'unknown');
+}
+
+function renderPreviewMetadata(context, preview) {
+    const filePath = preview?.path || context?.path || '';
+    const parts = [];
+
+    if (preview?.content_type) {
+        parts.push(`<span><strong>type:</strong> ${escapeHtml(preview.content_type)}</span>`);
+    }
+    if (typeof preview?.size === 'number') {
+        parts.push(`<span><strong>size:</strong> ${escapeHtml(formatFileSize(preview.size))}</span>`);
+    }
+    if (preview?.mtime) {
+        parts.push(`<span><strong>modified:</strong> ${escapeHtml(formatTimestamp(preview.mtime))}</span>`);
+    }
+    parts.push(`<span><strong>kind:</strong> ${escapeHtml(previewKindLabel(preview))}</span>`);
+    parts.push(`<span><strong>extension:</strong> ${escapeHtml(fileExtensionFromPath(filePath))}</span>`);
+    if (filePath) {
+        parts.push(`<span><strong>path:</strong> ${escapeHtml(filePath)}</span>`);
+    }
+    if (preview?.truncated) {
+        parts.push('<span><strong>content:</strong> truncated</span>');
+    }
+
+    return `<div class="workspace-preview-meta workspace-preview-meta-inline">${parts.join('')}</div>`;
+}
+
+/** Render workspace preview markup, including the inline metadata block. */
+export function renderWorkspacePreviewMarkup(context) {
     const preview = getPreview(context);
     if (!preview) {
         return '<div class="workspace-preview-text">No preview available.</div>';
     }
 
+    const metadata = renderPreviewMetadata(context, preview);
+
     if (preview.kind === 'image') {
         const src = preview.url || (preview.path ? getWorkspaceRawUrl(preview.path) : '');
-        return `
+        return `${metadata}
             <div class="workspace-preview-image">
                 <img src="${escapeHtml(src)}" alt="preview" />
             </div>
@@ -81,16 +127,16 @@ function renderPreviewMarkup(context) {
             const rendered = renderMarkdown(preview.text || '', null, {
                 rewriteImageSrc: (src) => rewriteMarkdownImagePath(src, preview.path || context?.path),
             });
-            return `<div class="workspace-preview-text">${rendered}</div>`;
+            return `${metadata}<div class="workspace-preview-text">${rendered}</div>`;
         }
-        return `<pre class="workspace-preview-text"><code>${escapeHtml(preview.text || '')}</code></pre>`;
+        return `${metadata}<pre class="workspace-preview-text"><code>${escapeHtml(preview.text || '')}</code></pre>`;
     }
 
     if (preview.kind === 'binary') {
-        return '<div class="workspace-preview-text">Binary file — download to view.</div>';
+        return `${metadata}<div class="workspace-preview-text">Binary file — download to view.</div>`;
     }
 
-    return '<div class="workspace-preview-text">No preview available.</div>';
+    return `${metadata}<div class="workspace-preview-text">No preview available.</div>`;
 }
 
 class WorkspacePreviewInstance implements PaneInstance {
@@ -107,7 +153,7 @@ class WorkspacePreviewInstance implements PaneInstance {
 
     render() {
         if (this.disposed) return;
-        this.host.innerHTML = renderPreviewMarkup(this.context);
+        this.host.innerHTML = renderWorkspacePreviewMarkup(this.context);
     }
 
     getContent() {

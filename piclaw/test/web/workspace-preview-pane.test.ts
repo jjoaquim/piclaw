@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { paneRegistry } from "../../web/src/panes/pane-registry.js";
 import { editorPaneExtension } from "../../web/src/panes/editor-loader.js";
 import {
+  renderWorkspacePreviewMarkup,
   workspaceMarkdownPreviewPaneExtension,
   workspacePreviewPaneExtension,
 } from "../../web/src/panes/workspace-preview-pane.js";
@@ -70,5 +71,48 @@ describe("workspace preview pane extensions", () => {
     });
 
     expect(resolved?.id).toBe("workspace-preview-default");
+  });
+
+  test("renderWorkspacePreviewMarkup includes inline metadata for binary previews", () => {
+    const html = renderWorkspacePreviewMarkup({
+      path: "artifacts/sample.zip",
+      mode: "view",
+      preview: {
+        path: "artifacts/sample.zip",
+        kind: "binary",
+        content_type: "application/zip",
+        size: 2048,
+        mtime: "2026-03-14T09:00:00.000Z",
+        truncated: true,
+      },
+    } as any);
+
+    expect(html).toContain("type:</strong> application/zip");
+    expect(html).toContain("kind:</strong> binary");
+    expect(html).toContain("extension:</strong> zip");
+    expect(html).toContain("path:</strong> artifacts/sample.zip");
+    expect(html).toContain("content:</strong> truncated");
+    expect(html).toContain("Binary file — download to view.");
+  });
+
+  test("renderWorkspacePreviewMarkup includes inline metadata for text previews", () => {
+    const html = renderWorkspacePreviewMarkup({
+      path: "notes/test.txt",
+      mode: "view",
+      preview: {
+        path: "notes/test.txt",
+        kind: "text",
+        content_type: "text/plain",
+        size: 128,
+        mtime: "2026-03-14T09:00:00.000Z",
+        text: "Hello",
+      },
+    } as any);
+
+    expect(html).toContain("type:</strong> text/plain");
+    expect(html).toContain("kind:</strong> text");
+    expect(html).toContain("extension:</strong> txt");
+    expect(html).toContain("path:</strong> notes/test.txt");
+    expect(html).toContain("<code>Hello</code>");
   });
 });
