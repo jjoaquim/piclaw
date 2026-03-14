@@ -207,6 +207,15 @@ export function parseSwitchSession(args: string, raw: string): AgentControlComma
   };
 }
 
+/** Parse /session-rotate arguments: optional compaction instructions. */
+export function parseSessionRotate(args: string, raw: string): AgentControlCommand {
+  return {
+    type: "session_rotate",
+    instructions: args || undefined,
+    raw,
+  };
+}
+
 /** Parse /fork arguments: optional entry ID to fork from. */
 export function parseFork(args: string, raw: string): AgentControlCommand {
   return {
@@ -468,6 +477,7 @@ export const COMMAND_PARSERS: Record<string, CommandParser> = {
   "/session-name": parseSessionName,
   "/new-session": parseNewSession,
   "/switch-session": parseSwitchSession,
+  "/session-rotate": parseSessionRotate,
   "/fork": parseFork,
   "/forks": simple("forks"),
   "/export-html": parseExportHtml,

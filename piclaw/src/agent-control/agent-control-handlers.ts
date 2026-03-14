@@ -47,6 +47,7 @@ import {
   handleForks,
   handleNewSession,
   handleSessionName,
+  handleSessionRotate,
   handleSwitchSession,
 } from "./handlers/session.js";
 import { handlePasskey } from "./handlers/passkey.js";
@@ -108,6 +109,8 @@ export async function applyControlCommand(
       return handleNewSession(session, command);
     case "switch_session":
       return handleSwitchSession(session, command);
+    case "session_rotate":
+      return handleSessionRotate(session, command);
     case "fork":
       return handleFork(session, command);
     case "forks":

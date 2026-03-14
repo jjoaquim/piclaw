@@ -7,6 +7,8 @@
  */
 
 import { afterEach, expect, test } from "bun:test";
+import { existsSync, mkdirSync, truncateSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
 import { withChatContext } from "../../src/core/chat-context.js";
 import { getTestWorkspace, setEnv } from "../helpers.js";
 
@@ -49,6 +51,24 @@ class RichSession {
   promptCalls: Array<{ text: string; options?: any }> = [];
   labelChanges: Array<{ id: string; label: string }> = [];
   listeners: Array<(event: any) => void> = [];
+  compactCalls = 0;
+  compactError: Error | null = null;
+  sessionContext: any = {
+    messages: [
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "Rotated context" }],
+        provider: "openai",
+        model: "gpt-test",
+        usage: { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 15, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+        stopReason: "stop",
+        timestamp: Date.now(),
+      },
+    ],
+    thinkingLevel: "low",
+    model: { provider: "openai", modelId: "gpt-test" },
+  };
+  seededEntries: Array<Array<any>> = [];
 
   extensionRunner = {
     getRegisteredCommandsWithPaths: () => [
@@ -103,6 +123,24 @@ class RichSession {
   }
 
   async compact() {
+    this.compactCalls += 1;
+    if (this.compactError) throw this.compactError;
+    this.sessionContext = {
+      messages: [
+        { role: "compactionSummary", summary: "Summary", tokensBefore: 1200, timestamp: Date.now() },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "Rotated context" }],
+          provider: "openai",
+          model: "gpt-test",
+          usage: { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 15, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+          stopReason: "stop",
+          timestamp: Date.now(),
+        },
+      ],
+      thinkingLevel: "low",
+      model: { provider: "openai", modelId: "gpt-test" },
+    };
     return { tokensBefore: 1200, firstKeptEntryId: "entry-1", summary: "Summary" } as any;
   }
 
@@ -162,7 +200,26 @@ class RichSession {
     this.sessionName = name;
   }
 
-  async newSession() {
+  async newSession(options?: { setup?: (sessionManager: any) => Promise<void> | void }) {
+    const nextFile = join(dirname(this.sessionFile), `rotated-${Date.now()}.jsonl`);
+    const recorded: Array<any[]> = [];
+    if (options?.setup) {
+      await options.setup({
+        appendSessionInfo: (name: string) => recorded.push(["session_info", name]),
+        appendModelChange: (provider: string, modelId: string) => recorded.push(["model_change", provider, modelId]),
+        appendCompaction: (summary: string, firstKeptEntryId: string, tokensBefore: number) => {
+          recorded.push(["compaction", summary, firstKeptEntryId, tokensBefore]);
+        },
+        appendCustomMessageEntry: (customType: string, content: unknown, display: boolean, details: unknown) => {
+          recorded.push(["custom_message", customType, content, display, details]);
+        },
+        appendMessage: (message: unknown) => recorded.push(["message", message]),
+      });
+    }
+    this.seededEntries.push(recorded);
+    mkdirSync(dirname(nextFile), { recursive: true });
+    writeFileSync(nextFile, '{"type":"session","id":"rotated","version":3}\n');
+    this.sessionFile = nextFile;
     return true;
   }
 
@@ -191,6 +248,9 @@ class RichSession {
         children: [],
       },
     ],
+    buildSessionContext: () => this.sessionContext,
+    getHeader: () => ({ type: "session", id: "rotated", version: 3, timestamp: new Date().toISOString(), cwd: "/workspace" }),
+    getEntries: () => [],
     appendLabelChange: (id: string, label: string) => {
       this.labelChanges.push({ id, label });
     },
@@ -230,8 +290,13 @@ test("agent control info and mode commands", async () => {
   const applyControlCommand = await getControl();
   const session = new RichSession();
 
+  session.sessionFile = join(ws.data, "sessions", "web_default", "state-session.jsonl");
+  mkdirSync(dirname(session.sessionFile), { recursive: true });
+  writeFileSync(session.sessionFile, '{"type":"session","id":"state","version":3}\n');
+
   const state = await applyControlCommand(session as any, registry, { type: "state", raw: "/state" });
   expect(state.message).toContain("Model:");
+  expect(state.message).toContain("Session file size:");
 
   const db = await import("../../src/db.js");
   db.initDatabase();
@@ -269,6 +334,7 @@ test("agent control info and mode commands", async () => {
   const commands = await applyControlCommand(session as any, registry, { type: "commands", raw: "/commands" });
   expect(commands.message).toContain("/model");
   expect(commands.message).not.toContain("/exit");
+  expect(commands.message).toContain("/session-rotate");
   expect(commands.message).toContain("/ext");
   expect(commands.message).toContain("/template");
   expect(commands.message).toContain("/skill:demo");
@@ -280,6 +346,22 @@ test("agent control info and mode commands", async () => {
   const followup = await applyControlCommand(session as any, registry, { type: "followup_mode", mode: "all", raw: "/followup-mode all" });
   expect(followup.message).toContain("all");
   expect(session.followUpModeCalls).toContain("all");
+});
+
+test("agent control state shows oversized session warning", async () => {
+  const ws = getTestWorkspace();
+  restoreEnv = setEnv({ PICLAW_WORKSPACE: ws.workspace, PICLAW_STORE: ws.store, PICLAW_DATA: ws.data });
+
+  const applyControlCommand = await getControl();
+  const session = new RichSession();
+  session.sessionFile = join(ws.data, "sessions", "web_default", "oversized-session.jsonl");
+  mkdirSync(dirname(session.sessionFile), { recursive: true });
+  writeFileSync(session.sessionFile, '{"type":"session","id":"oversized","version":3}\n');
+  truncateSync(session.sessionFile, 101 * 1024 * 1024);
+
+  const state = await applyControlCommand(session as any, registry, { type: "state", raw: "/state" });
+  expect(state.message).toContain("Session file warning:");
+  expect(state.message).toContain("Consider /session-rotate.");
 });
 
 test("agent control session and tree commands", async () => {
@@ -297,6 +379,22 @@ test("agent control session and tree commands", async () => {
 
   const switchSession = await applyControlCommand(session as any, registry, { type: "switch_session", path: "path/to/session", raw: "/switch-session path/to/session" });
   expect(switchSession.message).toContain("Switched to session");
+
+  session.sessionName = "Carry forward";
+  session.sessionFile = join(ws.data, "sessions", "web_default", "active-session.jsonl");
+  mkdirSync(dirname(session.sessionFile), { recursive: true });
+  writeFileSync(session.sessionFile, '{"type":"session","id":"active","version":3}\n{"type":"message","id":"m1","parentId":null,"timestamp":"2026-03-14T00:00:00.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Hello"}],"provider":"openai","model":"gpt-test","usage":{"input":1,"output":1,"cacheRead":0,"cacheWrite":0,"totalTokens":2,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1}}\n');
+  const rotated = await applyControlCommand(session as any, registry, { type: "session_rotate", instructions: "keep active work", raw: "/session-rotate keep active work" });
+  expect(rotated.status).toBe("success");
+  expect(rotated.message).toContain("Session rotated.");
+  expect(rotated.message).toContain("Archived previous session:");
+  expect(rotated.message).toContain("New session:");
+  expect(rotated.message).toContain("Compaction before rotate: yes");
+  expect(session.compactCalls).toBe(1);
+  expect(existsSync(session.sessionFile)).toBe(true);
+  expect(existsSync(join(ws.data, "sessions", "web_default", "active-session.jsonl"))).toBe(false);
+  expect(existsSync(join(ws.data, "sessions", "web_default", "archive", "active-session.jsonl"))).toBe(true);
+  expect(session.seededEntries.at(-1)?.some((entry) => entry[0] === "compaction")).toBe(true);
 
   const fork = await applyControlCommand(session as any, registry, { type: "fork", entryId: "entry-1", raw: "/fork entry-1" });
   expect(fork.message).toContain("Selected");

@@ -139,6 +139,11 @@ export type AgentControlCommand =
       raw: string;
     }
   | {
+      type: "session_rotate";
+      instructions?: string;
+      raw: string;
+    }
+  | {
       type: "fork";
       entryId?: string;
       raw: string;

@@ -7,7 +7,7 @@ risk: medium
 estimate: M
 target_release: next
 created: 2026-03-12
-updated: 2026-03-12
+updated: 2026-03-14
 tags:
   - work-item
   - kanban
@@ -43,10 +43,79 @@ Based on ecosystem familiarity and prior art:
 
 - `hediet.vscode-drawio` (VS Code extension, strong feature parity for draw.io editing)
 - diagrams.net / draw.io `embed` integration path (`embed.diagrams.net`)
+- `jgraph/drawio` (upstream diagrams.net editor/runtime source)
 - `mxgraph` / `@maxgraph/core`-style drawing runtime lineage for possible local embedding
 - Self-hosted/editor-hosted integration patterns used by existing VS Code drawio extensions
 
 > Action required: verify exact packaging + licensing + offline/local-hosting suitability for each option before implementation.
+
+## Upstream references to track
+
+### UX / integration reference
+- `hediet/vscode-drawio`
+  - GitHub: `https://github.com/hediet/vscode-drawio`
+  - Why it matters:
+    - proven desktop/editor embedding model for draw.io files
+    - useful reference for save/export behavior, editor lifecycle, and file association expectations
+    - likely reference point for how users expect `.drawio` editing to behave inside a tabbed editor environment
+
+### Runtime / asset source of truth
+- `jgraph/drawio`
+  - GitHub: `https://github.com/jgraph/drawio`
+  - Why it matters:
+    - authoritative upstream source for the diagrams.net runtime/assets
+    - likely source of the embeddable editor build or static assets we would vendor
+    - should drive provenance, version tracking, and offline-hosting assumptions
+
+## Embedding and vendoring plan (initial)
+
+### Preferred architecture
+Use a **local vendored diagrams.net embed runtime** hosted from PiClaw static assets, wrapped by a **pane extension** that opens in the tabbed editor area.
+
+### Proposed shape
+1. **Vendor a local draw.io runtime**
+   - Add a dedicated vendor script or manifest-driven workflow to pull a reproducible upstream build from `jgraph/drawio`.
+   - Store vendored assets under a stable static path, likely alongside other large browser-side vendor artifacts.
+   - Keep the runtime lazy-loaded rather than merged into `app.bundle.js`.
+
+2. **Add a host page / bridge**
+   - Serve a local host page for the draw.io iframe/embed runtime.
+   - Use a strict `postMessage` bridge for:
+     - load/open diagram XML
+     - save back to PiClaw
+     - export SVG
+     - export PNG
+     - dirty-state / ready-state notifications
+
+3. **Add a pane extension**
+   - Register a new `WebPaneExtension` with high priority for:
+     - `.drawio`
+     - `.dio`
+     - selected `.xml` cases where the file is draw.io-shaped
+   - Open the editor in the existing tabbed pane area rather than as a separate app surface.
+
+4. **Integrate workspace persistence**
+   - Load content via existing workspace file APIs.
+   - Save edited XML via `updateWorkspaceFile`.
+   - Keep file ownership and path semantics identical to other editor tabs.
+
+5. **Add explicit export actions**
+   - `Export SVG`
+   - `Export PNG`
+   - Prefer deterministic save-to-workspace first, with attachment/timeline flow as an optional second step.
+
+### Why this plan
+- aligns with PiClaw’s existing pane-extension model in `docs/web-pane-extensions.md`
+- keeps draw.io isolated as a heavyweight lazy-loaded editor surface
+- avoids remote runtime dependencies at use time
+- preserves an offline/self-hosted story
+- keeps vendoring/provenance compatible with the repo’s newer vendor workflow direction
+
+### Planning constraints
+- Do **not** load remote `embed.diagrams.net` at runtime in production use.
+- Treat `hediet/vscode-drawio` as an integration/UX reference, not as the vendored runtime.
+- Treat `jgraph/drawio` as the authoritative provenance source unless research proves a cleaner officially-supported embeddable package path.
+- Prefer extension-local editor code plus vendored static assets over hard-coding logic into the main app bundle.
 
 ## Scope
 
@@ -126,6 +195,7 @@ Start with **Path A** for first integration proof, then evaluate Path B only if 
 ## Candidate investigation tasks (required before implement)
 
 - [ ] Confirm one primary draw.io candidate runtime and verify export API:
+  - compare `hediet/vscode-drawio` integration strategy with `jgraph/drawio` upstream runtime shape
   - if iframe-based: confirm command bridge contract for `export` and `load`
   - if bundle-based: verify module entrypoint + runtime CSS/assets + export hooks
 - [ ] Validate licensing/commercial terms and whether local/offline hosting is permitted in this repo context.
@@ -134,6 +204,15 @@ Start with **Path A** for first integration proof, then evaluate Path B only if 
   - preview/edit behavior
   - content-type classification
   - file-size caps for this mode
+- [ ] Decide vendoring path:
+  - manifest-driven vendor workflow vs dedicated draw.io asset script
+  - static asset layout under `web/static/...`
+  - version/provenance metadata file format
+- [ ] Map pane-extension implementation files before coding:
+  - pane registration
+  - iframe host page / bridge
+  - export command UI placement
+  - workspace save integration
 
 ## Test Plan
 
@@ -172,6 +251,19 @@ Start with **Path A** for first integration proof, then evaluate Path B only if 
 - [ ] Ticket moved to `50-done/` when shipped
 
 ## Updates
+
+### 2026-03-14
+- Annotated the ticket with explicit upstream references:
+  - `https://github.com/hediet/vscode-drawio`
+  - `https://github.com/jgraph/drawio`
+- Clarified planning direction:
+  - treat `hediet/vscode-drawio` as UX/integration reference
+  - treat `jgraph/drawio` as runtime/provenance source of truth
+  - prefer a locally vendored embed runtime wrapped by a pane extension and postMessage bridge
+- Added a first-pass vendoring/embedding plan aligned with `piclaw/piclaw/docs/web-pane-extensions.md`.
+- Expanded investigation tasks to cover vendoring shape, host-page bridge, extension registration, and export UI placement.
+- Quality: ★★★★☆ 8/10 (problem: 2, scope: 2, test: 2, deps: 1, risk: 1)
+- Next action: inspect the two upstream repos directly and choose the exact vendoring path (manifest-driven vs dedicated asset workflow).
 
 ### 2026-03-12
 - User requested ticket to add vendored draw.io editor as an extension pane with SVG/PNG export.

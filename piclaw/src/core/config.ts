@@ -56,6 +56,7 @@ const envConfig = readEnvFile([
   "PICLAW_WEB_PASSKEY_MODE",
   "PICLAW_WEB_TERMINAL_ENABLED",
   "PICLAW_TRUST_PROXY",
+  "PICLAW_SESSION_MAX_SIZE_MB",
   "PICLAW_INTERNAL_SECRET",
   "PICLAW_REMOTE_INTEROP_ENABLED",
   "PICLAW_REMOTE_INTEROP_ALLOW_HTTP",
@@ -484,8 +485,23 @@ export const REMOTE_INTEROP_DECISION_MODEL =
   process.env.PICLAW_REMOTE_INTEROP_DECISION_MODEL ||
   "";
 
-/** Directory for WhatsApp session auth files. */
+/** Directory for persisted Pi session files. */
 export const SESSIONS_DIR = resolve(DATA_DIR, "sessions");
+
+const configSessionMaxSizeMb = pickNumber(piclawConfig, [
+  "sessionMaxSizeMb",
+  "session_max_size_mb",
+  "PICLAW_SESSION_MAX_SIZE_MB",
+]);
+
+/** Warning threshold for oversized session files (default 100 MB). */
+export const SESSION_MAX_SIZE_MB =
+  pickNumber({ PICLAW_SESSION_MAX_SIZE_MB: process.env.PICLAW_SESSION_MAX_SIZE_MB ?? envConfig.PICLAW_SESSION_MAX_SIZE_MB }, [
+    "PICLAW_SESSION_MAX_SIZE_MB",
+  ]) ?? configSessionMaxSizeMb ?? 100;
+
+/** Warning threshold for oversized session files in bytes. */
+export const SESSION_MAX_SIZE_BYTES = SESSION_MAX_SIZE_MB * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Trigger pattern – used by router.ts to decide if a message mentions the bot.

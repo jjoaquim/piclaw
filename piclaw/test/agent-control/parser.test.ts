@@ -223,6 +223,11 @@ describe("parseControlCommand", () => {
     expect(cmd).toEqual({ type: "switch_session", path: "other", raw: "/switch-session other" });
   });
 
+  test("/session-rotate with instructions", () => {
+    const cmd = parseControlCommand("/session-rotate keep active work only");
+    expect(cmd).toEqual({ type: "session_rotate", instructions: "keep active work only", raw: "/session-rotate keep active work only" });
+  });
+
   test("/fork with entryId", () => {
     const cmd = parseControlCommand("/fork abc123");
     expect(cmd).toEqual({ type: "fork", entryId: "abc123", raw: "/fork abc123" });
