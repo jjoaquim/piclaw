@@ -15,6 +15,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getDb } from "./db.js";
 import { WORKSPACE_DIR } from "./core/config.js";
+import { prepareFtsQuery } from "./utils/fts-query.js";
 const DEFAULT_EXTS = new Set([
     ".md",
     ".txt",
@@ -149,6 +150,10 @@ export async function searchWorkspace(params) {
     if (refresh) {
         await indexWorkspace(normalizeRoots(params.scope), maxBytes);
     }
+    const ftsQuery = prepareFtsQuery(query);
+    if (!ftsQuery) {
+        return { rows: [], limit, offset, error: "Query is empty after sanitization." };
+    }
     const db = getDb();
     try {
         const scope = params.scope?.trim();
@@ -157,11 +162,27 @@ export async function searchWorkspace(params) {
             ? "SELECT path, size_bytes, mtime_ms, snippet(workspace_fts, 0, '[', ']', '…', 12) as snippet FROM workspace_fts WHERE workspace_fts MATCH ? AND path LIKE ? ORDER BY bm25(workspace_fts) LIMIT ? OFFSET ?"
             : "SELECT path, size_bytes, mtime_ms, snippet(workspace_fts, 0, '[', ']', '…', 12) as snippet FROM workspace_fts WHERE workspace_fts MATCH ? ORDER BY bm25(workspace_fts) LIMIT ? OFFSET ?";
         const rows = prefix
-            ? db.prepare(stmt).all(query, prefix, limit, offset)
-            : db.prepare(stmt).all(query, limit, offset);
+            ? db.prepare(stmt).all(ftsQuery, prefix, limit, offset)
+            : db.prepare(stmt).all(ftsQuery, limit, offset);
         return { rows, limit, offset };
     }
     catch {
-        return { rows: [], limit, offset, error: "Workspace search failed (invalid query?)." };
+        // FTS query failed even after sanitization — fall back to LIKE
+        try {
+            const scope = params.scope?.trim();
+            const prefix = scope === "notes" ? "notes/%" : scope === "skills" ? ".pi/skills/%" : null;
+            const terms = query.split(/\s+/).filter(Boolean).map((t) => `%${t}%`);
+            if (terms.length === 0)
+                return { rows: [], limit, offset, error: "No searchable terms." };
+            const likeClauses = terms.map(() => "content LIKE ? COLLATE NOCASE").join(" AND ");
+            const conditions = prefix ? `${likeClauses} AND path LIKE ?` : likeClauses;
+            const params_arr = prefix ? [...terms, prefix] : terms;
+            const sql = `SELECT path, size_bytes, mtime_ms, substr(content, 1, 200) as snippet FROM workspace_files JOIN workspace_fts ON workspace_fts.path = workspace_files.path WHERE ${conditions} LIMIT ? OFFSET ?`;
+            const rows = db.prepare(sql).all(...params_arr, limit, offset);
+            return { rows, limit, offset };
+        }
+        catch {
+            return { rows: [], limit, offset, error: "Workspace search failed (invalid query?)." };
+        }
     }
 }

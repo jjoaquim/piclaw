@@ -5,6 +5,7 @@ import { Type } from "@sinclair/typebox";
 import { attachMediaToMessage, deleteThreadByRowId, getDb, getMediaIdsForMessage, storeMessage, } from "../db.js";
 import { getChatJid } from "../core/chat-context.js";
 import { createUuid } from "../utils/ids.js";
+import { prepareFtsQuery } from "../utils/fts-query.js";
 const MessagesSchema = Type.Object({
     action: Type.Optional(Type.Union([
         Type.Literal("search"),
@@ -143,13 +144,7 @@ function runSearch(query, chatJid, roleFilter, limit, offset, afterTs, beforeTs)
     try {
         const conditions = ["messages_fts MATCH ?"];
         const params = [];
-        const normalized = trimmed;
-        const terms = normalized
-            .split(/\s+/)
-            .map((term) => term.replace(/^['\"]+|['\"]+$/g, ""))
-            .filter(Boolean);
-        const hasOperators = /(?:\bAND\b|\bOR\b|\bNOT\b|\bNEAR\b|[\"():*])/i.test(normalized);
-        const ftsQuery = !hasOperators && terms.length > 1 ? terms.join(" AND ") : normalized;
+        const ftsQuery = prepareFtsQuery(trimmed) ?? trimmed;
         params.push(ftsQuery);
         if (chatJid) {
             conditions.unshift("messages.chat_jid = ?");

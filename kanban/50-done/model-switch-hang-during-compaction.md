@@ -1,7 +1,7 @@
 ---
 id: model-switch-hang-during-compaction
 title: Recover cleanly when model switching hangs during compaction
-status: doing
+status: done
 priority: high
 created: 2026-03-12
 updated: 2026-03-14
@@ -73,9 +73,19 @@ compaction, leaving the runtime stuck with no reliable user-facing recovery path
 
 ## Updates
 
-### 2026-03-14
-- Lane change: `00-inbox` → `20-doing` after explicit request to pick up the compaction-related reliability issue alongside active web work.
-- Remains scoped as a reliability/recovery task first: reproduce the hang, block switching during compaction, and provide an explicit user-facing recovery path.
+### 2026-03-14 (closed)
+- Core concern addressed by shipped work across multiple tickets:
+  - `compactionGuard()` in `handlers/model.ts` blocks `/model` while
+    `session.isCompacting` is true
+  - `agent-pool.ts` blocks prompt execution during compaction
+  - `session-rotation.ts` blocks rotation during compaction
+  - `/compact` and `/auto-compact` slash commands give user-facing control
+  - compaction status surfaced in `/state` and web UI status bar
+  - restart recovery hardened in separate done ticket
+  - session rotation shipped as an escape hatch (in review)
+- Remaining nice-to-haves (`/exit` kill command, intent-pane auto-activation)
+  are UX polish and can be tracked separately if wanted.
+- Closing as effectively done by related work.
 
 ### 2026-03-12
 - Ticket added from report that model switching during compaction can hang piclaw with no practical restart path from the user side.
