@@ -1608,6 +1608,7 @@ function App() {
                 if (onMainTimeline) {
                     refreshTimeline();
                 }
+                refreshQueueState();
                 refreshAgentStatus();
                 refreshContextUsage();
             } else {
@@ -1619,7 +1620,7 @@ function App() {
             }
         }, intervalMs);
         return () => clearInterval(interval);
-    }, [connectionStatus, isAgentActive, refreshAgentStatus, refreshContextUsage, refreshTimeline]);
+    }, [connectionStatus, isAgentActive, refreshAgentStatus, refreshContextUsage, refreshQueueState, refreshTimeline]);
 
     const toggleWorkspace = useCallback(() => {
         setWorkspaceOpen((prev) => !prev);

@@ -73,12 +73,18 @@ export async function handleAgentMessage(
   const command = parseControlCommand(content, TRIGGER_PATTERN);
   const requestMode = normalized.mode ?? "auto";
   const trimmed = content.trim();
+  const inflightMessageId = getInflightMessageId(chatJid);
   const isStreaming = typeof channel.agentPool.isStreaming === "function"
     ? channel.agentPool.isStreaming(chatJid)
     : false;
+  const hasInflightTurn = Boolean(inflightMessageId);
+  // Queue intent should survive brief backend non-streaming gaps while the
+  // current turn is still inflight/finalizing. Otherwise a user can submit
+  // while the UI still correctly shows an active turn and have the message
+  // silently persist as a fresh top-level turn instead of queueing.
+  const canQueueAgainstActiveTurn = isStreaming || hasInflightTurn;
 
   const getActiveTurnThreadRootId = (): number | null => {
-    const inflightMessageId = getInflightMessageId(chatJid);
     if (!inflightMessageId) return null;
     return getMessageThreadRootIdById(chatJid, inflightMessageId);
   };
@@ -118,7 +124,7 @@ export async function handleAgentMessage(
   // Normal in-turn user messages should remain out of the timeline until the
   // current turn fully finalizes. Queue them in server state first, then
   // persist/broadcast the real user message only when consumed.
-  const shouldDeferQueuedFollowup = !command && isStreaming && (requestMode === "queue" || requestMode === "auto");
+  const shouldDeferQueuedFollowup = !command && canQueueAgainstActiveTurn && (requestMode === "queue" || requestMode === "auto");
   if (shouldDeferQueuedFollowup) {
     return queueDeferredFollowup(content, {
       mediaIds: normalized.mediaIds,
@@ -132,7 +138,7 @@ export async function handleAgentMessage(
     if (steerResponse) return steerResponse;
   }
 
-  if ((command?.type === "queue" || command?.type === "queue_all") && isStreaming) {
+  if ((command?.type === "queue" || command?.type === "queue_all") && canQueueAgainstActiveTurn) {
     const queuedText = (command.message || "").trim();
     if (queuedText) {
       return queueDeferredFollowup(queuedText);
@@ -191,10 +197,7 @@ export async function handleAgentMessage(
     // Web queued follow-ups are managed by the web channel itself rather than
     // AgentSession's internal follow-up queue. This guarantees the current turn
     // finalizes and publishes before the next queued user message begins.
-    const isStreaming = typeof channel.agentPool.isStreaming === "function"
-      ? channel.agentPool.isStreaming(chatJid)
-      : false;
-    if (!isStreaming) {
+    if (!canQueueAgainstActiveTurn) {
       return null;
     }
 
