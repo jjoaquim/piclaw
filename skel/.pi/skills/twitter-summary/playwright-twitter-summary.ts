@@ -7,6 +7,14 @@ import { chromium } from "playwright";
 
 /** Main entry: scrape tweets via Playwright and output JSON summary. */
 async function run() {
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun playwright-twitter-summary.ts [options]");
+  console.log("");
+  console.log("  Fetch a user's recent tweets (tweets, replies, retweets) using Playwright + Nitter fallbacks and produce compact JSON/Markdown summaries.");
+  process.exit(0);
+}
   const args = process.argv.slice(2);
   const opts: Record<string, string> = {};
   for (let i = 0; i < args.length; i++) {

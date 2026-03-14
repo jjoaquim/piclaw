@@ -36,6 +36,14 @@ const DEFAULT_MAX_SENTENCES = 3;
 /** Default max characters in a page summary. */
 const DEFAULT_MAX_CHARS = 600;
 
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun web-search-summary.ts [options]");
+  console.log("");
+  console.log("  Search via SearXNG, fetch top results, and return quick summaries plus markdown.");
+  process.exit(0);
+}
 const args = process.argv.slice(2);
 
 /** Parse CLI flags (--key value) into a key-value object. */

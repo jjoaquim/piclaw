@@ -23,6 +23,14 @@ import { join, basename } from "path";
 
 // ── Config ──────────────────────────────────────────────────────
 
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun kanban-board-svg.ts [options]");
+  console.log("");
+  console.log("  Manage the kanban board end-to-end: ideation, implementation planning, quality scoring, and definition-of-done tracking.");
+  process.exit(0);
+}
 const args = process.argv.slice(2);
 const getArgValue = (flag: string): string | undefined => {
   const idx = args.indexOf(flag);

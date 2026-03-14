@@ -8,6 +8,14 @@ import { readdirSync, statSync, readFileSync, mkdirSync, writeFileSync, existsSy
 import { basename, dirname, join } from "path";
 import Database from "bun:sqlite";
 
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun token-chart.ts [options]");
+  console.log("");
+  console.log("  Generate a 7-day token usage chart (all chats) and post it to the web UI timeline.");
+  process.exit(0);
+}
 const args = process.argv.slice(2);
 const daysArgIndex = args.indexOf("--days");
 const days = daysArgIndex >= 0 ? parseInt(args[daysArgIndex + 1], 10) : 7;

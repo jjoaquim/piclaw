@@ -31,6 +31,14 @@ const DEFAULT_FETCH_LIMIT = 2;
 /** Default HTTP fetch timeout in milliseconds. */
 const DEFAULT_TIMEOUT = 15000;
 
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun web-search.ts [options]");
+  console.log("");
+  console.log("  Search the web via SearXNG and optionally convert result pages to Markdown.");
+  process.exit(0);
+}
 const args = process.argv.slice(2);
 
 /** Parse CLI flags (--key value) into a key-value object. */

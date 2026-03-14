@@ -265,6 +265,14 @@ function hammingDistance(a: bigint, b: bigint): number {
 
 /** Fetch feeds, deduplicate, and write the digest markdown and links JSON. */
 async function main() {
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun feeds-digest.ts [options]");
+  console.log("");
+  console.log("  Build a deduped markdown digest from feeds.carmo.io (last N hours) and store links separately.");
+  process.exit(0);
+}
   const { out, linksOut, hours, threshold } = parseArgs(process.argv);
   const indexResponse = await fetch(FEED_INDEX_URL);
   if (!indexResponse.ok) {

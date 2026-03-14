@@ -24,6 +24,14 @@
 
 set -euo pipefail
 
+# --help support
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: restart-piclaw.sh"
+  echo ""
+  echo "  Reinstall piclaw from workspace source and force-restart the running process. Use after making code changes to piclaw."
+  exit 0
+fi
+
 export BUN_INSTALL="/usr/local/lib/bun"
 export PATH="$BUN_INSTALL/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 

@@ -15,6 +15,14 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun graphite-power-chart.ts [options]");
+  console.log("");
+  console.log("  Generate a Graphite chart (12h default) for a Zigbee device metric and post it to the web timeline.");
+  process.exit(0);
+}
 const args = process.argv.slice(2);
 
 /**

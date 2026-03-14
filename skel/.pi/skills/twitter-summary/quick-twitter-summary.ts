@@ -72,6 +72,14 @@ async function tryFetch(url: string, timeout = 15000) {
 }
 
 (async () => {
+
+// --help support
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  console.log("Usage: bun quick-twitter-summary.ts [options]");
+  console.log("");
+  console.log("  Fetch a user's recent tweets (tweets, replies, retweets) using Playwright + Nitter fallbacks and produce compact JSON/Markdown summaries.");
+  process.exit(0);
+}
   const opts = parseArgs(process.argv.slice(2));
   const handle = opts.handle || opts.h || "badlogicgames";
   const hours = parseNumber(opts.hours || opts.hrs, 16);

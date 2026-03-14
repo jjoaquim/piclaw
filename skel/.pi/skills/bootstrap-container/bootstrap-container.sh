@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --help support
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  echo "Usage: bootstrap-container.sh"
+  echo ""
+  echo "  Bootstrap a new container by validating required tools and installing missing dependencies."
+  exit 0
+fi
+
 WORKSPACE="${PICLAW_WORKSPACE:-/workspace}"
 BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$WORKSPACE/.cache/ms-playwright}"
 PACKAGE_JSON="$WORKSPACE/package.json"
