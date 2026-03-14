@@ -49,7 +49,9 @@ import {
   deleteMessageByRowId,
   replaceMessageContent,
   getDb,
+  getInflightMessageId,
   getMessageByRowId,
+  getMessageThreadRootIdById,
   getDeferredQueuedFollowups,
   setDeferredQueuedFollowups,
 } from "../db.js";
@@ -710,26 +712,11 @@ export class WebChannel implements WebChannelLike {
       const isStreaming = typeof this.agentPool.isStreaming === "function"
         ? this.agentPool.isStreaming(chatJid)
         : false;
-
-      if (isStreaming) {
-        const steerResult = await this.agentPool.queueStreamingMessage(chatJid, steerContent, "steer");
-        if (steerResult.queued) {
-          const queuedAt = new Date().toISOString();
-          this.broadcastEvent("agent_steer_queued", {
-            chat_jid: chatJid,
-            thread_id: null,
-            source: "queued-item",
-            timestamp: queuedAt,
-            content: steerContent,
-          });
-          return this.json({
-            removed: true,
-            row_id: removed.rowId,
-            queued: "steer",
-            count: this.getQueuedFollowupCount(chatJid),
-          }, 201);
-        }
-      }
+      const inflightMessageId = getInflightMessageId(chatJid);
+      const activeThreadRootId = inflightMessageId
+        ? getMessageThreadRootIdById(chatJid, inflightMessageId)
+        : null;
+      const steerThreadId = removed.threadId ?? activeThreadRootId ?? null;
 
       const interaction = this.storeMessage(
         chatJid,
@@ -739,15 +726,50 @@ export class WebChannel implements WebChannelLike {
         {
           contentBlocks: Array.isArray(removed.contentBlocks) ? removed.contentBlocks : undefined,
           linkPreviews: Array.isArray(removed.linkPreviews) ? removed.linkPreviews : undefined,
+          threadId: steerThreadId ?? undefined,
+          isSteeringMessage: isStreaming,
         }
       );
       if (!interaction) {
+        // Restore the queued item so a failed timeline write does not drop it.
+        this.prependQueuedFollowupItem(chatJid, removed);
+        this.broadcastEvent("agent_followup_queued", {
+          chat_jid: chatJid,
+          thread_id: removed.threadId ?? null,
+          row_id: removed.rowId,
+          content: removed.queuedContent,
+          timestamp: removed.queuedAt,
+        });
         return this.json({ error: "Failed to store message" }, 500);
       }
 
       this.broadcastEvent("new_post", interaction);
+
+      if (isStreaming) {
+        const steerResult = await this.agentPool.queueStreamingMessage(chatJid, steerContent, "steer");
+        if (steerResult.queued) {
+          this.queuePendingSteering(chatJid, interaction.timestamp);
+          const queuedAt = new Date().toISOString();
+          this.broadcastEvent("agent_steer_queued", {
+            chat_jid: chatJid,
+            thread_id: interaction.data?.thread_id ?? steerThreadId ?? null,
+            source: "queued-item",
+            timestamp: queuedAt,
+            content: steerContent,
+          });
+          return this.json({
+            removed: true,
+            row_id: removed.rowId,
+            user_message: interaction,
+            thread_id: interaction.data?.thread_id ?? steerThreadId ?? null,
+            queued: "steer",
+            count: this.getQueuedFollowupCount(chatJid),
+          }, 201);
+        }
+      }
+
       this.queue.enqueue(async () => {
-        await this.processChat(chatJid, DEFAULT_AGENT_ID, interaction.id);
+        await this.processChat(chatJid, DEFAULT_AGENT_ID, interaction.data?.thread_id ?? interaction.id);
       }, `chat:${chatJid}:${interaction.id}`);
 
       return this.json({
@@ -789,7 +811,13 @@ export class WebChannel implements WebChannelLike {
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number; isTerminalAgentReply?: boolean } = {}
+    options: {
+      contentBlocks?: unknown[];
+      linkPreviews?: unknown[];
+      threadId?: number;
+      isTerminalAgentReply?: boolean;
+      isSteeringMessage?: boolean;
+    } = {}
   ): InteractionRow | null {
     return storeWebMessage(
       this,
@@ -806,6 +834,7 @@ export class WebChannel implements WebChannelLike {
         linkPreviews: options.linkPreviews,
         threadId: options.threadId ?? null,
         isTerminalAgentReply: options.isTerminalAgentReply,
+        isSteeringMessage: options.isSteeringMessage,
       }
     );
   }

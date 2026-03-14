@@ -113,12 +113,16 @@ test("same-timestamp ordering is stable for timeline and cursor queries", () => 
 
 // --- Bot message filtering ---
 
-test("getMessagesSince and getNewMessages filter bot messages and bot-prefixed content", () => {
+test("getMessagesSince and getNewMessages filter bot messages, bot-prefixed content, and steering-only rows", () => {
   const chatJid = `test:${Date.now()}-bot-filter`;
   db.storeChatMetadata(chatJid, new Date().toISOString(), "Test");
 
   db.storeMessage(makeMessage(chatJid, "Pi: should be filtered", "2024-05-01T00:00:00.000Z", false));
   db.storeMessage(makeMessage(chatJid, "bot message", "2024-05-01T00:01:00.000Z", true));
+  db.storeMessage({
+    ...makeMessage(chatJid, "steering-only", "2024-05-01T00:01:30.000Z", false),
+    is_steering_message: true,
+  });
   db.storeMessage(makeMessage(chatJid, "user message", "2024-05-01T00:02:00.000Z", false));
 
   const sinceMessages = db.getMessagesSince(chatJid, "", "Pi");

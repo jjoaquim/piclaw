@@ -63,7 +63,13 @@ export interface WebChannelLike
     content: string,
     isBot: boolean,
     mediaIds: number[],
-    options?: { contentBlocks?: unknown[]; linkPreviews?: unknown[]; threadId?: number; isTerminalAgentReply?: boolean }
+    options?: {
+      contentBlocks?: unknown[];
+      linkPreviews?: unknown[];
+      threadId?: number;
+      isTerminalAgentReply?: boolean;
+      isSteeringMessage?: boolean;
+    }
   ): InteractionRow | null;
 
   sendMessage(chatJid: string, text: string, options?: SendMessageOptions): Promise<void>;

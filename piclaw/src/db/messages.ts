@@ -121,9 +121,9 @@ export function storeMessage(msg: NewMessage): number {
   db.prepare(
     `INSERT OR REPLACE INTO messages (
       id, chat_jid, sender, sender_name, content, content_blocks, link_previews,
-      thread_id, timestamp, is_from_me, is_bot_message, is_terminal_agent_reply
+      thread_id, timestamp, is_from_me, is_bot_message, is_terminal_agent_reply, is_steering_message
     )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     msg.id,
     msg.chat_jid,
@@ -136,7 +136,8 @@ export function storeMessage(msg: NewMessage): number {
     msg.timestamp,
     msg.is_from_me ? 1 : 0,
     msg.is_bot_message ? 1 : 0,
-    msg.is_terminal_agent_reply ? 1 : 0
+    msg.is_terminal_agent_reply ? 1 : 0,
+    msg.is_steering_message ? 1 : 0
   );
 
   const row = db
@@ -155,6 +156,19 @@ export function getMessageRowIdById(chatJid: string, messageId: string): number 
     .prepare("SELECT rowid as rowid FROM messages WHERE chat_jid = ? AND id = ?")
     .get(chatJid, messageId) as { rowid: number } | undefined;
   return row?.rowid ?? null;
+}
+
+/**
+ * Look up the persisted thread root rowid for a message id.
+ * Returns the message's own rowid when it is a root/self-threaded message.
+ */
+export function getMessageThreadRootIdById(chatJid: string, messageId: string): number | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT rowid as rowid, thread_id FROM messages WHERE chat_jid = ? AND id = ?")
+    .get(chatJid, messageId) as { rowid: number; thread_id: number | null } | undefined;
+  if (!row) return null;
+  return row.thread_id ?? row.rowid ?? null;
 }
 
 /**
@@ -387,6 +401,7 @@ export function getNewMessages(
     FROM messages
     WHERE timestamp > ? AND chat_jid IN (${placeholders})
       AND is_bot_message = 0 AND content NOT LIKE ?
+      AND COALESCE(is_steering_message, 0) = 0
     ORDER BY timestamp
   `;
 
@@ -415,6 +430,7 @@ export function getMessagesSince(
     FROM messages
     WHERE chat_jid = ? AND timestamp > ?
       AND is_bot_message = 0 AND content NOT LIKE ?
+      AND COALESCE(is_steering_message, 0) = 0
     ORDER BY timestamp
   `;
   return db.prepare(sql).all(chatJid, sinceTimestamp, `${botPrefix}:%`) as NewMessage[];

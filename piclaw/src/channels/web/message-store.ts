@@ -29,6 +29,7 @@ export interface StoreWebMessageOptions {
   linkPreviews?: unknown[];
   threadId?: number | null;
   isTerminalAgentReply?: boolean;
+  isSteeringMessage?: boolean;
 }
 
 /** Resolved parameters for storeWebMessage (after defaults applied). */
@@ -95,6 +96,7 @@ export function storeWebMessage(
     link_previews: options.linkPreviews,
     thread_id: options.threadId ?? null,
     is_terminal_agent_reply: options.isTerminalAgentReply,
+    is_steering_message: options.isSteeringMessage,
   };
 
   const rowId = storeMessage(msg);

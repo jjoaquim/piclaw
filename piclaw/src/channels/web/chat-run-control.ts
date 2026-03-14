@@ -6,7 +6,7 @@ import {
   clearFailedRun,
   getChatCursor,
   getFailedRun,
-  getMessageRowIdById,
+  getMessageThreadRootIdById,
   setChatCursor,
 } from "../../db.js";
 
@@ -31,7 +31,7 @@ export interface ResumeChatContext {
 }
 
 const defaultStore: ChatRunControlStore = {
-  getThreadRootId: getMessageRowIdById,
+  getThreadRootId: getMessageThreadRootIdById,
   getFailedRun,
   getChatCursor,
   setChatCursor,

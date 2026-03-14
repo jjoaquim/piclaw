@@ -68,6 +68,7 @@ function createSchema(database: Database): void {
       is_from_me INTEGER,
       is_bot_message INTEGER DEFAULT 0,
       is_terminal_agent_reply INTEGER DEFAULT 0,
+      is_steering_message INTEGER DEFAULT 0,
       PRIMARY KEY (id, chat_jid),
       FOREIGN KEY (chat_jid) REFERENCES chats(jid)
     );
@@ -384,6 +385,7 @@ function ensureMessageColumns(database: Database): void {
   ensureColumn("link_previews");
   ensureColumn("thread_id", "INTEGER");
   ensureColumn("is_terminal_agent_reply", "INTEGER DEFAULT 0");
+  ensureColumn("is_steering_message", "INTEGER DEFAULT 0");
 }
 
 /**

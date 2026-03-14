@@ -187,6 +187,25 @@ test("web channel queues normal message as follow-up when no mode is provided", 
   db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
   db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
 
+  const rootMessageId = `msg-${Math.random()}`;
+  const rootTimestamp = new Date().toISOString();
+  const rootRowId = db.storeMessage({
+    id: rootMessageId,
+    chat_jid: "web:default",
+    sender: "web-user",
+    sender_name: "You",
+    content: "root turn",
+    timestamp: rootTimestamp,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+  db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, rootRowId);
+  db.beginChatRun("web:default", rootTimestamp, {
+    prevTs: "",
+    messageId: rootMessageId,
+    startedAt: new Date().toISOString(),
+  });
+
   let runCalls = 0;
 
   const webMod = await import("../../../src/channels/web.js");
@@ -212,6 +231,7 @@ test("web channel queues normal message as follow-up when no mode is provided", 
   expect(res.status).toBe(201);
   const payload = await res.json();
   expect(payload.queued).toBe("followup");
+  expect(payload.thread_id).toBe(rootRowId);
 
   expect(runCalls).toBe(0);
 
@@ -220,10 +240,12 @@ test("web channel queues normal message as follow-up when no mode is provided", 
   expect(queueState.count).toBe(1);
   expect(queueState.items[0].content).toBe("Queue this while active");
   expect(queueState.items[0].row_id).toBeLessThan(0);
+  expect(queueState.items[0].thread_id).toBe(rootRowId);
 
   // Deferred queued messages should not be persisted to the timeline until consumed.
   const timeline = db.getTimeline("web:default", 10);
-  expect(timeline.length).toBe(0);
+  expect(timeline.length).toBe(1);
+  expect(timeline[0].data.content).toBe("root turn");
 });
 
 test("web channel exposes queued follow-up items from queue-state", async () => {
@@ -515,8 +537,27 @@ test("web channel atomically converts a queued item into steering when active", 
 
   const db = await import("../../../src/db.js");
   db.initDatabase();
-  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_cursors;");
+  db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors;");
   db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
+
+  const rootMessageId = `msg-${Math.random()}`;
+  const rootTimestamp = new Date().toISOString();
+  const rootRowId = db.storeMessage({
+    id: rootMessageId,
+    chat_jid: "web:default",
+    sender: "web-user",
+    sender_name: "You",
+    content: "root turn",
+    timestamp: rootTimestamp,
+    is_from_me: false,
+    is_bot_message: false,
+  });
+  db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(rootRowId, rootRowId);
+  db.beginChatRun("web:default", rootTimestamp, {
+    prevTs: "",
+    messageId: rootMessageId,
+    startedAt: new Date().toISOString(),
+  });
 
   const events: Array<{ type: string; data: any }> = [];
   const webMod = await import("../../../src/channels/web.js");
@@ -533,7 +574,22 @@ test("web channel atomically converts a queued item into steering when active", 
     events.push({ type, data });
   };
 
-  const rowId = web.enqueueQueuedFollowupItem("web:default", 0, "queued steer me");
+  const queueReq = new Request("http://test/agent/default/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "queued steer me" }),
+  });
+  const queueRes = await (web as any).handleRequest(queueReq);
+  const queueJson = await queueRes.json();
+  expect(queueRes.status).toBe(201);
+  expect(queueJson.queued).toBe("followup");
+  expect(queueJson.thread_id).toBe(rootRowId);
+
+  const queueStateRes = await (web as any).handleRequest(new Request("http://test/agent/queue-state"));
+  const queueState = await queueStateRes.json();
+  expect(queueState.items[0].thread_id).toBe(rootRowId);
+  const rowId = queueState.items[0].row_id;
+
   const res = await (web as any).handleRequest(new Request("http://test/agent/queue-steer", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -543,9 +599,16 @@ test("web channel atomically converts a queued item into steering when active", 
 
   expect(res.status).toBe(201);
   expect(json.queued).toBe("steer");
+  expect(json.user_message?.data?.content).toBe("queued steer me");
+  expect(json.thread_id).toBe(rootRowId);
   expect(web.getQueuedFollowupCount("web:default")).toBe(0);
   expect(events.some((event) => event.type === "agent_followup_removed")).toBe(true);
-  expect(events.some((event) => event.type === "agent_steer_queued")).toBe(true);
+  expect(events.some((event) => event.type === "new_post" && event.data?.data?.content === "queued steer me")).toBe(true);
+  expect(events.some((event) => event.type === "agent_steer_queued" && event.data?.thread_id === rootRowId)).toBe(true);
+
+  const timeline = db.getTimeline("web:default", 10);
+  const steerMessage = timeline.find((item: any) => item.data.content === "queued steer me");
+  expect(steerMessage?.data?.thread_id).toBe(rootRowId);
 });
 
 test("web channel atomically converts a queued item into an immediate send when inactive", async () => {
@@ -1216,7 +1279,7 @@ test("processChat publishes queued follow-up only after current turn completes",
   db.getDb().exec("DELETE FROM message_media; DELETE FROM messages; DELETE FROM chats; DELETE FROM chat_cursors; DELETE FROM chat_cursors;");
   db.storeChatMetadata("web:default", new Date().toISOString(), "Web");
 
-  db.storeMessage({
+  const firstUserRowId = db.storeMessage({
     id: `msg-${Math.random()}`,
     chat_jid: "web:default",
     sender: "user",
@@ -1225,7 +1288,9 @@ test("processChat publishes queued follow-up only after current turn completes",
     timestamp: new Date().toISOString(),
     is_from_me: false,
     is_bot_message: false,
+    thread_id: null,
   });
+  db.getDb().prepare("UPDATE messages SET thread_id = ? WHERE rowid = ?").run(firstUserRowId, firstUserRowId);
 
   let runCount = 0;
   const webMod = await import("../../../src/channels/web.js");
@@ -1241,7 +1306,7 @@ test("processChat publishes queued follow-up only after current turn completes",
     },
   });
 
-  web.enqueueQueuedFollowupItem("web:default", 0, "queued user", null, new Date().toISOString());
+  web.enqueueQueuedFollowupItem("web:default", 0, "queued user", firstUserRowId, new Date().toISOString());
 
   await web.processChat("web:default", "default");
   await Bun.sleep(20);
@@ -1258,7 +1323,7 @@ test("processChat publishes queued follow-up only after current turn completes",
   expect(firstUser).toBeTruthy();
   expect(queuedUser).toBeTruthy();
   expect(firstReply).toBeTruthy();
-  expect(queuedUser.data.thread_id).toBe(queuedUser.id);
+  expect(queuedUser.data.thread_id).toBe(firstUserRowId);
   expect(firstReply.data.thread_id).toBe(firstUser.id);
 });
 

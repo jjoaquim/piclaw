@@ -15,6 +15,7 @@ export {
   storeMessage,
   getMessageByRowId,
   getMessageRowIdById,
+  getMessageThreadRootIdById,
   deleteMessageByRowId,
   deleteThreadByRowId,
   getTimeline,

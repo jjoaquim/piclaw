@@ -50,6 +50,8 @@ export interface NewMessage {
   thread_id?: number | null;
   /** True only for the terminal persisted assistant message of a run. */
   is_terminal_agent_reply?: boolean;
+  /** True for persisted steering-only user records that should not be reprocessed as turns. */
+  is_steering_message?: boolean;
 }
 
 /**

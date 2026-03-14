@@ -33,6 +33,7 @@ import {
   getChatCursor,
   getInflightMessageId,
   getMessageRowIdById,
+  getMessageThreadRootIdById,
   getMessagesSince,
   getDb,
   rollbackInflightRun,
@@ -76,20 +77,27 @@ export async function handleAgentMessage(
     ? channel.agentPool.isStreaming(chatJid)
     : false;
 
+  const getActiveTurnThreadRootId = (): number | null => {
+    const inflightMessageId = getInflightMessageId(chatJid);
+    if (!inflightMessageId) return null;
+    return getMessageThreadRootIdById(chatJid, inflightMessageId);
+  };
+
   const queueDeferredFollowup = (
     queuedContent: string,
     extras?: { mediaIds?: number[]; contentBlocks?: unknown[]; linkPreviews?: unknown[] }
   ): Response => {
     const queuedAt = new Date().toISOString();
-    const queuedRowId = channel.enqueueQueuedFollowupItem(chatJid, 0, queuedContent, null, queuedAt, extras);
+    const queuedThreadId = getActiveTurnThreadRootId();
+    const queuedRowId = channel.enqueueQueuedFollowupItem(chatJid, 0, queuedContent, queuedThreadId, queuedAt, extras);
     channel.broadcastEvent("agent_followup_queued", {
       chat_jid: chatJid,
-      thread_id: null,
+      thread_id: queuedThreadId,
       row_id: queuedRowId,
       content: queuedContent,
       timestamp: queuedAt,
     });
-    return channel.json({ queued: "followup", thread_id: null }, 201);
+    return channel.json({ queued: "followup", thread_id: queuedThreadId }, 201);
   };
 
   const queueDeferredSteer = async (steerContent: string, source?: string): Promise<Response | null> => {
@@ -433,7 +441,7 @@ export async function handleAgentMessage(
   broadcastNewPost();
 
   channel.queue.enqueue(async () => {
-    await processChat(channel, chatJid, agentId, interaction.id);
+    await processChat(channel, chatJid, agentId, interaction.data?.thread_id ?? interaction.id);
   }, `chat:${chatJid}:${interaction.id}`);
 
   return channel.json({ user_message: interaction, thread_id: threadId }, 201);
@@ -459,6 +467,7 @@ export async function processChat(
       {
         contentBlocks: Array.isArray(nextQueued.contentBlocks) ? nextQueued.contentBlocks : undefined,
         linkPreviews: Array.isArray(nextQueued.linkPreviews) ? nextQueued.linkPreviews : undefined,
+        threadId: nextQueued.threadId ?? undefined,
       }
     );
 
@@ -476,7 +485,7 @@ export async function processChat(
       timestamp: nextQueued.queuedAt,
     });
     channel.broadcastEvent("new_post", queuedInteraction);
-    channel.resumeChat(chatJid, queuedInteraction.id);
+    channel.resumeChat(chatJid, queuedInteraction.data?.thread_id ?? queuedInteraction.id);
     return true;
   };
 
