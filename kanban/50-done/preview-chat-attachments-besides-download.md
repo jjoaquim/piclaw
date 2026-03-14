@@ -1,10 +1,11 @@
 ---
 id: preview-chat-attachments-besides-download
 title: Preview chat attachments besides downloading them
-status: doing
+status: done
 priority: medium
 created: 2026-03-14
 updated: 2026-03-14
+completed: 2026-03-14
 estimate: M
 risk: medium
 tags:
@@ -31,13 +32,13 @@ classes must be previewable in v1 and what the viewer interaction should be.
 
 ## Acceptance Criteria
 
-- [ ] A web-chat attachment can be opened in a preview flow instead of only being downloaded.
-- [ ] The preview affordance is visible and understandable from the attachment UI, exposed as an explicit button/icon on each attachment card/chip, while single-click on the attachment itself still downloads.
-- [ ] Supported v1 file types (images, PDFs, text-like files) render in an appropriate viewer rather than forcing download.
-- [ ] Unsupported file types fall back to a simple non-preview state with filename, type, size, and a direct download action.
-- [ ] All attachments, including previewable ones, remain directly downloadable with a click.
-- [ ] Preview behaviour does not break existing download behaviour.
-- [ ] The preview flow works for previously posted attachments, not just newly uploaded ones.
+- [x] A web-chat attachment can be opened in a preview flow instead of only being downloaded.
+- [x] The preview affordance is visible and understandable from the attachment UI, exposed as an explicit button/icon on each attachment card/chip, while single-click on the attachment itself still downloads.
+- [x] Supported v1 file types (images, PDFs, text-like files) render in an appropriate viewer rather than forcing download.
+- [x] Unsupported file types fall back to a simple non-preview state with filename, type, size, and a direct download action.
+- [x] All attachments, including previewable ones, remain directly downloadable with a click.
+- [x] Preview behaviour does not break existing download behaviour.
+- [x] The preview flow works for previously posted attachments, not just newly uploaded ones.
 
 ## Implementation Paths
 
@@ -53,37 +54,39 @@ classes must be previewable in v1 and what the viewer interaction should be.
 
 ## Test Plan
 
-- [ ] Implement web UI, API/backend contract, and tests as part of the first pass.
-- [ ] Add regression coverage for attachment preview resolution / fallback logic.
-- [ ] Validate download behaviour still works for supported and unsupported attachment types.
-- [ ] Manual web validation recorded for at least one supported and one unsupported attachment type.
+- [x] Implement web UI, API/backend contract, and tests as part of the first pass.
+- [x] Add regression coverage for attachment preview resolution / fallback logic.
+- [x] Validate download behaviour still works for supported and unsupported attachment types.
+- [x] Manual web validation recorded for at least one supported and one unsupported attachment type.
 
 ## Definition of Done
 
-- [ ] Preview scope for v1 is explicit.
-- [ ] Web UI, API/backend contract, and tests are implemented for the first pass.
-- [ ] UI affordance for preview is implemented.
-- [ ] Supported types preview correctly.
-- [ ] Unsupported types degrade cleanly to download.
-- [ ] Tests and manual validation are recorded.
+- [x] Preview scope for v1 is explicit.
+- [x] Web UI, API/backend contract, and tests are implemented for the first pass.
+- [x] UI affordance for preview is implemented.
+- [x] Supported types preview correctly.
+- [x] Unsupported types degrade cleanly to download.
+- [x] Tests and manual validation are recorded.
 
 ## Updates
 
 ### 2026-03-14
-- Lane change: `10-next` → `20-doing` for implementation pickup.
-- Implementation intent for v1: reuse the existing image lightbox shell as a generic attachment preview modal, add explicit preview controls on attachment chip/card surfaces, and support images, PDFs, and text-like files first.
-- First-pass implementation now in place:
+- Lane change: `20-doing` → `50-done` after user-confirmed live validation.
+- Implementation used the existing lightbox model as a generic attachment preview modal, with explicit preview/details controls on attachment chip/card surfaces and direct download preserved on the main click target.
+- First-pass implementation shipped:
   - added `piclaw/web/src/components/attachment-preview-modal.ts`
   - added preview-kind helper `piclaw/web/src/ui/attachment-preview.ts`
   - extended attachment surfaces in `piclaw/web/src/components/post.ts` so attachment cards/chips keep direct download while exposing explicit preview/details actions
   - added API helpers in `piclaw/web/src/api.ts` for text/blob preview loading
   - styled the modal/actions in `piclaw/web/static/css/styles.css`
   - added helper coverage in `piclaw/test/web/attachment-preview.test.ts`
-- Validation/build evidence so far:
+- Validation/build evidence:
   - `bun test test/web/attachment-preview.test.ts test/web/file-pill-open.test.ts`
   - `bun run build:web`
   - `bun run quality` → `804 pass, 0 fail`
-- Still pending before closure: manual web validation against real posted attachments (supported + unsupported) and a final call on whether to mark the ticket done immediately or after live verification.
+  - live reload completed via `make local-install`
+  - manual web validation confirmed working by user
+- Quality: ★★★★★ 10/10 (problem: 2, scope: 2, test: 2, deps: 2, risk: 2)
 
 ### 2026-03-14
 - Lane change: `00-inbox` → `10-next` after refinement locked scope, interaction model, fallback, download behaviour, and first-pass implementation/test expectations.
