@@ -37,7 +37,6 @@ export async function handleAgentMessage(channel, req, pathname, chatJid, defaul
     const command = parseControlCommand(content, TRIGGER_PATTERN);
     const requestMode = normalized.mode ?? "auto";
     const trimmed = content.trim();
-    const inflightMessageId = getInflightMessageId(chatJid);
     const isStreaming = typeof channel.agentPool.isStreaming === "function"
         ? channel.agentPool.isStreaming(chatJid)
         : false;

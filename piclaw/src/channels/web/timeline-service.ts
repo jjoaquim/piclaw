@@ -20,14 +20,21 @@ import {
 const QUEUE_PLACEHOLDER_MARKER = "\u2063";
 const LEGACY_QUEUE_STATUS = "Queued as a follow-up (one-at-a-time).";
 
-function isHiddenQueuePlaceholder(post: any): boolean {
+type QueueFilterablePost = {
+  data?: {
+    content?: string;
+    is_bot_message?: boolean;
+  };
+};
+
+function isHiddenQueuePlaceholder(post: QueueFilterablePost): boolean {
   const content = post?.data?.content;
   const isBot = Boolean(post?.data?.is_bot_message);
   if (!isBot || typeof content !== "string") return false;
   return content === QUEUE_PLACEHOLDER_MARKER || content === LEGACY_QUEUE_STATUS;
 }
 
-function filterHiddenQueuePlaceholders<T extends { data?: { content?: string; is_bot_message?: boolean } }>(items: T[]): T[] {
+function filterHiddenQueuePlaceholders<T extends QueueFilterablePost>(items: T[]): T[] {
   return items.filter((post) => !isHiddenQueuePlaceholder(post));
 }
 

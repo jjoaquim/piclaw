@@ -44,10 +44,22 @@ const credentialToJSON = (cred: PublicKeyCredential) => ({
   },
 });
 
-const parseLoginOptions = (options: any) => ({
+type LoginAllowCredential = {
+  id: string;
+  type?: string;
+  transports?: string[];
+};
+
+type LoginOptionsPayload = {
+  challenge: string;
+  allowCredentials?: LoginAllowCredential[];
+  [key: string]: unknown;
+};
+
+const parseLoginOptions = (options: LoginOptionsPayload) => ({
   ...options,
   challenge: base64UrlToBuffer(options.challenge),
-  allowCredentials: (options.allowCredentials || []).map((cred: any) => ({
+  allowCredentials: (options.allowCredentials || []).map((cred: LoginAllowCredential) => ({
     ...cred,
     id: base64UrlToBuffer(cred.id),
   })),

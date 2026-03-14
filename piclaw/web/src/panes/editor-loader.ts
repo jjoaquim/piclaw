@@ -12,12 +12,24 @@
  */
 
 import type { WebPaneExtension, PaneContext, PaneInstance, PaneCapability } from './pane-types.js';
+import type { TabViewState } from './tab-store.js';
+
+interface ExtendedEditorPaneInstance extends PaneInstance {
+    onViewStateChange?(cb: (state: TabViewState) => void): void;
+    restoreViewState?(viewState: TabViewState): void;
+    getPath?(): string;
+    setPath?(newPath: string): void;
+}
+
+interface EditorBundleModule {
+    StandaloneEditorInstance: new (container: HTMLElement, context: PaneContext) => ExtendedEditorPaneInstance;
+}
 
 /** Cache the import promise so we only load once. */
-let editorModulePromise: Promise<any> | null = null;
-let editorModuleCache: any = null;
+let editorModulePromise: Promise<EditorBundleModule> | null = null;
+let editorModuleCache: EditorBundleModule | null = null;
 
-function loadEditorModule(): Promise<any> {
+function loadEditorModule(): Promise<EditorBundleModule> {
     if (editorModuleCache) return Promise.resolve(editorModuleCache);
     if (!editorModulePromise) {
         editorModulePromise = import('/static/dist/editor.bundle.js')
@@ -40,7 +52,7 @@ function loadEditorModule(): Promise<any> {
 class LazyEditorInstance implements PaneInstance {
     private container: HTMLElement;
     private context: PaneContext;
-    private real: PaneInstance | null = null;
+    private real: ExtendedEditorPaneInstance | null = null;
     private disposed = false;
     private loadingEl: HTMLElement;
 
@@ -48,8 +60,8 @@ class LazyEditorInstance implements PaneInstance {
     private queuedDirtyCb: ((dirty: boolean) => void) | null = null;
     private queuedSaveCb: ((content: string) => void) | null = null;
     private queuedCloseCb: (() => void) | null = null;
-    private queuedViewStateCb: ((s: any) => void) | null = null;
-    private queuedViewState: any = null;
+    private queuedViewStateCb: ((state: TabViewState) => void) | null = null;
+    private queuedViewState: TabViewState | null = null;
 
     constructor(container: HTMLElement, context: PaneContext) {
         this.container = container;
@@ -167,31 +179,22 @@ class LazyEditorInstance implements PaneInstance {
 
     // ── Extended methods ────────────────────────────────────────
 
-    onViewStateChange(cb: (s: any) => void): void {
+    onViewStateChange(cb: (state: TabViewState) => void): void {
         this.queuedViewStateCb = cb;
-        if (this.real && typeof (this.real as any).onViewStateChange === 'function') {
-            (this.real as any).onViewStateChange(cb);
-        }
+        this.real?.onViewStateChange?.(cb);
     }
 
-    restoreViewState(viewState: any): void {
+    restoreViewState(viewState: TabViewState): void {
         this.queuedViewState = viewState;
-        if (this.real && typeof (this.real as any).restoreViewState === 'function') {
-            (this.real as any).restoreViewState(viewState);
-        }
+        this.real?.restoreViewState?.(viewState);
     }
 
     getPath(): string {
-        if (this.real && typeof (this.real as any).getPath === 'function') {
-            return (this.real as any).getPath();
-        }
-        return this.context.path || '';
+        return this.real?.getPath?.() ?? this.context.path ?? '';
     }
 
     setPath(newPath: string): void {
-        if (this.real && typeof (this.real as any).setPath === 'function') {
-            (this.real as any).setPath(newPath);
-        }
+        this.real?.setPath?.(newPath);
     }
 }
 
