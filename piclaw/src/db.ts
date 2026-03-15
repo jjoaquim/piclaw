@@ -110,6 +110,17 @@ export {
   deleteWebSession,
   deleteExpiredWebSessions,
 } from "./db/web-sessions.js";
+export {
+  listChatSessions,
+  getChatSessionById,
+  getChatSessionByJid,
+  createChatSession,
+  touchChatSession,
+  renameChatSession,
+  deleteChatSession,
+  ensureDefaultSession,
+} from "./db/chat-sessions.js";
+export type { ChatSession } from "./db/chat-sessions.js";
 export type {
   ChatInfo,
   InteractionContentMeta,

@@ -34,6 +34,7 @@ import { handleContentPrimaryRoutes, handleContentSecondaryRoutes } from "./http
 import { handleMediaRoutes } from "./http/dispatch-media.js";
 import { handleShellRoutes } from "./http/dispatch-shell.js";
 import { handleWorkspaceRoutes } from "./http/dispatch-workspace.js";
+import { handleSessionRoutes } from "./http/dispatch-sessions.js";
 import { enforceRequestGuards } from "./http/request-guards.js";
 import { getRouteFlags } from "./http/route-flags.js";
 import { withSecurityHeaders } from "./http/security.js";
@@ -127,6 +128,11 @@ export class RequestRouterService {
     );
     if (shellResponse) {
       return shellResponse;
+    }
+
+    const sessionResponse = await handleSessionRoutes(this.channel, req, pathname);
+    if (sessionResponse) {
+      return sessionResponse;
     }
 
     const primaryContentResponse = await handleContentPrimaryRoutes(this.channel, req, pathname, url);

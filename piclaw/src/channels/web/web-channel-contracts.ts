@@ -135,13 +135,14 @@ export interface WebChannelLike
   handleAgents(): Promise<Response>;
 
   handleWorkspaceVisibility(req: Request): Promise<Response>;
-  handleTimeline(limit: number, before?: number): Response;
-  handleHashtag(tag: string, limit: number, offset: number): Response;
-  handleSearch(query: string, limit: number, offset: number): Response;
+  handleTimeline(limit: number, before?: number, chatJid?: string): Response;
+  handleHashtag(tag: string, limit: number, offset: number, chatJid?: string): Response;
+  handleSearch(query: string, limit: number, offset: number, chatJid?: string): Response;
   handleThread(id: number | null): Response;
   handleThought(panel: string | null, turnId: string | null): Response;
   handleThoughtVisibility(req: Request): Promise<Response>;
-  handleDeletePost(id: number | null, cascade: boolean): Response;
+  handleDeletePost(id: number | null, cascade: boolean, chatJid?: string): Response;
+  resolveChatJid(req: Request): string;
   handleUpdatePost(req: Request, id: number | null): Promise<Response>;
   handleInternalPost(req: Request): Promise<Response>;
   handlePost(req: Request, isReply: boolean): Promise<Response>;

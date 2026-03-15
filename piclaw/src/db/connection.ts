@@ -335,6 +335,17 @@ function createSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_webauthn_enrollments_expires_at ON webauthn_enrollments(expires_at);
 
+    -- Web chat sessions for session management (multiple conversations).
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      chat_jid TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_active_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_chat_jid ON chat_sessions(chat_jid);
+    CREATE INDEX IF NOT EXISTS idx_chat_sessions_last_active ON chat_sessions(last_active_at);
+
     -- Web auth sessions (TOTP + passkey). Stored for persistence across restarts.
     CREATE TABLE IF NOT EXISTS web_sessions (
       token TEXT PRIMARY KEY,

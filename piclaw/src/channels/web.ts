@@ -129,6 +129,7 @@ import { createInteractionBroadcaster, type InteractionBroadcaster } from "./web
 import { WebAuthGateway } from "./web/auth-gateway.js";
 import { TerminalSessionService, type TerminalSocketData } from "./web/terminal/terminal-session-service.js";
 import { RemoteInteropService } from "../remote/service.js";
+import { getChatSessionById, touchChatSession } from "../db/chat-sessions.js";
 
 const DEFAULT_CHAT_JID = "web:default";
 const DEFAULT_AGENT_ID = "default";
@@ -603,16 +604,16 @@ export class WebChannel implements WebChannelLike {
     return await handleWorkspaceVisibilityRequest(req, this.endpointContexts.ui());
   }
 
-  handleTimeline(limit: number, before?: number): Response {
-    return handleTimelineRequest(limit, before, this.endpointContexts.content());
+  handleTimeline(limit: number, before?: number, chatJid?: string): Response {
+    return handleTimelineRequest(limit, before, this.endpointContexts.content(), chatJid);
   }
 
-  handleHashtag(tag: string, limit: number, offset: number): Response {
-    return handleHashtagRequest(tag, limit, offset, this.endpointContexts.content());
+  handleHashtag(tag: string, limit: number, offset: number, chatJid?: string): Response {
+    return handleHashtagRequest(tag, limit, offset, this.endpointContexts.content(), chatJid);
   }
 
-  handleSearch(query: string, limit: number, offset: number): Response {
-    return handleSearchRequest(query, limit, offset, this.endpointContexts.content());
+  handleSearch(query: string, limit: number, offset: number, chatJid?: string): Response {
+    return handleSearchRequest(query, limit, offset, this.endpointContexts.content(), chatJid);
   }
 
   handleThread(id: number | null): Response {
@@ -627,8 +628,8 @@ export class WebChannel implements WebChannelLike {
     return await handleThoughtVisibilityRequest(req, this.endpointContexts.ui());
   }
 
-  handleDeletePost(id: number | null, cascade = false): Response {
-    const result = deletePostResponse(DEFAULT_CHAT_JID, id, cascade);
+  handleDeletePost(id: number | null, cascade = false, chatJid?: string): Response {
+    const result = deletePostResponse(chatJid || DEFAULT_CHAT_JID, id, cascade);
     if (result.deletedIds.length > 0) {
       this.broadcastEvent("interaction_deleted", { ids: result.deletedIds });
     }
@@ -677,7 +678,8 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handlePost(req: Request, isReply: boolean): Promise<Response> {
-    return handlePostRequest(this, req, isReply, DEFAULT_CHAT_JID);
+    const chatJid = this.resolveChatJid(req);
+    return handlePostRequest(this, req, isReply, chatJid);
   }
 
   handleAgentStatus(req: Request): Response {
@@ -1111,7 +1113,8 @@ export class WebChannel implements WebChannelLike {
   }
 
   async handleAgentMessage(req: Request, pathname: string): Promise<Response> {
-    return handleAgentMessageRequest(this, req, pathname, DEFAULT_CHAT_JID, DEFAULT_AGENT_ID);
+    const chatJid = this.resolveChatJid(req);
+    return handleAgentMessageRequest(this, req, pathname, chatJid, DEFAULT_AGENT_ID);
   }
 
   async processChat(chatJid: string, agentId: string, threadRootId?: number | null): Promise<void> {
@@ -1161,6 +1164,20 @@ export class WebChannel implements WebChannelLike {
 
   async serveDocsStatic(relPath: string): Promise<Response> {
     return this.responses.serveDocsStatic(relPath);
+  }
+
+  /**
+   * Resolve the chat_jid for a request by extracting the session_id query param.
+   * Falls back to DEFAULT_CHAT_JID when no session is specified or found.
+   */
+  resolveChatJid(req: Request): string {
+    const url = new URL(req.url);
+    const sessionId = url.searchParams.get("session_id");
+    if (!sessionId || sessionId === "default") return DEFAULT_CHAT_JID;
+    const session = getChatSessionById(sessionId);
+    if (!session) return DEFAULT_CHAT_JID;
+    touchChatSession(sessionId);
+    return session.chat_jid;
   }
 
   json(data: unknown, status = 200): Response {

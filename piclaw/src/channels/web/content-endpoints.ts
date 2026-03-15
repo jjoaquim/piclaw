@@ -17,35 +17,38 @@ export interface ContentEndpointsContext {
   getBuffer(turnId: string, panel: "thought" | "draft"): WebAgentBufferEntry | undefined;
 }
 
-/** Return the timeline response for the default web chat. */
+/** Return the timeline response. Uses chatJid override when provided (session routing). */
 export function handleTimelineRequest(
   limit: number,
   before: number | undefined,
-  ctx: ContentEndpointsContext
+  ctx: ContentEndpointsContext,
+  chatJid?: string
 ): Response {
-  const result = getTimelineResponse(ctx.defaultChatJid, limit, before);
+  const result = getTimelineResponse(chatJid || ctx.defaultChatJid, limit, before);
   return ctx.json(result.body, result.status);
 }
 
-/** Return posts for a hashtag in the default web chat. */
+/** Return posts for a hashtag. Uses chatJid override when provided (session routing). */
 export function handleHashtagRequest(
   tag: string,
   limit: number,
   offset: number,
-  ctx: ContentEndpointsContext
+  ctx: ContentEndpointsContext,
+  chatJid?: string
 ): Response {
-  const result = getHashtagResponse(ctx.defaultChatJid, tag, limit, offset);
+  const result = getHashtagResponse(chatJid || ctx.defaultChatJid, tag, limit, offset);
   return ctx.json(result.body, result.status);
 }
 
-/** Return search results for a query in the default web chat. */
+/** Return search results for a query. Uses chatJid override when provided (session routing). */
 export function handleSearchRequest(
   query: string,
   limit: number,
   offset: number,
-  ctx: ContentEndpointsContext
+  ctx: ContentEndpointsContext,
+  chatJid?: string
 ): Response {
-  const result = getSearchResponse(ctx.defaultChatJid, query, limit, offset);
+  const result = getSearchResponse(chatJid || ctx.defaultChatJid, query, limit, offset);
   return ctx.json(result.body, result.status);
 }
 

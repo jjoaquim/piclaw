@@ -71,10 +71,13 @@ async function consumeEventStream(response, onEvent) {
 /**
  * Get timeline posts (chat style - returns oldest first)
  */
-export async function getTimeline(limit = 10, beforeId = null) {
+export async function getTimeline(limit = 10, beforeId = null, sessionId = null) {
     let url = `/timeline?limit=${limit}`;
     if (beforeId) {
         url += `&before=${beforeId}`;
+    }
+    if (sessionId) {
+        url += `&session_id=${encodeURIComponent(sessionId)}`;
     }
     return request(url);
 }
@@ -82,29 +85,37 @@ export async function getTimeline(limit = 10, beforeId = null) {
 /**
  * Get posts by hashtag
  */
-export async function getPostsByHashtag(hashtag, limit = 50, offset = 0) {
-    return request(`/hashtag/${encodeURIComponent(hashtag)}?limit=${limit}&offset=${offset}`);
+export async function getPostsByHashtag(hashtag, limit = 50, offset = 0, sessionId = null) {
+    let url = `/hashtag/${encodeURIComponent(hashtag)}?limit=${limit}&offset=${offset}`;
+    if (sessionId) url += `&session_id=${encodeURIComponent(sessionId)}`;
+    return request(url);
 }
 
 /**
  * Search posts
  */
-export async function searchPosts(query, limit = 50, offset = 0) {
-    return request(`/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
+export async function searchPosts(query, limit = 50, offset = 0, sessionId = null) {
+    let url = `/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`;
+    if (sessionId) url += `&session_id=${encodeURIComponent(sessionId)}`;
+    return request(url);
 }
 
 /**
  * Get a thread by ID
  */
-export async function getThread(threadId) {
-    return request(`/thread/${threadId}`);
+export async function getThread(threadId, sessionId = null) {
+    let url = `/thread/${threadId}`;
+    if (sessionId) url += `?session_id=${encodeURIComponent(sessionId)}`;
+    return request(url);
 }
 
 /**
  * Create a new post
  */
-export async function createPost(content, mediaIds = []) {
-    return request('/post', {
+export async function createPost(content, mediaIds = [], sessionId = null) {
+    let url = '/post';
+    if (sessionId) url += `?session_id=${encodeURIComponent(sessionId)}`;
+    return request(url, {
         method: 'POST',
         body: JSON.stringify({ content, media_ids: mediaIds }),
     });
@@ -113,8 +124,10 @@ export async function createPost(content, mediaIds = []) {
 /**
  * Reply to a thread
  */
-export async function createReply(threadId, content, mediaIds = []) {
-    return request('/reply', {
+export async function createReply(threadId, content, mediaIds = [], sessionId = null) {
+    let url = '/reply';
+    if (sessionId) url += `?session_id=${encodeURIComponent(sessionId)}`;
+    return request(url, {
         method: 'POST',
         body: JSON.stringify({ thread_id: threadId, content, media_ids: mediaIds }),
     });
@@ -123,16 +136,19 @@ export async function createReply(threadId, content, mediaIds = []) {
 /**
  * Delete a post (optionally cascade replies)
  */
-export async function deletePost(postId, cascade = false) {
-    const url = `/post/${postId}?cascade=${cascade ? 'true' : 'false'}`;
+export async function deletePost(postId, cascade = false, sessionId = null) {
+    let url = `/post/${postId}?cascade=${cascade ? 'true' : 'false'}`;
+    if (sessionId) url += `&session_id=${encodeURIComponent(sessionId)}`;
     return request(url, { method: 'DELETE' });
 }
 
 /**
  * Send message to agent
  */
-export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = [], mode = null) {
-    return request(`/agent/${agentId}/message`, {
+export async function sendAgentMessage(agentId, content, threadId = null, mediaIds = [], mode = null, sessionId = null) {
+    let url = `/agent/${agentId}/message`;
+    if (sessionId) url += `?session_id=${encodeURIComponent(sessionId)}`;
+    return request(url, {
         method: 'POST',
         body: JSON.stringify({ content, thread_id: threadId, media_ids: mediaIds, mode }),
     });
@@ -148,8 +164,11 @@ export async function getAgents() {
 /**
  * Get current agent status
  */
-export async function getAgentStatus(chatJid = null) {
-    const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+export async function getAgentStatus(chatJid = null, sessionId = null) {
+    const params = [];
+    if (chatJid) params.push(`chat_jid=${encodeURIComponent(chatJid)}`);
+    if (sessionId) params.push(`session_id=${encodeURIComponent(sessionId)}`);
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
     return request(`/agent/status${query}`);
 }
 
@@ -157,8 +176,11 @@ export async function getAgentStatus(chatJid = null) {
  * Get context window usage (tokens, contextWindow, percent).
  * Returns null fields when the session has no usage data yet.
  */
-export async function getAgentContext(chatJid = null) {
-    const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+export async function getAgentContext(chatJid = null, sessionId = null) {
+    const params = [];
+    if (chatJid) params.push(`chat_jid=${encodeURIComponent(chatJid)}`);
+    if (sessionId) params.push(`session_id=${encodeURIComponent(sessionId)}`);
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
     return request(`/agent/context${query}`);
 }
 
@@ -210,8 +232,11 @@ export async function steerAgentQueueItem(rowId, chatJid = null) {
 /**
  * Get available models and current selection.
  */
-export async function getAgentModels(chatJid = null) {
-    const query = chatJid ? `?chat_jid=${encodeURIComponent(chatJid)}` : '';
+export async function getAgentModels(chatJid = null, sessionId = null) {
+    const params = [];
+    if (chatJid) params.push(`chat_jid=${encodeURIComponent(chatJid)}`);
+    if (sessionId) params.push(`session_id=${encodeURIComponent(sessionId)}`);
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
     return request(`/agent/models${query}`);
 }
 
@@ -533,6 +558,44 @@ export function getWorkspaceRawUrl(path) {
 export function getWorkspaceDownloadUrl(path, showHidden = false) {
     const query = `path=${encodeURIComponent(path || '')}&show_hidden=${showHidden ? '1' : '0'}`;
     return `${API_BASE}/workspace/download?${query}`;
+}
+
+// ── Session management ──
+
+/**
+ * List all chat sessions
+ */
+export async function listSessions() {
+    return request('/sessions');
+}
+
+/**
+ * Create a new chat session
+ */
+export async function createSession(name) {
+    return request('/sessions', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+    });
+}
+
+/**
+ * Rename a chat session
+ */
+export async function renameSession(sessionId, name) {
+    return request(`/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+    });
+}
+
+/**
+ * Delete a chat session
+ */
+export async function deleteSession(sessionId) {
+    return request(`/sessions/${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+    });
 }
 
 /**

@@ -16,21 +16,24 @@ export async function handleContentPrimaryRoutes(
   if (req.method === "GET" && pathname === "/timeline") {
     const limit = channel.clampInt(url.searchParams.get("limit"), 10, 1, 100);
     const before = channel.parseOptionalInt(url.searchParams.get("before"));
-    return channel.handleTimeline(limit, before ?? undefined);
+    const chatJid = channel.resolveChatJid(req);
+    return channel.handleTimeline(limit, before ?? undefined, chatJid);
   }
 
   if (req.method === "GET" && pathname.startsWith("/hashtag/")) {
     const tag = decodeURIComponent(pathname.replace("/hashtag/", ""));
     const limit = channel.clampInt(url.searchParams.get("limit"), 50, 1, 100);
     const offset = channel.clampInt(url.searchParams.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
-    return channel.handleHashtag(tag, limit, offset);
+    const chatJid = channel.resolveChatJid(req);
+    return channel.handleHashtag(tag, limit, offset, chatJid);
   }
 
   if (req.method === "GET" && pathname === "/search") {
     const query = (url.searchParams.get("q") || "").trim();
     const limit = channel.clampInt(url.searchParams.get("limit"), 50, 1, 100);
     const offset = channel.clampInt(url.searchParams.get("offset"), 0, 0, Number.MAX_SAFE_INTEGER);
-    return channel.handleSearch(query, limit, offset);
+    const chatJid = channel.resolveChatJid(req);
+    return channel.handleSearch(query, limit, offset, chatJid);
   }
 
   if (req.method === "POST" && pathname === "/post") {
@@ -66,7 +69,8 @@ export async function handleContentSecondaryRoutes(
   if (req.method === "DELETE" && pathname.startsWith("/post/")) {
     const id = channel.parseOptionalInt(pathname.replace("/post/", ""));
     const cascade = url.searchParams.get("cascade") === "true" || url.searchParams.get("cascade") === "1";
-    return channel.handleDeletePost(id, cascade);
+    const chatJid = channel.resolveChatJid(req);
+    return channel.handleDeletePost(id, cascade, chatJid);
   }
 
   if (req.method === "POST" && pathname === "/internal/post") {

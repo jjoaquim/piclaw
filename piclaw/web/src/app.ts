@@ -19,6 +19,7 @@ import * as api from './api.js';
 import { ComposeBox } from './components/compose-box.js';
 import { BtwPanel } from './components/btw-panel.js';
 import { AgentRequestModal, AgentStatus, ConnectionStatus } from './components/status.js';
+import { SessionSwitcher } from './components/session-switcher.js';
 import { Timeline } from './components/timeline.js';
 import { WorkspaceExplorer } from './components/workspace-explorer.js';
 import { TabStrip } from './components/tab-strip.js';
@@ -130,6 +131,18 @@ paneRegistry.register(terminalPaneExtension);
 
 function App() {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
+    const [currentSessionId, setCurrentSessionId] = useState(() => {
+        try {
+            return localStorage.getItem('piclaw_session_id') || 'default';
+        } catch {
+            return 'default';
+        }
+    });
+    const currentSessionIdRef = useRef(currentSessionId);
+    useEffect(() => {
+        currentSessionIdRef.current = currentSessionId;
+        try { localStorage.setItem('piclaw_session_id', currentSessionId); } catch {}
+    }, [currentSessionId]);
     const [currentHashtag, setCurrentHashtag] = useState(null);
     const [searchQuery, setSearchQuery] = useState(null);
     const [searchOpen, setSearchOpen] = useState(false);
@@ -466,7 +479,7 @@ function App() {
         if (existing) { highlight(existing); return; }
         // Not in DOM - fetch via API and inject into posts
         try {
-            const result = await api.getThread(id);
+            const result = await api.getThread(id, currentSessionIdRef.current);
             const msg = result?.thread?.[0];
             if (!msg) return;
             setPosts((prev) => {
@@ -751,7 +764,27 @@ function App() {
         refreshTimeline,
         loadMore,
         loadMoreRef,
-    } = useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop });
+    } = useTimeline({ preserveTimelineScroll, preserveTimelineScrollTop, sessionId: currentSessionId });
+
+    const handleSessionChange = useCallback((sessionId) => {
+        setCurrentSessionId(sessionId);
+        setPosts(null);
+        setCurrentHashtag(null);
+        setSearchQuery(null);
+        setSearchOpen(false);
+        clearAgentRunState();
+        setAgentStatus(null);
+        setAgentDraft({ text: '', totalLines: 0 });
+        setAgentPlan('');
+        setAgentThought({ text: '', totalLines: 0 });
+        setPendingRequest(null);
+        setContextUsage(null);
+    }, [clearAgentRunState]);
+
+    // Reload timeline when session changes
+    useEffect(() => {
+        loadPosts();
+    }, [currentSessionId, loadPosts]);
 
     // Derive filtered posts: placeholder rows and their parent user messages
     // are hidden.  Recomputes when rawPosts or followupQueueItems change;
@@ -855,7 +888,7 @@ function App() {
 
     const refreshContextUsage = useCallback(async () => {
         try {
-            const ctx = await getAgentContext();
+            const ctx = await getAgentContext(null, currentSessionIdRef.current);
             if (ctx) setContextUsage(ctx);
         } catch (err) {
             console.warn('Failed to fetch agent context:', err);
@@ -864,7 +897,7 @@ function App() {
 
     const refreshAgentStatus = useCallback(async () => {
         try {
-            const res = await getAgentStatus('web:default');
+            const res = await getAgentStatus(null, currentSessionIdRef.current);
             if (!res || res.status !== 'active' || !res.data) {
                 // If the agent just transitioned active → idle, refresh the timeline
                 // to catch any final response that arrived while SSE was gapped.
@@ -1040,7 +1073,7 @@ function App() {
         setCurrentHashtag(null);
         setPosts(null);
         try {
-            const result = await searchPosts(query.trim());
+            const result = await searchPosts(query.trim(), 50, 0, currentSessionIdRef.current);
             setPosts(result.results);
             setHasMore(false);
         } catch (error) {
@@ -1097,7 +1130,7 @@ function App() {
         };
 
         try {
-            const result = await deletePost(postId, replyCount > 0);
+            const result = await deletePost(postId, replyCount > 0, currentSessionIdRef.current);
             if (result?.ids?.length) {
                 scheduleRemoval(result.ids);
             }
@@ -1106,7 +1139,7 @@ function App() {
             if (replyCount === 0 && errorMessage.includes('Replies exist')) {
                 const confirmed = window.confirm('Delete this message and its replies?');
                 if (!confirmed) return;
-                const result = await deletePost(postId, true);
+                const result = await deletePost(postId, true, currentSessionIdRef.current);
                 if (result?.ids?.length) {
                     scheduleRemoval(result.ids);
                 }
@@ -1140,7 +1173,7 @@ function App() {
         }
         // Fetch initial context usage for the pie chart indicator
         try {
-            const ctx = await getAgentContext();
+            const ctx = await getAgentContext(null, currentSessionIdRef.current);
             if (ctx) setContextUsage(ctx);
         } catch {}
     }, [applyBranding]);
@@ -1239,7 +1272,7 @@ function App() {
     }, []);
 
     const refreshModelState = useCallback(() => {
-        getAgentModels()
+        getAgentModels(null, currentSessionIdRef.current)
             .then((payload) => {
                 if (payload) applyModelState(payload);
             })
@@ -1406,7 +1439,7 @@ function App() {
         const content = buildBtwInjectionText(btwSession);
         if (!content) return;
         try {
-            const response = await api.sendAgentMessage('default', content, null, [], isComposeBoxAgentActive ? 'queue' : null);
+            const response = await api.sendAgentMessage('default', content, null, [], isComposeBoxAgentActive ? 'queue' : null, currentSessionIdRef.current);
             handleMessageResponse(response);
             showIntentToast(
                 response?.queued === 'followup' ? 'BTW queued' : 'BTW injected',
@@ -1468,7 +1501,7 @@ function App() {
             pendingRequestRef.current = null;
             clearAgentRunState();
 
-            getAgentStatus('web:default')
+            getAgentStatus(null, currentSessionIdRef.current)
                 .then((res) => {
                     if (!res || res.status !== 'active' || !res.data) return;
                     const payload = res.data;
@@ -1745,7 +1778,7 @@ function App() {
             if (data?.thinking_level !== undefined) setActiveThinkingLevel(data.thinking_level ?? null);
             if (data?.supports_thinking !== undefined) setSupportsThinking(Boolean(data.supports_thinking));
             // Refresh context usage - the context window size changes with the model
-            getAgentContext().then((ctx) => { if (ctx) setContextUsage(ctx); }).catch(() => {});
+            getAgentContext(null, currentSessionIdRef.current).then((ctx) => { if (ctx) setContextUsage(ctx); }).catch(() => {});
             return;
         }
 
@@ -2003,6 +2036,12 @@ function App() {
                 <div class="editor-splitter" onMouseDown=${handleEditorSplitterMouseDown} onTouchStart=${handleEditorSplitterTouchStart}></div>
             `}
             <div class="container">
+                <div class="session-bar" style="padding: 8px 16px; border-bottom: 1px solid var(--border-color, #333);">
+                    <${SessionSwitcher}
+                        currentSessionId=${currentSessionId}
+                        onSessionChange=${handleSessionChange}
+                    />
+                </div>
                 ${searchQuery && isIOSDevice() && html`<div class="search-results-spacer"></div>`}
                 ${(currentHashtag || searchQuery) && html`
                     <div class="hashtag-header">

@@ -75,8 +75,18 @@ RUN mkdir -p /home/agent/.pi/agent/skills /home/agent/.pi/agent/sessions \
 # Ship workspace skeleton (includes .pi/skills/ and AGENTS.md)
 COPY --chown=agent:agent skel/ /home/agent/workspace-skel/
 
-# Ship piclaw global skills (IPC: schedule, send-message)
+# Ship pi-skills library (76 skill directories)
+COPY --chown=agent:agent pi-skills/ /home/agent/.pi/agent/skills/
+
+# Ship piclaw global skills (IPC: schedule, send-message) — overrides any overlap
 COPY --chown=agent:agent piclaw/skills/ /home/agent/.pi/agent/skills/
+
+# Ship agent and subagent definitions
+COPY --chown=agent:agent pi-agents/agents/    /home/agent/.pi/agent/agents/
+COPY --chown=agent:agent pi-agents/subagents/ /home/agent/.pi/agent/subagents/
+
+# Ship model provider configuration
+COPY --chown=agent:agent models.json /home/agent/.pi/agent/models.json
 
 # Ship piclaw orchestrator and install globally
 COPY --chown=agent:agent piclaw/ /home/agent/piclaw/

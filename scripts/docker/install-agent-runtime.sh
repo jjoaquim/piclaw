@@ -93,3 +93,31 @@ if [ -f "$PI_CLI" ] && head -n1 "$PI_CLI" | grep -q 'env node'; then
   sudo sed -i '1s/env node/env bun/' "$PI_CLI"
 fi
 sudo chmod +x "$PI_CLI"
+
+# --- Node.js via nvm (required by some pi extensions) ---
+export NVM_DIR="$HOME/.nvm"
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+# shellcheck source=/dev/null
+\. "$NVM_DIR/nvm.sh"
+nvm install 24
+nvm use 24
+
+# Symlink node/npm into /usr/local/bin so they are available in non-interactive shells
+# (supervisor runs piclaw non-interactively, skipping .bashrc's nvm init)
+NVM_NODE_DIR="$HOME/.nvm/versions/node/$(node -v)"
+sudo ln -sf "$NVM_NODE_DIR/bin/node" /usr/local/bin/node
+sudo ln -sf "$NVM_NODE_DIR/bin/npm"  /usr/local/bin/npm
+sudo ln -sf "$NVM_NODE_DIR/bin/npx"  /usr/local/bin/npx
+
+# --- Pi extensions (multi-agent, web access, compaction, MCP) ---
+HOME=/home/agent pi install npm:@tmustier/pi-agent-teams && \
+    HOME=/home/agent pi install npm:pi-parallel-agents && \
+    HOME=/home/agent pi install npm:pi-subagents && \
+    HOME=/home/agent pi install npm:pi-web-access && \
+    HOME=/home/agent pi install npm:pi-agentic-compaction && \
+    HOME=/home/agent pi install git:github.com/tickernelz/pi-mcp-tools && \
+    HOME=/home/agent pi install npm:@tmustier/pi-skill-creator && \
+    HOME=/home/agent pi install npm:pi-mcp-adapter
+
+# --- DuckDB CLI ---
+curl https://install.duckdb.org | sh
