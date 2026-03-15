@@ -1918,7 +1918,7 @@ body {
     resize: none;
     field-sizing: content;
     font-family: inherit;
-    font-size: var(--font-size-sm);
+    font-size: calc(var(--font-size-sm) + 1pt);
     color: var(--text-primary);
     background-color: transparent;
     outline: none;
@@ -1934,7 +1934,7 @@ body {
 @supports (-webkit-touch-callout: none) {
     @media (hover: none) and (pointer: coarse) {
         .compose-box textarea {
-            font-size: 16px;
+            font-size: calc(16px + 1pt);
         }
     }
 }
@@ -4656,7 +4656,7 @@ body {
 
     .compose-box textarea {
         min-height: 50px;
-        font-size: var(--font-size-md);
+        font-size: calc(var(--font-size-md) + 1pt);
     }
 
     .compose-footer {
